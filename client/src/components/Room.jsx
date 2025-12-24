@@ -143,15 +143,15 @@ const Room = () => {
                 return;
             }
 
-            // Allow answer in both have-local-offer and stable states
-            const validStates = ['have-local-offer', 'stable'];
-            if (!validStates.includes(peerConnection.current.signalingState)) {
-                console.warn("Invalid signaling state for answer:", peerConnection.current.signalingState);
+            // Only accept answer in have-local-offer state
+            if (peerConnection.current.signalingState !== 'have-local-offer') {
+                console.warn("Invalid signaling state for answer:", peerConnection.current.signalingState, "- ignoring");
                 return;
             }
 
             try {
                 await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                console.log("Remote description set successfully");
             } catch (err) {
                 console.error("Error handling answer:", err);
             }
