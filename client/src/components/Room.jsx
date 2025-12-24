@@ -11,7 +11,7 @@ import Chat from './Chat';
 import ConnectionIndicator from './ConnectionIndicator';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
 import PermissionError from './PermissionError';
-
+import { useAuth } from '../context/AuthContext';
 const Room = () => {
     const { roomId } = useParams();
     const navigate = useNavigate();
@@ -102,6 +102,14 @@ const Room = () => {
                     console.log("Peer connection already active, skipping creation");
                     return;
                 }
+            }
+
+            // Wait for local stream to be ready
+            if (!localStream) {
+                console.warn("Local stream not ready yet, waiting...");
+                // Retry after a short delay
+                setTimeout(() => handleIsInitiator(isInitiator), 500);
+                return;
             }
 
             const handleIceCandidate = (candidate) => {
