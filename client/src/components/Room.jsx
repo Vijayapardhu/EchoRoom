@@ -158,8 +158,11 @@ const Room = () => {
         const handlePeerDisconnected = () => {
             console.log("Peer disconnected");
             playLeaveSound();
-            toast("Partner disconnected", { icon: '👋' });
-            confirmNextMatch();
+            toast("Partner disconnected. Click Next to find a new match.", {
+                icon: '👋',
+                duration: 5000
+            });
+            // Don't auto-navigate - let user decide
         };
 
         // Handle connection events
