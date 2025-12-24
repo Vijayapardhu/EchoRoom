@@ -28,10 +28,10 @@ const ConnectionIndicator = () => {
         updateConnectionState();
 
         // Listen for changes
-        pc.oniceconnectionstatechange = updateConnectionState;
+        pc.addEventListener('iceconnectionstatechange', updateConnectionState);
 
         return () => {
-            pc.oniceconnectionstatechange = null;
+            pc.removeEventListener('iceconnectionstatechange', updateConnectionState);
         };
     }, [peerConnection]);
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { Send, X, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playMessageSound } from '../utils/soundEffects';
 
 const Chat = ({ roomId, isOpen, onClose }) => {
     const socket = useSocket();
@@ -12,6 +13,9 @@ const Chat = ({ roomId, isOpen, onClose }) => {
     useEffect(() => {
         socket.on('receive-message', (message) => {
             setMessages((prev) => [...prev, { ...message, isLocal: false }]);
+            if (!isOpen) {
+                playMessageSound();
+            }
         });
 
         return () => {

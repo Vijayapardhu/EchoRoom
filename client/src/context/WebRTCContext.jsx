@@ -34,6 +34,12 @@ export const WebRTCProvider = ({ children }) => {
     }, []);
 
     const createPeerConnection = useCallback((onIceCandidate) => {
+        // Cleanup old connection if it exists
+        if (peerConnection.current) {
+            console.warn("Closing existing PeerConnection before creating new one.");
+            peerConnection.current.close();
+        }
+
         const pc = new RTCPeerConnection(servers);
 
         pc.onicecandidate = (event) => {

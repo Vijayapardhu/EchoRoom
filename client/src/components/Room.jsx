@@ -9,6 +9,7 @@ import PanicButton from './safety/PanicButton';
 import ReportModal from './safety/ReportModal';
 import Chat from './Chat';
 import ConnectionIndicator from './ConnectionIndicator';
+import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
 
 const Room = () => {
     const { roomId } = useParams();
@@ -50,6 +51,7 @@ const Room = () => {
 
     // Effect 2: Socket Event Listeners (Runs when dependencies change)
     // Effect 2: Socket Event Listeners (Runs when dependencies change)
+    // Effect 2: Socket Event Listeners (Runs when dependencies change)
     useEffect(() => {
         const handleIceCandidate = (candidate) => {
             socket.emit('ice-candidate', { roomId, candidate });
@@ -57,6 +59,16 @@ const Room = () => {
 
         socket.on('is-initiator', async (isInitiator) => {
             const pc = createPeerConnection(handleIceCandidate);
+
+            // Monitor connection state
+            pc.addEventListener('iceconnectionstatechange', () => {
+                if (pc.iceConnectionState === 'disconnected') {
+                    toast.error('Connection lost. waiting...', { icon: '📡' });
+                } else if (pc.iceConnectionState === 'failed') {
+                    toast.error('Connection failed. Try skipping.', { icon: '⚠️' });
+                }
+            });
+
             if (isInitiator) {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
@@ -66,15 +78,35 @@ const Room = () => {
 
         socket.on('offer', async ({ offer }) => {
             const pc = createPeerConnection(handleIceCandidate);
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('answer', { roomId, answer });
+
+            // Monitor connection state
+            pc.addEventListener('iceconnectionstatechange', () => {
+                if (pc.iceConnectionState === 'disconnected') {
+                    toast.error('Connection lost. waiting...', { icon: '📡' });
+                } else if (pc.iceConnectionState === 'failed') {
+                    toast.error('Connection failed. Try skipping.', { icon: '⚠️' });
+                }
+            });
+
+            // Signaling Guard: Only accept offer if we are in a valid state
+            if (pc.signalingState === 'stable' || pc.signalingState === 'have-remote-offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('answer', { roomId, answer });
+            } else {
+                console.warn("Ignoring offer in state:", pc.signalingState);
+            }
         });
 
         socket.on('answer', async ({ answer }) => {
             if (peerConnection.current) {
-                await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                // Signaling Guard: Only accept answer if we are waiting for one
+                if (peerConnection.current.signalingState === 'have-local-offer') {
+                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                } else {
+                    console.warn("Ignoring answer in state:", peerConnection.current.signalingState);
+                }
             }
         });
 
@@ -87,6 +119,7 @@ const Room = () => {
         // Listen for match found to stop searching state
         socket.on('match-found', ({ roomId: newRoomId }) => {
             setIsSearching(false);
+            playJoinSound(); // Sound Effect
             navigate(`/room/${newRoomId}`, { state: preferences });
         });
 
@@ -101,20 +134,39 @@ const Room = () => {
             toast.error('Connection unstable. Retrying...');
         });
 
+        // Handle peer disconnection
+        socket.on('peer-disconnected', () => {
+            playLeaveSound(); // Sound Effect
+            toast('Partner disconnected. Finding new match...', { icon: '🔍' });
+            confirmNextMatch(); // Auto-skip
+        });
+
         return () => {
-            socket.off('is-initiator'); // Added cleanup for is-initiator
+            socket.off('is-initiator');
             socket.off('offer');
             socket.off('answer');
             socket.off('ice-candidate');
             socket.off('match-found');
             socket.off('connect');
             socket.off('connect_error');
+            socket.off('peer-disconnected');
         };
-    }, [roomId, socket, createPeerConnection, navigate, preferences]); // Dependencies for socket logic
+    }, [roomId, socket, createPeerConnection, navigate, preferences]);
 
+    // Debug & Attach Remote Stream
     useEffect(() => {
-        if (remoteStream && remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
+        if (remoteStream) {
+            console.log("Remote stream received:", remoteStream.id, remoteStream.getTracks());
+            if (remoteVideoRef.current) {
+                console.log("Attaching remote stream to video element");
+                remoteVideoRef.current.srcObject = remoteStream;
+                // Force play to ensure it starts
+                remoteVideoRef.current.play().catch(e => console.error("Error playing remote video:", e));
+            } else {
+                console.warn("Remote video ref is null!");
+            }
+        } else {
+            console.log("No remote stream yet.");
         }
     }, [remoteStream]);
 

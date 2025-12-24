@@ -117,10 +117,17 @@ const socketService = (io) => {
         });
 
         // Handle Disconnect
+        socket.on('disconnecting', () => {
+            for (const room of socket.rooms) {
+                if (room !== socket.id) {
+                    socket.to(room).emit('peer-disconnected');
+                }
+            }
+        });
+
         socket.on('disconnect', async () => {
             console.log('User disconnected:', socket.id);
             await matchingService.removeUserFromQueue(socket.id);
-            // TODO: Handle disconnection during active call (notify peer)
         });
     });
 };
