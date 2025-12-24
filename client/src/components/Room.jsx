@@ -108,12 +108,11 @@ const Room = () => {
                 socket.emit('ice-candidate', { roomId, candidate });
             };
 
-            const pc = createPeerConnection(handleIceCandidate);
+            createPeerConnection(handleIceCandidate);
 
             if (isInitiator) {
                 try {
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
+                    const offer = await createOffer();
                     socket.emit('offer', { roomId, offer });
                 } catch (err) {
                     console.error("Error creating offer:", err);
@@ -122,29 +121,19 @@ const Room = () => {
         };
 
         // Handle receiving WebRTC offer
-        const handleOffer = async ({ offer, sender }) => {
+        const handleOfferReceived = async ({ offer, sender }) => {
             console.log("Received offer from:", sender);
 
-            // Reuse existing peer connection if available, otherwise create new one
-            let pc = peerConnection.current;
-
-            if (!pc) {
+            // Create peer connection if needed
+            if (!peerConnection.current) {
                 const handleIceCandidate = (candidate) => {
                     socket.emit('ice-candidate', { roomId, candidate });
                 };
-                pc = createPeerConnection(handleIceCandidate);
-            }
-
-            // Check signaling state before processing offer
-            if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
-                console.warn("Invalid signaling state for offer:", pc.signalingState);
-                return;
+                createPeerConnection(handleIceCandidate);
             }
 
             try {
-                await pc.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
+                const answer = await handleOffer(offer);
                 socket.emit('answer', { roomId, answer });
             } catch (err) {
                 console.error("Error handling offer:", err);
@@ -152,7 +141,7 @@ const Room = () => {
         };
 
         // Handle receiving WebRTC answer
-        const handleAnswer = async ({ answer, sender }) => {
+        const handleAnswerReceived = async ({ answer, sender }) => {
             console.log("Received answer from:", sender);
 
             if (!peerConnection.current) {
@@ -160,22 +149,16 @@ const Room = () => {
                 return;
             }
 
-            // Only accept answer in have-local-offer state
-            if (peerConnection.current.signalingState !== 'have-local-offer') {
-                console.warn("Invalid signaling state for answer:", peerConnection.current.signalingState, "- ignoring");
-                return;
-            }
-
             try {
-                await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                console.log("Remote description set successfully");
+                await handleAnswer(answer);
+                console.log("Answer handled successfully");
             } catch (err) {
                 console.error("Error handling answer:", err);
             }
         };
 
         // Handle receiving ICE candidates
-        const handleIceCandidate = async ({ candidate, sender }) => {
+        const handleIceCandidateReceived = async ({ candidate, sender }) => {
             if (!peerConnection.current) {
                 console.warn("No peer connection for ICE candidate");
                 return;
@@ -188,7 +171,7 @@ const Room = () => {
             }
 
             try {
-                await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                await addIceCandidate(candidate);
             } catch (err) {
                 console.error("Error adding ICE candidate:", err);
             }
@@ -219,9 +202,9 @@ const Room = () => {
         // Register all socket listeners
         socket.on('match-found', handleMatchFound);
         socket.on('is-initiator', handleIsInitiator);
-        socket.on('offer', handleOffer);
-        socket.on('answer', handleAnswer);
-        socket.on('ice-candidate', handleIceCandidate);
+        socket.on('offer', handleOfferReceived);
+        socket.on('answer', handleAnswerReceived);
+        socket.on('ice-candidate', handleIceCandidateReceived);
         socket.on('peer-disconnected', handlePeerDisconnected);
         socket.on('connect', handleConnect);
         socket.on('connect_error', handleConnectError);
@@ -232,9 +215,9 @@ const Room = () => {
         return () => {
             socket.off('match-found', handleMatchFound);
             socket.off('is-initiator', handleIsInitiator);
-            socket.off('offer', handleOffer);
-            socket.off('answer', handleAnswer);
-            socket.off('ice-candidate', handleIceCandidate);
+            socket.off('offer', handleOfferReceived);
+            socket.off('answer', handleAnswerReceived);
+            socket.off('ice-candidate', handleIceCandidateReceived);
             socket.off('peer-disconnected', handlePeerDisconnected);
             socket.off('connect', handleConnect);
             socket.off('connect_error', handleConnectError);
