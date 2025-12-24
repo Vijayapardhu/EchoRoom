@@ -24,7 +24,7 @@ const PanicButton = ({ roomId, onPanic }) => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={handlePanic}
-            className="fixed bottom-[52px] right-8 z-50 group"
+            className="fixed bottom-[122px] right-8 z-50 group"
             title="Panic Button: End & Block"
         >
             <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-20 group-hover:opacity-40" />
