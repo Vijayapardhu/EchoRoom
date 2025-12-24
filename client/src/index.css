@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --bg-deep: #000000;
+        --bg-surface: #0a0a0a;
+        --accent-primary: #00f3ff;
+        --accent-secondary: #bc13fe;
+        --text-primary: #ffffff;
+        --text-secondary: #a1a1aa;
+    }
+
+    body {
+        @apply bg-[var(--bg-deep)] text-[var(--text-primary)] font-sans antialiased overflow-x-hidden;
+    }
+}
+
+@layer components {
+    .neon-border {
+        @apply border border-white/10 shadow-[0_0_10px_rgba(0, 243, 255, 0.1)];
+    }
+
+    .neon-text {
+        @apply text-[var(--accent-primary)] drop-shadow-[0_0_5px_rgba(0, 243, 255, 0.5)];
+    }
+
+    .neon-button {
+        @apply relative overflow-hidden border border-[var(--accent-primary)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-black transition-all duration-300 shadow-[0_0_10px_rgba(0, 243, 255, 0.2)] hover:shadow-[0_0_20px_rgba(0, 243, 255, 0.6)];
+    }
+
+    .surface-panel {
+        @apply bg-[var(--bg-surface)] border border-white/5 rounded-2xl;
+    }
+}
+
+@layer utilities {
+    .animate-pulse-slow {
+        animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+}
+
+/* Animated Background Gradient */
+.animated-bg {
+    background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a);
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Floating Animation */
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
