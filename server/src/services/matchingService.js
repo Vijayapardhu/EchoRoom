@@ -11,13 +11,14 @@ class MatchingService {
     }
 
     async addUserToQueue(socketId, preferences) {
+        console.log(`MatchingService: Adding user ${socketId} to queue. Redis Ready? ${redisClient.isReady}`);
         const user = {
             socketId,
             preferences: JSON.stringify(preferences),
             joinedAt: Date.now().toString(),
         };
 
-        if (redisClient.isOpen) {
+        if (redisClient.isReady) {
             try {
                 // Store user details in Hash
                 await redisClient.hSet(`${this.USER_PREFIX}${socketId}`, user);
@@ -39,7 +40,7 @@ class MatchingService {
     }
 
     async removeUserFromQueue(socketId) {
-        if (redisClient.isOpen) {
+        if (redisClient.isReady) {
             try {
                 await redisClient.lRem(this.QUEUE_KEY, 0, socketId);
                 await redisClient.del(`${this.USER_PREFIX}${socketId}`);
@@ -60,7 +61,7 @@ class MatchingService {
     }
 
     async findMatch(currentSocketId) {
-        if (redisClient.isOpen) {
+        if (redisClient.isReady) {
             try {
                 return await this.findMatchRedis(currentSocketId);
             } catch (e) {

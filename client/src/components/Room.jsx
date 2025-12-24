@@ -33,68 +33,71 @@ const Room = () => {
     // Get preferences from location state or defaults
     const preferences = location.state || { interests: [], intent: 'casual' };
 
+    // Effect 1: Initialize Local Stream (Runs ONCE)
     useEffect(() => {
-        const init = async () => {
+        const initStream = async () => {
             const stream = await startLocalStream();
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = stream;
             }
-
-            socket.on('is-initiator', async (isInitiator) => {
-                const pc = createPeerConnection();
-                if (isInitiator) {
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
-                    socket.emit('offer', { roomId, offer });
-                }
-            });
-
-            socket.on('offer', async ({ offer }) => {
-                const pc = createPeerConnection();
-                await pc.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                socket.emit('answer', { roomId, answer });
-            });
-
-            socket.on('answer', async ({ answer }) => {
-                if (peerConnection.current) {
-                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                }
-            });
-
-            socket.on('ice-candidate', async ({ candidate }) => {
-                if (peerConnection.current) {
-                    await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                }
-            });
-
-            if (peerConnection.current) {
-                peerConnection.current.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        socket.emit('ice-candidate', { roomId, candidate: event.candidate });
-                    }
-                };
-            }
-
-            // Listen for match found to stop searching state
-            socket.on('match-found', ({ roomId: newRoomId }) => {
-                setIsSearching(false);
-                navigate(`/room/${newRoomId}`, { state: preferences });
-            });
         };
+        initStream();
+        // startLocalStream is stable (useCallback with []), so this runs only once.
+    }, [startLocalStream]);
 
-        init();
+    // Effect 2: Socket Event Listeners (Runs when dependencies change)
+    useEffect(() => {
+        socket.on('is-initiator', async (isInitiator) => {
+            const pc = createPeerConnection();
+            if (isInitiator) {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                socket.emit('offer', { roomId, offer });
+            }
+        });
+
+        socket.on('offer', async ({ offer }) => {
+            const pc = createPeerConnection();
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('answer', { roomId, answer });
+        });
+
+        socket.on('answer', async ({ answer }) => {
+            if (peerConnection.current) {
+                await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+            }
+        });
+
+        socket.on('ice-candidate', async ({ candidate }) => {
+            if (peerConnection.current) {
+                await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        });
+
+        if (peerConnection.current) {
+            peerConnection.current.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', { roomId, candidate: event.candidate });
+                }
+            };
+        }
+
+        // Listen for match found to stop searching state
+        socket.on('match-found', ({ roomId: newRoomId }) => {
+            setIsSearching(false);
+            navigate(`/room/${newRoomId}`, { state: preferences });
+        });
 
         return () => {
-            // Only close connection if we are LEAVING, not just re-rendering
-            // But for now, cleanup is safe. handleNextMatch will manage its own state.
+            socket.off('is-initiator'); // Added cleanup for is-initiator
             socket.off('offer');
             socket.off('answer');
             socket.off('ice-candidate');
             socket.off('match-found');
         };
-    }, [roomId, socket, startLocalStream, createPeerConnection]); // Removed closeConnection to prevent premature closing
+    }, [roomId, socket, createPeerConnection, navigate, preferences]); // Dependencies for socket logic
 
     useEffect(() => {
         if (remoteStream && remoteVideoRef.current) {
