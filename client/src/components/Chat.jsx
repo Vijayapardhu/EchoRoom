@@ -32,7 +32,7 @@ const Chat = ({ roomId, isOpen, onClose }) => {
             timestamp: new Date().toISOString(),
         };
 
-        socket.emit('send-message', { roomId, ...messageData });
+        socket.emit('send-message', { roomId, message: messageData });
         setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
         setNewMessage('');
     };
@@ -79,8 +79,8 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                             >
                                 <div
                                     className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.isLocal
-                                            ? 'bg-cyan-500/10 text-cyan-50 border border-cyan-500/20 rounded-tr-sm'
-                                            : 'bg-white/5 text-neutral-200 border border-white/5 rounded-tl-sm'
+                                        ? 'bg-cyan-500/10 text-cyan-50 border border-cyan-500/20 rounded-tr-sm'
+                                        : 'bg-white/5 text-neutral-200 border border-white/5 rounded-tl-sm'
                                         }`}
                                 >
                                     {msg.text}

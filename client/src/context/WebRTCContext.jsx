@@ -31,12 +31,12 @@ export const WebRTCProvider = ({ children }) => {
         }
     }, []);
 
-    const createPeerConnection = useCallback(() => {
+    const createPeerConnection = useCallback((onIceCandidate) => {
         const pc = new RTCPeerConnection(servers);
 
         pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                // Send candidate to peer via socket (handled in Room component or here)
+            if (event.candidate && onIceCandidate) {
+                onIceCandidate(event.candidate);
             }
         };
 

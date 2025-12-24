@@ -49,9 +49,14 @@ const Room = () => {
     }, [startLocalStream, roomId, socket]);
 
     // Effect 2: Socket Event Listeners (Runs when dependencies change)
+    // Effect 2: Socket Event Listeners (Runs when dependencies change)
     useEffect(() => {
+        const handleIceCandidate = (candidate) => {
+            socket.emit('ice-candidate', { roomId, candidate });
+        };
+
         socket.on('is-initiator', async (isInitiator) => {
-            const pc = createPeerConnection();
+            const pc = createPeerConnection(handleIceCandidate);
             if (isInitiator) {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
@@ -60,7 +65,7 @@ const Room = () => {
         });
 
         socket.on('offer', async ({ offer }) => {
-            const pc = createPeerConnection();
+            const pc = createPeerConnection(handleIceCandidate);
             await pc.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -78,14 +83,6 @@ const Room = () => {
                 await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
             }
         });
-
-        if (peerConnection.current) {
-            peerConnection.current.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('ice-candidate', { roomId, candidate: event.candidate });
-                }
-            };
-        }
 
         // Listen for match found to stop searching state
         socket.on('match-found', ({ roomId: newRoomId }) => {
