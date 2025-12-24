@@ -143,7 +143,9 @@ const Room = () => {
                 return;
             }
 
-            if (peerConnection.current.signalingState !== 'have-local-offer') {
+            // Allow answer in both have-local-offer and stable states
+            const validStates = ['have-local-offer', 'stable'];
+            if (!validStates.includes(peerConnection.current.signalingState)) {
                 console.warn("Invalid signaling state for answer:", peerConnection.current.signalingState);
                 return;
             }
@@ -159,6 +161,12 @@ const Room = () => {
         const handleIceCandidate = async ({ candidate, sender }) => {
             if (!peerConnection.current) {
                 console.warn("No peer connection for ICE candidate");
+                return;
+            }
+
+            // Check if remote description is set before adding candidate
+            if (!peerConnection.current.remoteDescription) {
+                console.log("Remote description not set yet, skipping ICE candidate");
                 return;
             }
 
