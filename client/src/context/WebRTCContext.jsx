@@ -18,6 +18,7 @@ const servers = {
 export const WebRTCProvider = ({ children }) => {
     const socket = useSocket();
     const [localStream, setLocalStream] = useState(null);
+    const localStreamRef = useRef(null); // Ref to track current stream synchronously
     const [remoteStream, setRemoteStream] = useState(null);
     const peerConnection = useRef(null);
 
@@ -25,6 +26,7 @@ export const WebRTCProvider = ({ children }) => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             setLocalStream(stream);
+            localStreamRef.current = stream; // Update ref
             return stream;
         } catch (error) {
             console.error('Error accessing media devices:', error);
@@ -44,15 +46,19 @@ export const WebRTCProvider = ({ children }) => {
             setRemoteStream(event.streams[0]);
         };
 
-        if (localStream) {
-            localStream.getTracks().forEach((track) => {
-                pc.addTrack(track, localStream);
+        // Use ref to get the latest stream without dependency issues
+        if (localStreamRef.current) {
+            console.log("Adding tracks to PeerConnection:", localStreamRef.current.getTracks().map(t => t.kind));
+            localStreamRef.current.getTracks().forEach((track) => {
+                pc.addTrack(track, localStreamRef.current);
             });
+        } else {
+            console.warn("No local stream found when creating PeerConnection!");
         }
 
         peerConnection.current = pc;
         return pc;
-    }, [localStream]);
+    }, []); // No dependencies needed now!
 
     const startScreenShare = useCallback(async () => {
         try {
@@ -67,6 +73,7 @@ export const WebRTCProvider = ({ children }) => {
             }
 
             setLocalStream(screenStream);
+            localStreamRef.current = screenStream;
 
             // Handle user stopping screen share via browser UI
             screenTrack.onended = () => {
@@ -90,6 +97,7 @@ export const WebRTCProvider = ({ children }) => {
             }
 
             setLocalStream(cameraStream);
+            localStreamRef.current = cameraStream;
         } catch (error) {
             console.error('Error stopping screen share:', error);
         }
