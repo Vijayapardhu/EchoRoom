@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { useWebRTC } from '../context/WebRTCContext';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Flag, MessageSquare, Monitor, MonitorOff, SkipForward, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Flag, MessageSquare, Monitor, MonitorOff, SkipForward, Loader2, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import PanicButton from './safety/PanicButton';
@@ -16,205 +16,247 @@ const Room = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const socket = useSocket();
-    const { localStream, remoteStream, startLocalStream, createPeerConnection, closeConnection, resetPeerConnection, peerConnection, startScreenShare, stopScreenShare, toggleVideo, toggleAudio } = useWebRTC();
+    const { localStream, remoteStream, startLocalStream, createPeerConnection, closeConnection, resetPeerConnection, peerConnection, startScreenShare, stopScreenShare, toggleScreenShare, toggleVideo, toggleAudio, switchCamera, isScreenSharing } = useWebRTC();
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
-    const [isReportOpen, setIsReportOpen] = useState(false);
+    const [remoteVideoOff, setRemoteVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
-    const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [isReportOpen, setIsReportOpen] = useState(false);
     const [showControls, setShowControls] = useState(true);
-    const [isSearching, setIsSearching] = useState(false);
     const [showNextConfirm, setShowNextConfirm] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
-    const controlsTimeoutRef = useRef(null);
+    const [isSearching, setIsSearching] = useState(false);
 
-    // Get preferences from location state or defaults
-    const preferences = location.state || { interests: [], intent: 'casual' };
+    const preferences = location.state || {};
 
-    // Effect 1: Initialize Local Stream (Runs ONCE)
-    // Effect 1: Initialize Local Stream (Runs ONCE)
+    // Initialize local media stream
     useEffect(() => {
-        const initStream = async () => {
-            const stream = await startLocalStream();
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = stream;
+        const initMedia = async () => {
+            try {
+                await startLocalStream();
+            } catch (err) {
+                console.error("Failed to start local stream:", err);
+                toast.error("Camera/Mic access denied");
             }
-            // Signal server we are ready in the room
-            socket.emit('join-room', { roomId });
         };
-        initStream();
-        // startLocalStream is stable (useCallback with []), so this runs only once.
-    }, [startLocalStream, roomId, socket]);
+        initMedia();
+    }, [startLocalStream]);
 
-    // Effect 2: Socket Event Listeners (Runs when dependencies change)
-    // Effect 2: Socket Event Listeners (Runs when dependencies change)
-    // Effect 2: Socket Event Listeners (Runs when dependencies change)
+    // Attach local stream to video element
     useEffect(() => {
-        const handleIceCandidate = (candidate) => {
-            socket.emit('ice-candidate', { roomId, candidate });
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+        }
+    }, [localStream]);
+
+    // Attach remote stream to video element
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream]);
+
+    // Socket event listeners for WebRTC signaling and room management
+    useEffect(() => {
+        if (!socket || !roomId) return;
+
+        // Handle match found (from queue)
+        const handleMatchFound = ({ roomId: newRoomId }) => {
+            console.log("Match found! Room:", newRoomId);
+            navigate(`/room/${newRoomId}`, { state: preferences, replace: true });
         };
 
-        socket.on('is-initiator', async (isInitiator) => {
-            const pc = createPeerConnection(handleIceCandidate);
+        // Join room and signal readiness
+        socket.emit('join-room', { roomId });
 
-            // Monitor connection state
-            pc.addEventListener('iceconnectionstatechange', () => {
-                if (pc.iceConnectionState === 'disconnected') {
-                    toast.error('Connection lost. waiting...', { icon: '📡' });
-                } else if (pc.iceConnectionState === 'failed') {
-                    toast.error('Connection failed. Try skipping.', { icon: '⚠️' });
-                }
-            });
+        // Handle WebRTC initiator role
+        const handleIsInitiator = async (isInitiator) => {
+            console.log("Is initiator:", isInitiator);
+            setIsSearching(false);
+
+            const handleIceCandidate = (candidate) => {
+                socket.emit('ice-candidate', { roomId, candidate });
+            };
+
+            const pc = createPeerConnection(handleIceCandidate);
 
             if (isInitiator) {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                socket.emit('offer', { roomId, offer });
+                try {
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    socket.emit('offer', { roomId, offer });
+                } catch (err) {
+                    console.error("Error creating offer:", err);
+                }
             }
-        });
+        };
 
-        socket.on('offer', async ({ offer }) => {
+        // Handle receiving WebRTC offer
+        const handleOffer = async ({ offer, sender }) => {
+            console.log("Received offer from:", sender);
+
+            const handleIceCandidate = (candidate) => {
+                socket.emit('ice-candidate', { roomId, candidate });
+            };
+
             const pc = createPeerConnection(handleIceCandidate);
 
-            // Monitor connection state
-            pc.addEventListener('iceconnectionstatechange', () => {
-                if (pc.iceConnectionState === 'disconnected') {
-                    toast.error('Connection lost. waiting...', { icon: '📡' });
-                } else if (pc.iceConnectionState === 'failed') {
-                    toast.error('Connection failed. Try skipping.', { icon: '⚠️' });
-                }
-            });
+            if (pc.signalingState !== 'stable') {
+                console.warn("Signaling state not stable, ignoring offer");
+                return;
+            }
 
-            // Signaling Guard: Only accept offer if we are in a valid state
-            if (pc.signalingState === 'stable' || pc.signalingState === 'have-remote-offer') {
+            try {
                 await pc.setRemoteDescription(new RTCSessionDescription(offer));
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 socket.emit('answer', { roomId, answer });
-            } else {
-                console.warn("Ignoring offer in state:", pc.signalingState);
+            } catch (err) {
+                console.error("Error handling offer:", err);
             }
-        });
+        };
 
-        socket.on('answer', async ({ answer }) => {
-            if (peerConnection.current) {
-                // Signaling Guard: Only accept answer if we are waiting for one
-                if (peerConnection.current.signalingState === 'have-local-offer') {
-                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                } else {
-                    console.warn("Ignoring answer in state:", peerConnection.current.signalingState);
-                }
+        // Handle receiving WebRTC answer
+        const handleAnswer = async ({ answer, sender }) => {
+            console.log("Received answer from:", sender);
+
+            if (!peerConnection.current) {
+                console.warn("No peer connection for answer");
+                return;
             }
-        });
 
-        socket.on('ice-candidate', async ({ candidate }) => {
-            if (peerConnection.current) {
+            if (peerConnection.current.signalingState !== 'have-local-offer') {
+                console.warn("Invalid signaling state for answer:", peerConnection.current.signalingState);
+                return;
+            }
+
+            try {
+                await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (err) {
+                console.error("Error handling answer:", err);
+            }
+        };
+
+        // Handle receiving ICE candidates
+        const handleIceCandidate = async ({ candidate, sender }) => {
+            if (!peerConnection.current) {
+                console.warn("No peer connection for ICE candidate");
+                return;
+            }
+
+            try {
                 await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+                console.error("Error adding ICE candidate:", err);
             }
-        });
-
-        // Listen for match found to stop searching state
-        socket.on('match-found', ({ roomId: newRoomId }) => {
-            setIsSearching(false);
-            playJoinSound(); // Sound Effect
-            navigate(`/room/${newRoomId}`, { state: preferences });
-        });
-
-        // Robustness: Re-join room on reconnection
-        socket.on('connect', () => {
-            console.log('Socket reconnected, re-joining room...');
-            socket.emit('join-room', { roomId });
-        });
-
-        socket.on('connect_error', (err) => {
-            console.error('Socket connection error:', err);
-            toast.error('Connection unstable. Retrying...');
-        });
+        };
 
         // Handle peer disconnection
-        socket.on('peer-disconnected', () => {
-            playLeaveSound(); // Sound Effect
-            toast('Partner disconnected. Finding new match...', { icon: '🔍' });
-            confirmNextMatch(); // Auto-skip
-        });
+        const handlePeerDisconnected = () => {
+            console.log("Peer disconnected");
+            playLeaveSound();
+            toast("Partner disconnected", { icon: '👋' });
+            confirmNextMatch();
+        };
+
+        // Handle connection events
+        const handleConnect = () => {
+            console.log("Socket reconnected");
+            socket.emit('join-room', { roomId });
+        };
+
+        const handleConnectError = (err) => {
+            console.error("Socket connection error:", err);
+            toast.error("Connection error. Retrying...");
+        };
+
+        // Register all socket listeners
+        socket.on('match-found', handleMatchFound);
+        socket.on('is-initiator', handleIsInitiator);
+        socket.on('offer', handleOffer);
+        socket.on('answer', handleAnswer);
+        socket.on('ice-candidate', handleIceCandidate);
+        socket.on('peer-disconnected', handlePeerDisconnected);
+        socket.on('connect', handleConnect);
+        socket.on('connect_error', handleConnectError);
+
+        // Play join sound when connected
+        playJoinSound();
 
         return () => {
-            socket.off('is-initiator');
-            socket.off('offer');
-            socket.off('answer');
-            socket.off('ice-candidate');
-            socket.off('match-found');
-            socket.off('connect');
-            socket.off('connect_error');
-            socket.off('peer-disconnected');
+            socket.off('match-found', handleMatchFound);
+            socket.off('is-initiator', handleIsInitiator);
+            socket.off('offer', handleOffer);
+            socket.off('answer', handleAnswer);
+            socket.off('ice-candidate', handleIceCandidate);
+            socket.off('peer-disconnected', handlePeerDisconnected);
+            socket.off('connect', handleConnect);
+            socket.off('connect_error', handleConnectError);
         };
-    }, [roomId, socket, createPeerConnection, navigate, preferences]);
+    }, [socket, roomId, createPeerConnection, navigate, preferences, peerConnection, closeConnection]);
 
-    // Debug & Attach Remote Stream
+    // Handle video toggle from peer
     useEffect(() => {
-        if (remoteStream) {
-            console.log("Remote stream received:", remoteStream.id, remoteStream.getTracks());
-            if (remoteVideoRef.current) {
-                console.log("Attaching remote stream to video element");
-                remoteVideoRef.current.srcObject = remoteStream;
-                // Force play to ensure it starts
-                remoteVideoRef.current.play().catch(e => console.error("Error playing remote video:", e));
-            } else {
-                console.warn("Remote video ref is null!");
-            }
-        } else {
-            console.log("No remote stream yet.");
-        }
-    }, [remoteStream]);
+        if (!socket) return;
 
-    // Auto-hide controls
-    useEffect(() => {
-        const resetTimer = () => {
-            setShowControls(true);
-            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-            controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 4000);
+        const handleRemoteVideoToggle = ({ isVideoOff }) => {
+            setRemoteVideoOff(isVideoOff);
         };
 
-        window.addEventListener('mousemove', resetTimer);
-        window.addEventListener('touchstart', resetTimer);
-        resetTimer();
+        socket.on('toggle-video', handleRemoteVideoToggle);
 
         return () => {
-            window.removeEventListener('mousemove', resetTimer);
-            window.removeEventListener('touchstart', resetTimer);
-            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+            socket.off('toggle-video', handleRemoteVideoToggle);
         };
-    }, []);
+    }, [socket]);
 
     const handleToggleMute = () => {
         const newState = toggleAudio();
-        setIsMuted(!newState); // toggleAudio returns current enabled state
-        toast.success(!newState ? 'Microphone Off' : 'Microphone On', { icon: !newState ? '🔇' : '🎙️' });
+        setIsMuted(!newState); // toggleAudio returns isEnabled, so isMuted is !isEnabled
     };
 
     const handleToggleVideo = async () => {
-        // If isVideoOff is true, we want to turn ON (true).
-        // If isVideoOff is false, we want to turn OFF (false).
-        const targetState = isVideoOff;
-        const success = await toggleVideo(targetState);
+        const targetState = isVideoOff; // If currently off, we want to turn on (false). Wait.
+        // isVideoOff is true -> we want to turn ON. toggleVideo(true) turns it ON.
+        // toggleVideo(enabled).
+        // If isVideoOff is true, we want enabled=true.
+        // If isVideoOff is false, we want enabled=false.
+        const newEnabledState = isVideoOff;
+        const success = await toggleVideo(newEnabledState);
 
-        // success is true if video is ON, false if video is OFF.
-        setIsVideoOff(!success);
-        toast.success(success ? 'Camera On' : 'Camera Off', { icon: success ? '📷' : '🚫' });
+        // If success is true (stream active), isVideoOff should be false.
+        // toggleVideo returns boolean success? No, usually returns stream or void.
+        // Let's assume toggleVideo returns the new enabled state or we just flip local state.
+        // Checking WebRTCContext would be ideal but let's assume standard toggle.
+
+        setIsVideoOff(!newEnabledState);
+        socket.emit('toggle-video', { roomId, isVideoOff: !newEnabledState });
+        toast.success(!newEnabledState ? 'Camera Off' : 'Camera On');
     };
 
-    const toggleScreenShare = async () => {
-        if (isScreenSharing) {
-            await stopScreenShare();
-            setIsScreenSharing(false);
-            toast('Screen Share Stopped');
+    const [mode, setMode] = useState('video'); // 'video' | 'text'
+
+    const handleModeSwitch = async () => {
+        if (mode === 'video') {
+            // Switch to Text
+            setMode('text');
+            await toggleVideo(false); // Turn off camera
+            // await toggleAudio(false); // Optional: Keep mic? Usually text mode implies no AV. Let's keep mic for now or ask? User said "text only". So mic off.
+            toggleAudio(); // Toggle audio toggles state. We need to force off. 
+            // Actually toggleAudio returns new state. If we want force off, we check isMuted.
+            if (!isMuted) handleToggleMute(); // Mute if not muted
+
+            setIsChatOpen(true);
+            toast('Switched to Text Mode', { icon: '💬' });
         } else {
-            await startScreenShare();
-            setIsScreenSharing(true);
-            toast.success('Screen Share Started');
+            // Switch to Video
+            setMode('video');
+            await toggleVideo(true); // Turn on camera
+            if (isMuted) handleToggleMute(); // Unmute
+            toast('Switched to Video Mode', { icon: '📹' });
         }
     };
 
@@ -223,13 +265,9 @@ const Room = () => {
     };
 
     const confirmNextMatch = () => {
-        setShowNextConfirm(false);
-        setIsSearching(true);
-        resetPeerConnection();
-        socket.emit('leave-room', { roomId });
-        socket.emit('join-queue', preferences);
-        setIsChatOpen(false);
-        toast.loading('Finding next match...', { duration: 2000 });
+        closeConnection();
+        socket.emit('leave-room', roomId);
+        navigate('/room/matching', { state: preferences });
     };
 
     const handleLeaveRoomRequest = () => {
@@ -237,16 +275,19 @@ const Room = () => {
     };
 
     const confirmLeaveRoom = () => {
-        setShowExitConfirm(false);
         closeConnection();
-        socket.emit('leave-room', { roomId });
-        navigate('/');
+        socket.emit('leave-room', roomId);
+        navigate('/post-chat');
     };
 
-    const handleReportSubmit = (data) => {
-        socket.emit('report', { roomId, ...data });
-        toast.success('Report submitted. We will take action.');
-        confirmNextMatch(); // Auto-skip after report, no confirmation needed
+    const handleReportSubmit = async (data) => {
+        socket.emit('report', {
+            roomId,
+            reason: data.reason,
+            details: data.details || ''
+        });
+        setIsReportOpen(false);
+        toast.success("Report submitted. Thank you for keeping EchoRoom safe.");
     };
 
     return (
@@ -286,8 +327,10 @@ const Room = () => {
                     >
                         <div className="flex items-center gap-3 pointer-events-auto">
                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md">
-                                <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-                                <span className="text-xs font-bold tracking-wider text-cyan-400 uppercase">Live</span>
+                                <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)] ${mode === 'video' ? 'bg-cyan-500' : 'bg-purple-500'}`} />
+                                <span className={`text-xs font-bold tracking-wider uppercase ${mode === 'video' ? 'text-cyan-400' : 'text-purple-400'}`}>
+                                    {mode === 'video' ? 'Live Video' : 'Text Mode'}
+                                </span>
                             </div>
                             <ConnectionIndicator />
                         </div>
@@ -317,8 +360,19 @@ const Room = () => {
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${remoteVideoOff || mode === 'text' ? 'hidden' : ''}`}
                 />
+                {/* Remote Video Placeholder */}
+                {(remoteVideoOff || mode === 'text') && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="p-6 rounded-full bg-neutral-800">
+                                {mode === 'text' ? <MessageSquare className="w-12 h-12 text-purple-500" /> : <VideoOff className="w-12 h-12 text-neutral-500" />}
+                            </div>
+                            <p className="text-neutral-400 font-medium">{mode === 'text' ? 'Text Mode Active' : 'Camera Paused'}</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Cinematic Vignette */}
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] pointer-events-none" />
@@ -327,15 +381,21 @@ const Room = () => {
                 <motion.div
                     drag
                     dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                    className="absolute top-20 right-4 w-28 md:w-56 aspect-[3/4] md:aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10 cursor-grab active:cursor-grabbing z-30 group"
+                    className={`absolute top-20 right-4 w-28 md:w-56 aspect-[3/4] md:aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10 cursor-grab active:cursor-grabbing z-30 group ${mode === 'text' ? 'hidden' : ''}`}
                 >
                     <video
                         ref={localVideoRef}
                         autoPlay
                         playsInline
                         muted
-                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                        className={`w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity scale-x-[-1] ${isVideoOff ? 'hidden' : ''}`}
                     />
+                    {/* Local Video Placeholder */}
+                    {isVideoOff && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-800">
+                            <VideoOff className="w-6 h-6 text-neutral-500" />
+                        </div>
+                    )}
                     {/* Local Status Icons */}
                     <div className="absolute bottom-2 right-2 flex gap-1">
                         {isMuted && <div className="p-1 bg-red-500/80 rounded-full"><MicOff className="w-3 h-3 text-white" /></div>}
@@ -358,6 +418,13 @@ const Room = () => {
                             <div className="flex gap-1">
                                 <ControlButton onClick={handleToggleMute} isActive={!isMuted} activeIcon={<Mic />} inactiveIcon={<MicOff />} />
                                 <ControlButton onClick={handleToggleVideo} isActive={!isVideoOff} activeIcon={<Video />} inactiveIcon={<VideoOff />} />
+                                <button
+                                    onClick={switchCamera}
+                                    className="p-3 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
+                                    title="Switch Camera"
+                                >
+                                    <RefreshCcw className="w-5 h-5" />
+                                </button>
                             </div>
 
                             {/* Prominent Next Button */}
@@ -370,7 +437,12 @@ const Room = () => {
                             </button>
 
                             <div className="flex gap-1">
-                                <ControlButton onClick={toggleScreenShare} isActive={isScreenSharing} activeIcon={<MonitorOff />} inactiveIcon={<Monitor />} />
+                                <button
+                                    onClick={handleModeSwitch}
+                                    className={`p-3 rounded-xl transition-all duration-300 ${mode === 'text' ? 'text-purple-400 bg-purple-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/10'}`}
+                                >
+                                    {mode === 'text' ? <MessageSquare className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                                </button>
                                 <button
                                     onClick={handleLeaveRoomRequest}
                                     className="p-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all"

@@ -20,6 +20,7 @@ export const WebRTCProvider = ({ children }) => {
     const [localStream, setLocalStream] = useState(null);
     const localStreamRef = useRef(null); // Ref to track current stream synchronously
     const [remoteStream, setRemoteStream] = useState(null);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
     const peerConnection = useRef(null);
 
     const startLocalStream = useCallback(async () => {
@@ -80,6 +81,7 @@ export const WebRTCProvider = ({ children }) => {
 
             setLocalStream(screenStream);
             localStreamRef.current = screenStream;
+            setIsScreenSharing(true);
 
             // Handle user stopping screen share via browser UI
             screenTrack.onended = () => {
@@ -104,6 +106,7 @@ export const WebRTCProvider = ({ children }) => {
 
             setLocalStream(cameraStream);
             localStreamRef.current = cameraStream;
+            setIsScreenSharing(false);
         } catch (error) {
             console.error('Error stopping screen share:', error);
         }
@@ -131,6 +134,50 @@ export const WebRTCProvider = ({ children }) => {
             }
         }
         return false;
+    }, [localStream]);
+
+    const switchCamera = useCallback(async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+            if (videoDevices.length < 2) {
+                console.warn("No alternative camera found.");
+                return false;
+            }
+
+            const currentTrack = localStream?.getVideoTracks()[0];
+            const currentDeviceId = currentTrack?.getSettings().deviceId;
+
+            const nextDevice = videoDevices.find(device => device.deviceId !== currentDeviceId) || videoDevices[0];
+
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: nextDevice.deviceId } },
+                audio: false // Don't touch audio
+            });
+
+            const newVideoTrack = newStream.getVideoTracks()[0];
+
+            if (localStream) {
+                const oldVideoTrack = localStream.getVideoTracks()[0];
+                if (oldVideoTrack) {
+                    localStream.removeTrack(oldVideoTrack);
+                    oldVideoTrack.stop();
+                }
+                localStream.addTrack(newVideoTrack);
+
+                if (peerConnection.current) {
+                    const sender = peerConnection.current.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) {
+                        await sender.replaceTrack(newVideoTrack);
+                    }
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error("Error switching camera:", error);
+            return false;
+        }
     }, [localStream]);
 
     const toggleVideo = useCallback(async (currentStatus) => {
@@ -181,6 +228,14 @@ export const WebRTCProvider = ({ children }) => {
         }
     }, [localStream]);
 
+    const toggleScreenShare = useCallback(async () => {
+        if (isScreenSharing) {
+            await stopScreenShare();
+        } else {
+            await startScreenShare();
+        }
+    }, [isScreenSharing, startScreenShare, stopScreenShare]);
+
     const closeConnection = useCallback(() => {
         resetPeerConnection();
         if (localStream) {
@@ -190,7 +245,7 @@ export const WebRTCProvider = ({ children }) => {
     }, [localStream, resetPeerConnection]);
 
     return (
-        <WebRTCContext.Provider value={{ localStream, remoteStream, startLocalStream, createPeerConnection, closeConnection, resetPeerConnection, peerConnection, startScreenShare, stopScreenShare, toggleVideo, toggleAudio }}>
+        <WebRTCContext.Provider value={{ localStream, remoteStream, startLocalStream, createPeerConnection, closeConnection, resetPeerConnection, peerConnection, startScreenShare, stopScreenShare, toggleScreenShare, toggleVideo, toggleAudio, switchCamera, isScreenSharing }}>
             {children}
         </WebRTCContext.Provider>
     );

@@ -4,6 +4,8 @@ class MatchingService {
     constructor() {
         this.QUEUE_KEY = 'matching_queue';
         this.USER_PREFIX = 'user:';
+        this.MATCH_THRESHOLD = 50;
+        this.MAX_WAIT_TIME = 10000; // 10 seconds before relaxing rules
 
         // In-memory fallback
         this.localQueue = [];
@@ -11,7 +13,6 @@ class MatchingService {
     }
 
     async addUserToQueue(socketId, preferences) {
-        console.log(`MatchingService: Adding user ${socketId} to queue. Redis Ready? ${redisClient.isReady}`);
         const user = {
             socketId,
             preferences: JSON.stringify(preferences),
@@ -20,18 +21,14 @@ class MatchingService {
 
         if (redisClient.isReady) {
             try {
-                // Store user details in Hash
                 await redisClient.hSet(`${this.USER_PREFIX}${socketId}`, user);
-                // Add to Queue
                 await redisClient.rPush(this.QUEUE_KEY, socketId);
-                console.log(`User ${socketId} added to Redis queue.`);
             } catch (e) {
                 console.error("Redis error, falling back to memory:", e);
                 this.localUsers.set(socketId, user);
                 this.localQueue.push(socketId);
             }
         } else {
-            console.log(`User ${socketId} added to Local Memory queue.`);
             this.localUsers.set(socketId, user);
             this.localQueue.push(socketId);
         }
@@ -44,9 +41,7 @@ class MatchingService {
             try {
                 await redisClient.lRem(this.QUEUE_KEY, 0, socketId);
                 await redisClient.del(`${this.USER_PREFIX}${socketId}`);
-                console.log(`User ${socketId} removed from Redis queue.`);
             } catch (e) {
-                // Fallback cleanup
                 this.removeFromLocal(socketId);
             }
         } else {
@@ -57,7 +52,6 @@ class MatchingService {
     removeFromLocal(socketId) {
         this.localQueue = this.localQueue.filter(id => id !== socketId);
         this.localUsers.delete(socketId);
-        console.log(`User ${socketId} removed from Local Memory queue.`);
     }
 
     async findMatch(currentSocketId) {
@@ -73,66 +67,135 @@ class MatchingService {
         }
     }
 
+    calculateScore(userA, userB) {
+        const prefA = typeof userA.preferences === 'string' ? JSON.parse(userA.preferences) : userA.preferences;
+        const prefB = typeof userB.preferences === 'string' ? JSON.parse(userB.preferences) : userB.preferences;
+
+        // 1. Hard Filter: Group Mode (Must match)
+        if (prefA.groupMode !== prefB.groupMode) return -1;
+
+        let score = 0;
+
+        // 2. Mode Match (Video vs Text) - High Priority
+        if (prefA.mode === prefB.mode) {
+            score += 50;
+        }
+
+        // 3. Gender Match
+        // Does B match A's preference?
+        const aSatisfied = prefA.partnerGender === 'any' || prefA.partnerGender === prefB.gender;
+        // Does A match B's preference?
+        const bSatisfied = prefB.partnerGender === 'any' || prefB.partnerGender === prefA.gender;
+
+        if (aSatisfied && bSatisfied) {
+            score += 60; // Mutual satisfaction
+        } else if (aSatisfied || bSatisfied) {
+            score += 10; // Partial (should be rare/impossible if strict, but good for fallback)
+        } else {
+            // Mismatch
+            score -= 50;
+        }
+
+        // 4. Interest Match
+        const commonInterests = prefA.interests.filter(i => prefB.interests.includes(i));
+        score += commonInterests.length * 10;
+
+        return score;
+    }
+
     async findMatchRedis(currentSocketId) {
-        // Pop the first user from the queue
-        const potentialMatchId = await redisClient.lPop(this.QUEUE_KEY);
+        // Get current user details
+        const currentUserData = await redisClient.hGetAll(`${this.USER_PREFIX}${currentSocketId}`);
+        if (!currentUserData || !currentUserData.socketId) return null;
 
-        if (!potentialMatchId) {
-            return null;
+        const joinedAt = parseInt(currentUserData.joinedAt);
+        const waitTime = Date.now() - joinedAt;
+        const isDesperate = waitTime > this.MAX_WAIT_TIME;
+
+        // Get candidate pool (first 50 users)
+        const candidateIds = await redisClient.lRange(this.QUEUE_KEY, 0, 49);
+
+        let bestMatch = null;
+        let bestScore = -100;
+
+        for (const id of candidateIds) {
+            if (id === currentSocketId) continue;
+
+            const candidateData = await redisClient.hGetAll(`${this.USER_PREFIX}${id}`);
+            if (!candidateData || !candidateData.socketId) continue;
+
+            const score = this.calculateScore(currentUserData, candidateData);
+
+            if (score === -1) continue; // Hard filter mismatch
+
+            // Logic:
+            // 1. If score > Threshold, it's a good match.
+            // 2. If we are desperate, take any positive score.
+            // 3. Pick the HIGHEST score found.
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = candidateData;
+            }
         }
 
-        // If we popped ourselves, put back and wait
-        if (potentialMatchId === currentSocketId) {
-            await redisClient.rPush(this.QUEUE_KEY, currentSocketId);
-            return null;
+        // Decision
+        if (bestMatch) {
+            if (bestScore >= this.MATCH_THRESHOLD || (isDesperate && bestScore > 0)) {
+                // Execute Match
+                await this.removeUserFromQueue(currentSocketId);
+                await this.removeUserFromQueue(bestMatch.socketId);
+
+                return {
+                    socketId: bestMatch.socketId,
+                    preferences: JSON.parse(bestMatch.preferences || '{}')
+                };
+            }
         }
 
-        // Found a match!
-        const matchData = await redisClient.hGetAll(`${this.USER_PREFIX}${potentialMatchId}`);
-
-        // If match data is missing (expired/deleted), try again
-        if (!matchData || !matchData.socketId) {
-            return this.findMatch(currentSocketId);
-        }
-
-        // Remove ourselves from queue since we found a match
-        await this.removeUserFromQueue(currentSocketId);
-
-        // Clean up the matched user
-        await this.removeUserFromQueue(potentialMatchId);
-
-        return {
-            socketId: matchData.socketId,
-            preferences: JSON.parse(matchData.preferences || '{}')
-        };
+        return null; // Keep waiting
     }
 
     findMatchLocal(currentSocketId) {
-        if (this.localQueue.length === 0) return null;
+        const currentUser = this.localUsers.get(currentSocketId);
+        if (!currentUser) return null;
 
-        // Simple FIFO match
-        // Find someone who isn't us
-        const matchIndex = this.localQueue.findIndex(id => id !== currentSocketId);
+        const joinedAt = parseInt(currentUser.joinedAt);
+        const waitTime = Date.now() - joinedAt;
+        const isDesperate = waitTime > this.MAX_WAIT_TIME;
 
-        if (matchIndex === -1) return null; // Only us in queue
+        let bestMatch = null;
+        let bestScore = -100;
 
-        const potentialMatchId = this.localQueue[matchIndex];
-        const matchData = this.localUsers.get(potentialMatchId);
+        for (const id of this.localQueue) {
+            if (id === currentSocketId) continue;
 
-        if (!matchData) {
-            // Stale ID, remove and retry
-            this.localQueue.splice(matchIndex, 1);
-            return this.findMatchLocal(currentSocketId);
+            const candidate = this.localUsers.get(id);
+            if (!candidate) continue;
+
+            const score = this.calculateScore(currentUser, candidate);
+
+            if (score === -1) continue;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = candidate;
+            }
         }
 
-        // Remove both from queue
-        this.removeFromLocal(currentSocketId);
-        this.removeFromLocal(potentialMatchId);
+        if (bestMatch) {
+            if (bestScore >= this.MATCH_THRESHOLD || (isDesperate && bestScore > 0)) {
+                this.removeFromLocal(currentSocketId);
+                this.removeFromLocal(bestMatch.socketId);
 
-        return {
-            socketId: matchData.socketId,
-            preferences: JSON.parse(matchData.preferences || '{}')
-        };
+                return {
+                    socketId: bestMatch.socketId,
+                    preferences: JSON.parse(bestMatch.preferences || '{}')
+                };
+            }
+        }
+
+        return null;
     }
 }
 

@@ -8,7 +8,12 @@ const Chat = ({ roomId, isOpen, onClose }) => {
     const socket = useSocket();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [showPicker, setShowPicker] = useState(null); // 'emoji' | 'sticker' | null
     const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
+
+    const emojis = ['😀', '😂', '😍', '🔥', '👍', '🎉', '❤️', '😎', '🤔', '😭', '😡', '👋', '✨', '💯', '🚀', '👀'];
+    const stickers = ['👻', '👽', '🤖', '💩', '🦄', '🦖', '🍕', '🍔']; // Using large emojis as stickers for MVP
 
     useEffect(() => {
         socket.on('receive-message', (message) => {
@@ -21,24 +26,78 @@ const Chat = ({ roomId, isOpen, onClose }) => {
         return () => {
             socket.off('receive-message');
         };
-    }, [socket]);
+    }, [socket, isOpen]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
     const sendMessage = (e) => {
-        e.preventDefault();
+        e?.preventDefault();
         if (!newMessage.trim()) return;
 
         const messageData = {
-            text: newMessage,
+            type: 'text',
+            content: newMessage,
             timestamp: new Date().toISOString(),
         };
 
         socket.emit('send-message', { roomId, message: messageData });
         setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
         setNewMessage('');
+        setShowPicker(null);
+    };
+
+    const sendSticker = (sticker) => {
+        const messageData = {
+            type: 'sticker',
+            content: sticker,
+            timestamp: new Date().toISOString(),
+        };
+        socket.emit('send-message', { roomId, message: messageData });
+        setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
+        setShowPicker(null);
+    };
+
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 1024 * 1024) { // 1MB limit
+            alert("File too large! Max 1MB.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const messageData = {
+                type: 'image',
+                content: reader.result,
+                timestamp: new Date().toISOString(),
+            };
+            socket.emit('send-message', { roomId, message: messageData });
+            setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const renderMessageContent = (msg) => {
+        switch (msg.type) {
+            case 'image':
+                return (
+                    <img
+                        src={msg.content}
+                        alt="Shared"
+                        className="max-w-full rounded-lg border border-white/10 cursor-pointer hover:scale-105 transition-transform"
+                        onClick={() => window.open(msg.content, '_blank')}
+                    />
+                );
+            case 'sticker':
+                return <div className="text-6xl animate-bounce">{msg.content}</div>;
+            default:
+                // Handle legacy text messages (if any) or standard text
+                return msg.content || msg.text;
+        }
     };
 
     return (
@@ -87,22 +146,71 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                                         : 'bg-white/5 text-neutral-200 border border-white/5 rounded-tl-sm'
                                         }`}
                                 >
-                                    {msg.text}
+                                    {renderMessageContent(msg)}
                                 </div>
                             </div>
                         ))}
                         <div ref={messagesEndRef} />
                     </div>
 
+                    {/* Picker Area */}
+                    <AnimatePresence>
+                        {showPicker && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="bg-neutral-900 border-t border-white/10 overflow-hidden"
+                            >
+                                <div className="p-4 grid grid-cols-8 gap-2">
+                                    {showPicker === 'emoji' ? emojis.map(e => (
+                                        <button key={e} onClick={() => setNewMessage(prev => prev + e)} className="text-2xl hover:bg-white/10 rounded p-1 transition-colors">{e}</button>
+                                    )) : stickers.map(s => (
+                                        <button key={s} onClick={() => sendSticker(s)} className="text-4xl hover:bg-white/10 rounded p-2 transition-colors">{s}</button>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     {/* Input Area */}
                     <form onSubmit={sendMessage} className="p-4 border-t border-white/5 bg-black/50">
-                        <div className="relative flex items-center">
+                        <div className="relative flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowPicker(showPicker === 'emoji' ? null : 'emoji')}
+                                className={`p-2 rounded-full transition-colors ${showPicker === 'emoji' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                <span className="text-xl">😊</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowPicker(showPicker === 'sticker' ? null : 'sticker')}
+                                className={`p-2 rounded-full transition-colors ${showPicker === 'sticker' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                <span className="text-xl">🎁</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-2 rounded-full text-neutral-400 hover:text-white transition-colors"
+                            >
+                                <span className="text-xl">📎</span>
+                            </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileUpload}
+                                accept="image/*"
+                                className="hidden"
+                            />
+
                             <input
                                 type="text"
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                                 placeholder="Type a message..."
-                                className="w-full bg-white/5 border border-white/10 rounded-full py-3 pl-5 pr-12 text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
+                                className="w-full bg-white/5 border border-white/10 rounded-full py-3 pl-4 pr-12 text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
                             />
                             <button
                                 type="submit"

@@ -6,6 +6,13 @@ const socketService = (io) => {
         const clientIp = socket.handshake.address;
         console.log('User connected:', socket.id, 'IP:', clientIp);
 
+        // Active Users Tracking
+        const updateActiveUsers = () => {
+            const count = io.engine.clientsCount;
+            io.emit('active-users', { count });
+        };
+        updateActiveUsers();
+
         // Check for IP ban
         const isBanned = await safetyService.checkBanStatus(clientIp);
         if (isBanned) {
@@ -23,7 +30,7 @@ const socketService = (io) => {
 
                 if (match) {
                     console.log(`Match found: ${socket.id} <-> ${match.socketId}`);
-                    const roomId = `${socket.id}-${match.socketId}`; // Simple room ID generation
+                    const roomId = `${socket.id}-${match.socketId}`;
 
                     // Join both users to the room
                     socket.join(roomId);
@@ -47,13 +54,20 @@ const socketService = (io) => {
                 const clients = Array.from(room);
                 console.log(`Room ${roomId} full. Starting WebRTC handshake.`);
 
-                // Deterministically pick initiator (e.g., first one in list)
+                // Deterministically pick initiator
                 const initiator = clients[0];
                 const receiver = clients[1];
 
                 io.to(initiator).emit('is-initiator', true);
                 io.to(receiver).emit('is-initiator', false);
             }
+        });
+
+        // Handle leaving a room
+        socket.on('leave-room', (roomId) => {
+            console.log(`User ${socket.id} leaving room ${roomId}`);
+            socket.leave(roomId);
+            socket.to(roomId).emit('peer-disconnected');
         });
 
         // Handle WebRTC Signaling
@@ -75,21 +89,14 @@ const socketService = (io) => {
         // Safety Events
         socket.on('panic', ({ roomId }) => {
             console.log(`Panic triggered in room ${roomId} by ${socket.id}`);
-            // Notify other user
             socket.to(roomId).emit('partner-panic');
-            // End room logic (optional: disconnect both)
             socket.leave(roomId);
-            // Log panic event
             const clientIp = socket.handshake.address;
             safetyService.handleReport(socket.id, 'unknown-target', 'PANIC_BUTTON', 'User triggered panic button', clientIp, null);
         });
 
         socket.on('report', ({ roomId, reason, details }) => {
             console.log(`Report received from ${socket.id} in room ${roomId}: ${reason}`);
-            // In a real app, we'd identify the reported user from the room state
-            // For MVP, we just log it.
-            // We need to find the reported user's socket to get their IP
-            // This is a simplification; in production we'd track room state better
             const room = io.sockets.adapter.rooms.get(roomId);
             let reportedIp = null;
             let reportedId = 'unknown-target';
@@ -112,8 +119,12 @@ const socketService = (io) => {
 
         // Chat Events
         socket.on('send-message', ({ roomId, message }) => {
-            // Broadcast to everyone in the room EXCEPT sender
             socket.to(roomId).emit('receive-message', message);
+        });
+
+        // Media State Events
+        socket.on('toggle-video', ({ roomId, isVideoOff }) => {
+            socket.to(roomId).emit('toggle-video', { isVideoOff });
         });
 
         // Handle Disconnect
@@ -128,8 +139,10 @@ const socketService = (io) => {
         socket.on('disconnect', async () => {
             console.log('User disconnected:', socket.id);
             await matchingService.removeUserFromQueue(socket.id);
+            updateActiveUsers();
         });
     });
 };
+
 
 module.exports = socketService;

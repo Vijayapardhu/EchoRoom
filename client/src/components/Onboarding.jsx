@@ -8,9 +8,14 @@ const Onboarding = () => {
     const navigate = useNavigate();
     const socket = useSocket();
     const [step, setStep] = useState(1);
+
+    // State
     const [interests, setInterests] = useState([]);
     const [customInterest, setCustomInterest] = useState('');
-    const [intent, setIntent] = useState('');
+    const [gender, setGender] = useState('');
+    const [partnerGender, setPartnerGender] = useState('any');
+    const [mode, setMode] = useState('video'); // video | text
+    const [groupMode, setGroupMode] = useState('double'); // double | group
 
     const availableInterests = ['Tech', 'Music', 'Gaming', 'Art', 'Movies', 'Travel', 'Food', 'Science'];
 
@@ -32,9 +37,19 @@ const Onboarding = () => {
     };
 
     const handleMatch = () => {
-        socket.emit('join-queue', { interests, intent });
-        navigate('/room/matching');
+        const preferences = {
+            interests,
+            gender,
+            partnerGender,
+            mode,
+            groupMode
+        };
+        socket.emit('join-queue', preferences);
+        navigate('/room/matching', { state: preferences });
     };
+
+    const nextStep = () => setStep(s => s + 1);
+    const prevStep = () => setStep(s => s - 1);
 
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden selection:bg-cyan-500/30">
@@ -50,12 +65,14 @@ const Onboarding = () => {
             >
                 {/* Progress Bar */}
                 <div className="flex gap-2 mb-12">
-                    <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 1 ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-white/10'}`} />
-                    <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-white/10'}`} />
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= i ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-white/10'}`} />
+                    ))}
                 </div>
 
-                {step === 1 ? (
-                    <div className="space-y-8">
+                {/* Step 1: Interests */}
+                {step === 1 && (
+                    <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-8">
                         <div className="space-y-2">
                             <h2 className="text-4xl font-bold text-white tracking-tight">
                                 Signal <span className="text-cyan-400">Calibration</span>
@@ -75,10 +92,7 @@ const Onboarding = () => {
                                 >
                                     <span className="relative z-10 font-medium tracking-wide">{interest}</span>
                                     {interests.includes(interest) && (
-                                        <motion.div
-                                            layoutId="activeGlow"
-                                            className="absolute inset-0 bg-cyan-500/5"
-                                        />
+                                        <motion.div layoutId="activeGlow" className="absolute inset-0 bg-cyan-500/5" />
                                     )}
                                 </button>
                             ))}
@@ -116,58 +130,129 @@ const Onboarding = () => {
                         )}
 
                         <button
-                            onClick={() => setStep(2)}
+                            onClick={nextStep}
                             disabled={interests.length === 0}
                             className="w-full py-4 bg-white text-black font-bold text-lg tracking-wider uppercase hover:bg-cyan-400 transition-colors disabled:opacity-50 disabled:hover:bg-white mt-8 flex items-center justify-center gap-2 group"
                         >
                             Next Phase <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </button>
-                    </div>
-                ) : (
-                    <div className="space-y-8">
+                    </motion.div>
+                )}
+
+                {/* Step 2: Identity */}
+                {step === 2 && (
+                    <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-8">
                         <div className="space-y-2">
                             <h2 className="text-4xl font-bold text-white tracking-tight">
-                                Connection <span className="text-purple-400">Intent</span>
+                                Identity <span className="text-purple-400">Matrix</span>
                             </h2>
-                            <p className="text-neutral-400 text-lg">What are you looking for right now?</p>
+                            <p className="text-neutral-400 text-lg">Who are you, and who are you looking for?</p>
                         </div>
 
-                        <div className="space-y-4">
-                            {[
-                                { id: 'casual', label: 'Casual Chat', icon: <Sparkles className="w-5 h-5" />, desc: 'Just vibing' },
-                                { id: 'deep', label: 'Deep Talk', icon: <Activity className="w-5 h-5" />, desc: 'Meaningful conversation' },
-                                { id: 'fun', label: 'Entertainment', icon: <Zap className="w-5 h-5" />, desc: 'Jokes and fun' }
-                            ].map((option) => (
+                        <div className="space-y-6">
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-neutral-500 uppercase tracking-wider">I am</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {['Male', 'Female', 'Non-binary'].map(g => (
+                                        <button
+                                            key={g}
+                                            onClick={() => setGender(g.toLowerCase())}
+                                            className={`p-3 rounded-xl border transition-all ${gender === g.toLowerCase() ? 'border-purple-500 bg-purple-500/20 text-purple-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
+                                        >
+                                            {g}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-neutral-500 uppercase tracking-wider">Looking for</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {['Male', 'Female', 'Any'].map(g => (
+                                        <button
+                                            key={g}
+                                            onClick={() => setPartnerGender(g.toLowerCase())}
+                                            className={`p-3 rounded-xl border transition-all ${partnerGender === g.toLowerCase() ? 'border-purple-500 bg-purple-500/20 text-purple-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
+                                        >
+                                            {g}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-8">
+                            <button onClick={prevStep} className="px-6 py-4 rounded-xl border border-white/10 text-white hover:bg-white/10">Back</button>
+                            <button
+                                onClick={nextStep}
+                                disabled={!gender}
+                                className="flex-1 py-4 bg-white text-black font-bold text-lg tracking-wider uppercase hover:bg-purple-400 transition-colors disabled:opacity-50"
+                            >
+                                Next Phase
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Step 3: Mode */}
+                {step === 3 && (
+                    <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-8">
+                        <div className="space-y-2">
+                            <h2 className="text-4xl font-bold text-white tracking-tight">
+                                Transmission <span className="text-green-400">Mode</span>
+                            </h2>
+                            <p className="text-neutral-400 text-lg">Select your communication protocol.</p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
                                 <button
-                                    key={option.id}
-                                    onClick={() => setIntent(option.id)}
-                                    className={`w-full p-6 rounded-xl border text-left transition-all duration-300 flex items-center gap-4 group ${intent === option.id
-                                        ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
-                                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-                                        }`}
+                                    onClick={() => setMode('video')}
+                                    className={`p-6 rounded-2xl border flex flex-col items-center gap-3 transition-all ${mode === 'video' ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-white/10 bg-white/5 text-neutral-400'}`}
                                 >
-                                    <div className={`p-3 rounded-full ${intent === option.id ? 'bg-purple-500 text-black' : 'bg-white/10 text-neutral-400 group-hover:text-white'
-                                        }`}>
-                                        {option.icon}
-                                    </div>
-                                    <div>
-                                        <h3 className={`font-bold text-lg ${intent === option.id ? 'text-white' : 'text-neutral-300'}`}>
-                                            {option.label}
-                                        </h3>
-                                        <p className="text-sm text-neutral-500">{option.desc}</p>
-                                    </div>
+                                    <Zap className="w-8 h-8" />
+                                    <span className="font-bold">Video</span>
                                 </button>
-                            ))}
+                                <button
+                                    onClick={() => setMode('text')}
+                                    className={`p-6 rounded-2xl border flex flex-col items-center gap-3 transition-all ${mode === 'text' ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-white/10 bg-white/5 text-neutral-400'}`}
+                                >
+                                    <Sparkles className="w-8 h-8" />
+                                    <span className="font-bold">Text Only</span>
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-neutral-500 uppercase tracking-wider">Group Size</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => setGroupMode('double')}
+                                        className={`p-4 rounded-xl border text-left transition-all ${groupMode === 'double' ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-white/10 bg-white/5 text-neutral-400'}`}
+                                    >
+                                        <div className="font-bold">Double (1v1)</div>
+                                        <div className="text-xs opacity-70">Classic pairing</div>
+                                    </button>
+                                    <button
+                                        onClick={() => setGroupMode('group')}
+                                        className={`p-4 rounded-xl border text-left transition-all ${groupMode === 'group' ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-white/10 bg-white/5 text-neutral-400'}`}
+                                    >
+                                        <div className="font-bold">Group</div>
+                                        <div className="text-xs opacity-70">Multi-user chat</div>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <button
-                            onClick={handleMatch}
-                            disabled={!intent}
-                            className="w-full py-4 bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-bold text-lg tracking-wider uppercase hover:shadow-[0_0_30px_rgba(168,85,247,0.5)] transition-all disabled:opacity-50 disabled:shadow-none mt-8"
-                        >
-                            Initialize Link
-                        </button>
-                    </div>
+                        <div className="flex gap-3 mt-8">
+                            <button onClick={prevStep} className="px-6 py-4 rounded-xl border border-white/10 text-white hover:bg-white/10">Back</button>
+                            <button
+                                onClick={handleMatch}
+                                className="flex-1 py-4 bg-gradient-to-r from-cyan-500 to-green-500 text-black font-bold text-lg tracking-wider uppercase hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transition-all"
+                            >
+                                Initialize Link
+                            </button>
+                        </div>
+                    </motion.div>
                 )}
             </motion.div>
         </div>
