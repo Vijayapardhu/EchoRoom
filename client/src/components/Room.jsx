@@ -17,7 +17,26 @@ const Room = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const socket = useSocket();
-    const { localStream, remoteStream, startLocalStream, createPeerConnection, closeConnection, resetPeerConnection, peerConnection, startScreenShare, stopScreenShare, toggleScreenShare, toggleVideo, toggleAudio, switchCamera, isScreenSharing } = useWebRTC();
+    const {
+        localStream,
+        remoteStream,
+        startLocalStream,
+        createPeerConnection,
+        createOffer,
+        handleOffer,
+        handleAnswer,
+        addIceCandidate,
+        closeConnection,
+        resetPeerConnection,
+        peerConnection,
+        startScreenShare,
+        stopScreenShare,
+        toggleScreenShare,
+        toggleVideo,
+        toggleAudio,
+        switchCamera,
+        isScreenSharing
+    } = useWebRTC();
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
