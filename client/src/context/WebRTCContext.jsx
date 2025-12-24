@@ -73,6 +73,8 @@ export const WebRTCProvider = ({ children }) => {
         };
 
         pc.ontrack = (event) => {
+            console.log("Received remote track:", event.track.kind);
+            console.log("Remote stream:", event.streams[0]);
             setRemoteStream(event.streams[0]);
         };
 

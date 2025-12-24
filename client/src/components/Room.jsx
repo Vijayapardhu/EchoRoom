@@ -65,6 +65,7 @@ const Room = () => {
     // Attach remote stream to video element
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
+            console.log("Attaching remote stream to video element:", remoteStream.getTracks().map(t => t.kind));
             remoteVideoRef.current.srcObject = remoteStream;
         }
     }, [remoteStream]);
