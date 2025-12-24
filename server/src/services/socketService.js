@@ -65,7 +65,8 @@ const socketService = (io) => {
             // End room logic (optional: disconnect both)
             socket.leave(roomId);
             // Log panic event
-            safetyService.handleReport(socket.id, 'unknown-target', 'PANIC_BUTTON', 'User triggered panic button');
+            const clientIp = socket.handshake.address;
+            safetyService.handleReport(socket.id, 'unknown-target', 'PANIC_BUTTON', 'User triggered panic button', clientIp, null);
         });
 
         socket.on('report', ({ roomId, reason, details }) => {

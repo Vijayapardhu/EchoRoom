@@ -41,8 +41,8 @@ class SafetyService {
             reportedId,
             reason,
             details,
-            reporterIp,
-            reportedIp,
+            reporterIp: reporterIp || null,
+            reportedIp: reportedIp || null,
             timestamp: new Date(),
         };
 
