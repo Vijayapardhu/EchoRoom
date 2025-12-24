@@ -11,7 +11,7 @@ import Chat from './Chat';
 import ConnectionIndicator from './ConnectionIndicator';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
 import PermissionError from './PermissionError';
-import { useAuth } from '../context/AuthContext';
+
 const Room = () => {
     const { roomId } = useParams();
     const navigate = useNavigate();
