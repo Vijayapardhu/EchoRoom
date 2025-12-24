@@ -87,6 +87,12 @@ const Room = () => {
             console.log("Is initiator:", isInitiator);
             setIsSearching(false);
 
+            // Prevent creating duplicate peer connections
+            if (peerConnection.current && peerConnection.current.connectionState !== 'closed') {
+                console.log("Peer connection already exists, skipping creation");
+                return;
+            }
+
             const handleIceCandidate = (candidate) => {
                 socket.emit('ice-candidate', { roomId, candidate });
             };
