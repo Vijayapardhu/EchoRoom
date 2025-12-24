@@ -40,6 +40,7 @@ const Room = () => {
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
+    const initiatorHandledRef = useRef(false); // Prevent duplicate is-initiator handling
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [remoteVideoOff, setRemoteVideoOff] = useState(false);
@@ -112,6 +113,13 @@ const Room = () => {
         // Handle WebRTC initiator role
         const handleIsInitiator = async (isInitiator) => {
             console.log("Is initiator:", isInitiator);
+
+            // Prevent duplicate handling
+            if (initiatorHandledRef.current) {
+                console.log("Initiator already handled, skipping");
+                return;
+            }
+
             setIsSearching(false);
 
             // Only skip if we're already connected or connecting
@@ -131,6 +139,8 @@ const Room = () => {
                 return;
             }
 
+            // Mark as handled
+            initiatorHandledRef.current = true;
             console.log("Local stream ready, proceeding with peer connection");
 
             const handleIceCandidate = (candidate) => {
