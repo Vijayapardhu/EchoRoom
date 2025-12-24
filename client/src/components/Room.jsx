@@ -67,6 +67,13 @@ const Room = () => {
         if (remoteVideoRef.current && remoteStream) {
             console.log("Attaching remote stream to video element:", remoteStream.getTracks().map(t => t.kind));
             remoteVideoRef.current.srcObject = remoteStream;
+
+            // Programmatically play the video to bypass autoplay restrictions
+            remoteVideoRef.current.play().catch(err => {
+                console.error("Error playing remote video:", err);
+                // If autoplay fails, user interaction is required
+                toast.error("Click anywhere to enable video/audio");
+            });
         }
     }, [remoteStream]);
 
@@ -396,6 +403,7 @@ const Room = () => {
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
+                    muted={false}
                     className={`w-full h-full object-cover ${remoteVideoOff || mode === 'text' ? 'hidden' : ''}`}
                 />
                 {/* Remote Video Placeholder */}
