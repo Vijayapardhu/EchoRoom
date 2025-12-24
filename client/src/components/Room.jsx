@@ -34,16 +34,19 @@ const Room = () => {
     const preferences = location.state || { interests: [], intent: 'casual' };
 
     // Effect 1: Initialize Local Stream (Runs ONCE)
+    // Effect 1: Initialize Local Stream (Runs ONCE)
     useEffect(() => {
         const initStream = async () => {
             const stream = await startLocalStream();
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = stream;
             }
+            // Signal server we are ready in the room
+            socket.emit('join-room', { roomId });
         };
         initStream();
         // startLocalStream is stable (useCallback with []), so this runs only once.
-    }, [startLocalStream]);
+    }, [startLocalStream, roomId, socket]);
 
     // Effect 2: Socket Event Listeners (Runs when dependencies change)
     useEffect(() => {

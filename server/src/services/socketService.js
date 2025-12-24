@@ -31,13 +31,28 @@ const socketService = (io) => {
 
                     // Notify both users
                     io.to(roomId).emit('match-found', { roomId });
-
-                    // Designate one as initiator (optional, but helpful for WebRTC)
-                    socket.emit('is-initiator', true);
-                    io.to(match.socketId).emit('is-initiator', false);
                 }
             } catch (err) {
                 console.error('Error in join-queue:', err);
+            }
+        });
+
+        // Handle joining a specific room (Handshake trigger)
+        socket.on('join-room', ({ roomId }) => {
+            console.log(`User ${socket.id} joining room ${roomId}`);
+            socket.join(roomId);
+
+            const room = io.sockets.adapter.rooms.get(roomId);
+            if (room && room.size === 2) {
+                const clients = Array.from(room);
+                console.log(`Room ${roomId} full. Starting WebRTC handshake.`);
+
+                // Deterministically pick initiator (e.g., first one in list)
+                const initiator = clients[0];
+                const receiver = clients[1];
+
+                io.to(initiator).emit('is-initiator', true);
+                io.to(receiver).emit('is-initiator', false);
             }
         });
 
