@@ -87,10 +87,13 @@ const Room = () => {
             console.log("Is initiator:", isInitiator);
             setIsSearching(false);
 
-            // Prevent creating duplicate peer connections
-            if (peerConnection.current && peerConnection.current.connectionState !== 'closed') {
-                console.log("Peer connection already exists, skipping creation");
-                return;
+            // Only skip if we're already connected or connecting
+            if (peerConnection.current) {
+                const state = peerConnection.current.connectionState;
+                if (state === 'connected' || state === 'connecting') {
+                    console.log("Peer connection already active, skipping creation");
+                    return;
+                }
             }
 
             const handleIceCandidate = (candidate) => {
