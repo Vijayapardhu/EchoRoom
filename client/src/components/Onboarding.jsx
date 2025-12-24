@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles, Zap, Activity } from 'lucide-react';
+import { ArrowRight, Sparkles, Zap, Activity, X } from 'lucide-react';
 
 const Onboarding = () => {
     const navigate = useNavigate();
     const socket = useSocket();
     const [step, setStep] = useState(1);
     const [interests, setInterests] = useState([]);
+    const [customInterest, setCustomInterest] = useState('');
     const [intent, setIntent] = useState('');
 
     const availableInterests = ['Tech', 'Music', 'Gaming', 'Art', 'Movies', 'Travel', 'Food', 'Science'];
@@ -20,6 +21,13 @@ const Onboarding = () => {
             if (interests.length < 3) {
                 setInterests([...interests, interest]);
             }
+        }
+    };
+
+    const addCustomInterest = () => {
+        if (customInterest.trim() && !interests.includes(customInterest.trim()) && interests.length < 3) {
+            setInterests([...interests, customInterest.trim()]);
+            setCustomInterest('');
         }
     };
 
@@ -61,8 +69,8 @@ const Onboarding = () => {
                                     key={interest}
                                     onClick={() => toggleInterest(interest)}
                                     className={`p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group ${interests.includes(interest)
-                                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
-                                            : 'border-white/10 bg-white/5 text-neutral-400 hover:border-white/20 hover:bg-white/10'
+                                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+                                        : 'border-white/10 bg-white/5 text-neutral-400 hover:border-white/20 hover:bg-white/10'
                                         }`}
                                 >
                                     <span className="relative z-10 font-medium tracking-wide">{interest}</span>
@@ -75,6 +83,37 @@ const Onboarding = () => {
                                 </button>
                             ))}
                         </div>
+
+                        {/* Custom Interest Input */}
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={customInterest}
+                                onChange={(e) => setCustomInterest(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && addCustomInterest()}
+                                placeholder="Type your own topic..."
+                                className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-5 pr-12 text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
+                            />
+                            <button
+                                onClick={addCustomInterest}
+                                disabled={!customInterest.trim() || interests.length >= 3}
+                                className="absolute right-2 top-2 bottom-2 px-4 rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black disabled:opacity-0 disabled:pointer-events-none transition-all font-medium"
+                            >
+                                Add
+                            </button>
+                        </div>
+
+                        {/* Selected Interests Tags */}
+                        {interests.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {interests.map(interest => (
+                                    <span key={interest} className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-sm border border-cyan-500/30 flex items-center gap-2">
+                                        {interest}
+                                        <button onClick={() => toggleInterest(interest)} className="hover:text-white"><X className="w-3 h-3" /></button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
 
                         <button
                             onClick={() => setStep(2)}
@@ -103,8 +142,8 @@ const Onboarding = () => {
                                     key={option.id}
                                     onClick={() => setIntent(option.id)}
                                     className={`w-full p-6 rounded-xl border text-left transition-all duration-300 flex items-center gap-4 group ${intent === option.id
-                                            ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
-                                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                                        ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
                                         }`}
                                 >
                                     <div className={`p-3 rounded-full ${intent === option.id ? 'bg-purple-500 text-black' : 'bg-white/10 text-neutral-400 group-hover:text-white'

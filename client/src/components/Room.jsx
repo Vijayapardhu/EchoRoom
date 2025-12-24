@@ -90,12 +90,25 @@ const Room = () => {
             navigate(`/room/${newRoomId}`, { state: preferences });
         });
 
+        // Robustness: Re-join room on reconnection
+        socket.on('connect', () => {
+            console.log('Socket reconnected, re-joining room...');
+            socket.emit('join-room', { roomId });
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('Socket connection error:', err);
+            toast.error('Connection unstable. Retrying...');
+        });
+
         return () => {
             socket.off('is-initiator'); // Added cleanup for is-initiator
             socket.off('offer');
             socket.off('answer');
             socket.off('ice-candidate');
             socket.off('match-found');
+            socket.off('connect');
+            socket.off('connect_error');
         };
     }, [roomId, socket, createPeerConnection, navigate, preferences]); // Dependencies for socket logic
 
