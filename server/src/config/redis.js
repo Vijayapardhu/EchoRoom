@@ -4,7 +4,13 @@ const client = createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 
-client.on('error', (err) => console.log('Redis Client Error', err));
+client.on('error', (err) => {
+    // Suppress ECONNREFUSED logs to avoid console spam when Redis is missing
+    if (err.code === 'ECONNREFUSED') {
+        return;
+    }
+    console.log('Redis Client Error', err);
+});
 client.on('connect', () => console.log('Redis Client Connected'));
 
 (async () => {

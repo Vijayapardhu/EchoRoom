@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        const newSocket = io('http://localhost:5000'); // TODO: Make this configurable
+        const newSocket = io('http://10.20.172.99:5000'); // Local IP for network access
         setSocket(newSocket);
 
         return () => newSocket.close();
