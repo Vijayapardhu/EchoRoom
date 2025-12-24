@@ -104,14 +104,6 @@ const Room = () => {
                 }
             }
 
-            // Wait for local stream to be ready
-            if (!localStream) {
-                console.warn("Local stream not ready yet, waiting...");
-                // Retry after a short delay
-                setTimeout(() => handleIsInitiator(isInitiator), 500);
-                return;
-            }
-
             const handleIceCandidate = (candidate) => {
                 socket.emit('ice-candidate', { roomId, candidate });
             };
