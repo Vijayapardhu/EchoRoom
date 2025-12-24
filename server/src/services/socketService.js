@@ -1,6 +1,7 @@
 const matchingService = require('./matchingService');
 const safetyService = require('./safetyService');
 
+const roomsWithInitiator = new Set();
 const socketService = (io) => {
     io.on('connection', async (socket) => {
         const clientIp = socket.handshake.address;
@@ -51,15 +52,23 @@ const socketService = (io) => {
 
             const room = io.sockets.adapter.rooms.get(roomId);
             if (room && room.size === 2) {
-                const clients = Array.from(room);
-                console.log(`Room ${roomId} full. Starting WebRTC handshake.`);
+                // Only emit is-initiator if not already done for this room
+                if (!roomsWithInitiator.has(roomId)) {
+                    const clients = Array.from(room);
+                    console.log(`Room ${roomId} full. Starting WebRTC handshake.`);
 
-                // Deterministically pick initiator
-                const initiator = clients[0];
-                const receiver = clients[1];
+                    // Deterministically pick initiator
+                    const initiator = clients[0];
+                    const receiver = clients[1];
 
-                io.to(initiator).emit('is-initiator', true);
-                io.to(receiver).emit('is-initiator', false);
+                    io.to(initiator).emit('is-initiator', true);
+                    io.to(receiver).emit('is-initiator', false);
+
+                    // Mark this room as having assigned initiators
+                    roomsWithInitiator.add(roomId);
+                } else {
+                    console.log(`Room ${roomId} already has initiators, skipping`);
+                }
             }
         });
 
@@ -139,6 +148,15 @@ const socketService = (io) => {
         socket.on('disconnect', async () => {
             console.log('User disconnected:', socket.id);
             await matchingService.removeUserFromQueue(socket.id);
+            // Cleanup initiator tracking for rooms that are now empty
+            for (const room of socket.rooms) {
+                if (room !== socket.id) {
+                    const roomObj = io.sockets.adapter.rooms.get(room);
+                    if (!roomObj || roomObj.size === 0) {
+                        roomsWithInitiator.delete(room);
+                    }
+                }
+            }
             updateActiveUsers();
         });
     });
