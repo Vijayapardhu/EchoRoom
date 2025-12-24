@@ -31,6 +31,29 @@ export const WebRTCProvider = ({ children }) => {
             return stream;
         } catch (error) {
             console.error('Error accessing media devices:', error);
+
+            // Provide specific error messages based on error type
+            let errorMessage = 'Failed to access camera/microphone';
+            let errorType = 'unknown';
+
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                errorMessage = 'Camera and microphone access denied. Please allow permissions.';
+                errorType = 'permission';
+            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                errorMessage = 'No camera or microphone found. Please connect a device.';
+                errorType = 'notfound';
+            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                errorMessage = 'Camera/microphone is already in use by another application.';
+                errorType = 'inuse';
+            } else if (error.name === 'OverconstrainedError') {
+                errorMessage = 'Camera/microphone does not meet requirements.';
+                errorType = 'constraints';
+            } else if (error.name === 'TypeError') {
+                errorMessage = 'Invalid media constraints.';
+                errorType = 'type';
+            }
+
+            throw { ...error, message: errorMessage, type: errorType };
         }
     }, []);
 

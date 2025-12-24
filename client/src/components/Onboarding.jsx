@@ -18,6 +18,7 @@ const Onboarding = () => {
     const [groupMode, setGroupMode] = useState('double'); // double | group
 
     const availableInterests = ['Tech', 'Music', 'Gaming', 'Art', 'Movies', 'Travel', 'Food', 'Science'];
+    const trendingInterests = ['Gaming', 'Music', 'Tech']; // 🔥 Trending topics
 
     const toggleInterest = (interest) => {
         if (interests.includes(interest)) {
@@ -81,21 +82,39 @@ const Onboarding = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                            {availableInterests.map((interest) => (
-                                <button
-                                    key={interest}
-                                    onClick={() => toggleInterest(interest)}
-                                    className={`p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group ${interests.includes(interest)
-                                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
-                                        : 'border-white/10 bg-white/5 text-neutral-400 hover:border-white/20 hover:bg-white/10'
-                                        }`}
-                                >
-                                    <span className="relative z-10 font-medium tracking-wide">{interest}</span>
-                                    {interests.includes(interest) && (
-                                        <motion.div layoutId="activeGlow" className="absolute inset-0 bg-cyan-500/5" />
-                                    )}
-                                </button>
-                            ))}
+                            {availableInterests.map((interest) => {
+                                const isTrending = trendingInterests.includes(interest);
+                                const isSelected = interests.includes(interest);
+                                return (
+                                    <button
+                                        key={interest}
+                                        onClick={() => toggleInterest(interest)}
+                                        className={`p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group ${isSelected
+                                                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+                                                : isTrending
+                                                    ? 'border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 text-white hover:border-yellow-500/50 hover:shadow-[0_0_15px_rgba(234,179,8,0.2)]'
+                                                    : 'border-white/10 bg-white/5 text-neutral-400 hover:border-white/20 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between relative z-10">
+                                            <span className="font-medium tracking-wide">{interest}</span>
+                                            {isTrending && !isSelected && (
+                                                <span className="text-sm">🔥</span>
+                                            )}
+                                        </div>
+                                        {isTrending && !isSelected && (
+                                            <div className="absolute top-1 right-1">
+                                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-black rounded-full shadow-lg">
+                                                    HOT
+                                                </span>
+                                            </div>
+                                        )}
+                                        {isSelected && (
+                                            <motion.div layoutId="activeGlow" className="absolute inset-0 bg-cyan-500/5" />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {/* Custom Interest Input */}

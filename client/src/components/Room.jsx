@@ -10,6 +10,7 @@ import ReportModal from './safety/ReportModal';
 import Chat from './Chat';
 import ConnectionIndicator from './ConnectionIndicator';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
+import PermissionError from './PermissionError';
 
 const Room = () => {
     const { roomId } = useParams();
@@ -29,6 +30,8 @@ const Room = () => {
     const [showNextConfirm, setShowNextConfirm] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
+    const [permissionError, setPermissionError] = useState(null);
+    const [isNextDisabled, setIsNextDisabled] = useState(false);
 
     const preferences = location.state || {};
 
@@ -37,9 +40,16 @@ const Room = () => {
         const initMedia = async () => {
             try {
                 await startLocalStream();
+                setPermissionError(null); // Clear any previous errors
             } catch (err) {
                 console.error("Failed to start local stream:", err);
-                toast.error("Camera/Mic access denied");
+
+                // Show permission error UI for permission-related errors
+                if (err.type === 'permission') {
+                    setPermissionError(err);
+                } else {
+                    toast.error(err.message || "Failed to access camera/microphone");
+                }
             }
         };
         initMedia();
@@ -98,14 +108,19 @@ const Room = () => {
         const handleOffer = async ({ offer, sender }) => {
             console.log("Received offer from:", sender);
 
-            const handleIceCandidate = (candidate) => {
-                socket.emit('ice-candidate', { roomId, candidate });
-            };
+            // Reuse existing peer connection if available, otherwise create new one
+            let pc = peerConnection.current;
 
-            const pc = createPeerConnection(handleIceCandidate);
+            if (!pc) {
+                const handleIceCandidate = (candidate) => {
+                    socket.emit('ice-candidate', { roomId, candidate });
+                };
+                pc = createPeerConnection(handleIceCandidate);
+            }
 
-            if (pc.signalingState !== 'stable') {
-                console.warn("Signaling state not stable, ignoring offer");
+            // Check signaling state before processing offer
+            if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
+                console.warn("Invalid signaling state for offer:", pc.signalingState);
                 return;
             }
 
