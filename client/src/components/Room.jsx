@@ -123,6 +123,16 @@ const Room = () => {
                 }
             }
 
+            // Wait for local stream to be ready
+            if (!localStream) {
+                console.log("Waiting for local stream before creating peer connection...");
+                // Wait a bit and retry
+                setTimeout(() => handleIsInitiator(isInitiator), 200);
+                return;
+            }
+
+            console.log("Local stream ready, proceeding with peer connection");
+
             const handleIceCandidate = (candidate) => {
                 socket.emit('ice-candidate', { roomId, candidate });
             };
