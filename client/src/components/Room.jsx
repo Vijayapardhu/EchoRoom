@@ -147,6 +147,8 @@ const Room = () => {
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const initiatorHandledRef = useRef(false);
+    const localStreamReadyRef = useRef(false);
+    const pendingInitiatorRoleRef = useRef(null);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -188,6 +190,20 @@ const Room = () => {
         initMedia();
         return () => cleanup();
     }, []);
+
+    useEffect(() => {
+        if (localStream) {
+            localStreamReadyRef.current = true;
+            
+            // Handle pending initiator role if we received it before stream was ready
+            if (pendingInitiatorRoleRef.current !== null) {
+                const role = pendingInitiatorRoleRef.current;
+                pendingInitiatorRoleRef.current = null;
+                console.log('[Room] Processing pending initiator role:', role);
+                processInitiatorRole(role);
+            }
+        }
+    }, [localStream]);
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -263,8 +279,8 @@ const Room = () => {
             setGroupPeers(prev => prev.filter(p => p.peerId !== peerId));
         };
 
-        const handleIsInitiator = async (isInitiator) => {
-            console.log('[Room] Received is-initiator:', isInitiator, 'localStream:', !!localStream, 'handled:', initiatorHandledRef.current);
+        const processInitiatorRole = async (isInitiator) => {
+            console.log('[Room] Processing initiator role:', isInitiator);
             
             if (isGroupCall) {
                 console.log('[Room] Skipping - group call mode');
@@ -275,9 +291,10 @@ const Room = () => {
                 return;
             }
             
-            if (!localStream) {
-                console.log('[Room] Waiting for local stream...');
-                setTimeout(() => handleIsInitiator(isInitiator), 200);
+            // Double-check local stream is available
+            if (!localStreamReadyRef.current || !localStream) {
+                console.log('[Room] Local stream not ready, re-queueing...');
+                pendingInitiatorRoleRef.current = isInitiator;
                 return;
             }
 
@@ -304,6 +321,18 @@ const Room = () => {
             } else {
                 console.log('[Room] I am receiver, waiting for offer...');
             }
+        };
+
+        const handleIsInitiator = (isInitiator) => {
+            console.log('[Room] Received is-initiator:', isInitiator, 'localStreamReady:', localStreamReadyRef.current, 'handled:', initiatorHandledRef.current);
+            
+            if (!localStreamReadyRef.current) {
+                console.log('[Room] Storing initiator role for later processing');
+                pendingInitiatorRoleRef.current = isInitiator;
+                return;
+            }
+            
+            processInitiatorRole(isInitiator);
         };
 
         const handleOfferReceived = async ({ offer, sender }) => {
