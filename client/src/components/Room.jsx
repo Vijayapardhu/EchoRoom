@@ -26,17 +26,12 @@ import {
     Info,
     Smiley,
     Heart,
-    Fire,
     Lightning,
-    HandsClapping,
     Star,
-    Crosshair,
+    Fire,
+    HandsClapping,
     Users,
-    Scan,
-    CornersOut,
-    CornersIn,
-    ArrowsOutSimple,
-    ArrowsInSimple
+    ArrowLeft
 } from '@phosphor-icons/react';
 import Chat from './Chat';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
@@ -45,8 +40,8 @@ import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
 const ConnectionQuality = ({ stats }) => {
     const getQuality = () => {
         if (!stats || stats.rtt === 0) return { icon: WifiSlash, color: 'text-red-400', label: 'Disconnected' };
-        if (stats.rtt < 50) return { icon: WifiHigh, color: 'text-cyan-400', label: 'Excellent' };
-        if (stats.rtt < 100) return { icon: WifiHigh, color: 'text-green-400', label: 'Good' };
+        if (stats.rtt < 50) return { icon: WifiHigh, color: 'text-emerald-400', label: 'Excellent' };
+        if (stats.rtt < 100) return { icon: WifiHigh, color: 'text-blue-400', label: 'Good' };
         if (stats.rtt < 200) return { icon: WifiMedium, color: 'text-yellow-400', label: 'Fair' };
         return { icon: WifiLow, color: 'text-orange-400', label: 'Poor' };
     };
@@ -55,23 +50,22 @@ const ConnectionQuality = ({ stats }) => {
     const Icon = quality.icon;
 
     return (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-white/10">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/10">
             <Icon weight="fill" className={`w-4 h-4 ${quality.color}`} />
-            <span className="text-xs text-white/60 uppercase tracking-wider">{quality.label}</span>
+            <span className="text-xs text-white/60">{quality.label}</span>
             {stats?.rtt > 0 && (
-                <span className="text-xs text-white/30 font-mono">{stats.rtt}ms</span>
+                <span className="text-xs text-white/40 font-mono">{stats.rtt}ms</span>
             )}
         </div>
     );
 };
 
-// Neon button component
-const ControlButton = ({ onClick, active, activeIcon, inactiveIcon, color = 'cyan', label }) => {
-    const colors = {
-        cyan: 'border-cyan-400 text-cyan-400 bg-cyan-400/10 shadow-[0_0_15px_rgba(0,243,255,0.3)]',
-        red: 'border-red-400 text-red-400 bg-red-400/10 shadow-[0_0_15px_rgba(239,68,68,0.3)]',
-        purple: 'border-purple-400 text-purple-400 bg-purple-400/10 shadow-[0_0_15px_rgba(168,85,247,0.3)]',
-        white: 'border-white/30 text-white hover:border-white/60'
+// Control button component
+const ControlButton = ({ onClick, active, activeIcon, inactiveIcon, color = 'default', label }) => {
+    const colorStyles = {
+        default: active ? 'bg-white/20 text-white' : 'bg-white/10 text-white hover:bg-white/20',
+        danger: 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30',
+        success: 'bg-emerald-500 text-white'
     };
 
     return (
@@ -80,23 +74,20 @@ const ControlButton = ({ onClick, active, activeIcon, inactiveIcon, color = 'cya
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className={`
-                p-4 border transition-all duration-300 relative overflow-hidden group
-                ${active ? colors[color] : colors.white}
+                p-4 rounded-2xl transition-all duration-300 flex flex-col items-center gap-1
+                ${color === 'danger' || color === 'success' ? colorStyles[color] : colorStyles.default}
             `}
-            style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
         >
-            {active && color !== 'white' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-            )}
             {React.cloneElement(active ? activeIcon : inactiveIcon, { 
                 weight: 'fill',
-                className: 'w-6 h-6 relative z-10' 
+                className: 'w-6 h-6' 
             })}
+            {label && <span className="text-[10px] font-medium opacity-70">{label}</span>}
         </motion.button>
     );
 };
 
-// Floating reaction
+// Floating reaction animation
 const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
     useEffect(() => {
         const timer = setTimeout(onComplete, 2000);
@@ -105,10 +96,10 @@ const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
 
     const colorClasses = {
         red: 'text-red-400',
-        cyan: 'text-cyan-400',
         yellow: 'text-yellow-400',
         orange: 'text-orange-400',
-        purple: 'text-purple-400'
+        purple: 'text-purple-400',
+        blue: 'text-blue-400'
     };
 
     return (
@@ -144,10 +135,7 @@ const Room = () => {
         addIceCandidate,
         addIceCandidateForPeer,
         removePeerConnection,
-        closeConnection,
         cleanup,
-        peerConnection,
-        peerConnections,
         toggleScreenShare,
         toggleVideo,
         toggleAudio,
@@ -162,30 +150,20 @@ const Room = () => {
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
-    const [isReconnecting, setIsReconnecting] = useState(false);
     const [userName, setUserName] = useState(() => localStorage.getItem('echoroom_username') || '');
     const [showNameModal, setShowNameModal] = useState(false);
     const [tempName, setTempName] = useState('');
     const [isGroupCall, setIsGroupCall] = useState(false);
     const [groupPeers, setGroupPeers] = useState([]);
     
-    // Reactions
     const [showReactions, setShowReactions] = useState(false);
     const [floatingReactions, setFloatingReactions] = useState([]);
     const [remoteReaction, setRemoteReaction] = useState(null);
-    
-    // Video display modes for cross-device compatibility (mobile/desktop)
-    const [videoFitMode, setVideoFitMode] = useState('contain'); // 'contain' = fit center, 'cover' = fill
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const [remoteAspectRatio, setRemoteAspectRatio] = useState(null); // 'portrait', 'landscape', or null
-    const remoteVideoContainerRef = useRef(null);
-
-    const preferences = location.state || {};
 
     const reactions = [
         { icon: Heart, color: 'red', name: 'heart' },
-        { icon: Lightning, color: 'cyan', name: 'lightning' },
-        { icon: Star, color: 'yellow', name: 'star' },
+        { icon: Lightning, color: 'yellow', name: 'lightning' },
+        { icon: Star, color: 'blue', name: 'star' },
         { icon: Fire, color: 'orange', name: 'fire' },
         { icon: HandsClapping, color: 'purple', name: 'clap' },
     ];
@@ -203,7 +181,7 @@ const Room = () => {
                 await startLocalStream();
             } catch (err) {
                 console.error('Failed to start local stream:', err);
-                toast.error('Camera access required');
+                toast.error('Please allow camera access');
             }
         };
         initMedia();
@@ -219,77 +197,8 @@ const Room = () => {
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
-            
-            // Detect aspect ratio when video metadata loads
-            const handleLoadedMetadata = () => {
-                const video = remoteVideoRef.current;
-                if (video) {
-                    const aspectRatio = video.videoWidth / video.videoHeight;
-                    // Portrait (mobile) is typically < 1, Landscape (desktop) is > 1
-                    if (aspectRatio < 1) {
-                        setRemoteAspectRatio('portrait');
-                        setVideoFitMode('contain'); // Default to fit-center for portrait videos
-                    } else {
-                        setRemoteAspectRatio('landscape');
-                        setVideoFitMode('cover'); // Default to fill for landscape videos
-                    }
-                    console.log('[Room] Remote video aspect ratio:', aspectRatio.toFixed(2), aspectRatio < 1 ? 'portrait' : 'landscape');
-                }
-            };
-            
-            remoteVideoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
-            
-            return () => {
-                if (remoteVideoRef.current) {
-                    remoteVideoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
-                }
-            };
         }
     }, [remoteStream]);
-    
-    // Handle fullscreen changes
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
-        };
-        
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-        
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-        };
-    }, []);
-    
-    // Toggle fullscreen mode
-    const toggleFullscreen = useCallback(async () => {
-        try {
-            if (!document.fullscreenElement) {
-                const element = remoteVideoContainerRef.current;
-                if (element) {
-                    if (element.requestFullscreen) {
-                        await element.requestFullscreen();
-                    } else if (element.webkitRequestFullscreen) {
-                        await element.webkitRequestFullscreen();
-                    }
-                }
-            } else {
-                if (document.exitFullscreen) {
-                    await document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    await document.webkitExitFullscreen();
-                }
-            }
-        } catch (err) {
-            console.error('[Room] Fullscreen error:', err);
-        }
-    }, []);
-    
-    // Toggle video fit mode (contain/cover)
-    const toggleVideoFitMode = useCallback(() => {
-        setVideoFitMode(prev => prev === 'contain' ? 'cover' : 'contain');
-    }, []);
 
     useEffect(() => {
         if (!socket || !roomId) return;
@@ -325,7 +234,7 @@ const Room = () => {
         };
 
         const handlePeerJoined = async ({ peerId }) => {
-            toast.success('New node connected');
+            toast.success('Someone joined the room');
             playJoinSound();
             const onIceCandidate = (candidate, targetPeerId) => {
                 socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
@@ -341,7 +250,7 @@ const Room = () => {
         };
 
         const handlePeerLeft = ({ peerId }) => {
-            toast('Node disconnected', { icon: <Info weight="fill" className="w-5 h-5" /> });
+            toast('Someone left', { icon: <Info weight="fill" className="w-5 h-5" /> });
             playLeaveSound();
             removePeerConnection(peerId);
             setGroupPeers(prev => prev.filter(p => p.peerId !== peerId));
@@ -484,32 +393,24 @@ const Room = () => {
 
     const handleShareRoom = useCallback(() => {
         navigator.clipboard.writeText(window.location.href);
-        toast.success('Link copied', { icon: <CheckCircle weight="fill" className="w-5 h-5 text-cyan-400" /> });
+        toast.success('Link copied!', { icon: <CheckCircle weight="fill" className="w-5 h-5 text-emerald-400" /> });
     }, []);
 
     return (
-        <div className="relative flex flex-col h-screen w-screen bg-black text-white overflow-hidden">
-            {/* Background Grid */}
-            <div 
-                className="absolute inset-0 pointer-events-none opacity-10"
-                style={{
-                    backgroundImage: `linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px)`,
-                    backgroundSize: '60px 60px'
-                }}
-            />
-
+        <div className="relative flex flex-col h-screen w-screen bg-slate-950 text-white overflow-hidden">
             {/* Header */}
-            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-md border-b border-white/10">
+            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-md border-b border-white/5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 flex items-center justify-center border border-cyan-400/50 bg-cyan-400/10">
-                        <Crosshair weight="fill" className="w-5 h-5 text-cyan-400" />
-                    </div>
+                    <button 
+                        onClick={() => setShowExitConfirm(true)}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                    >
+                        <ArrowLeft weight="bold" className="w-5 h-5" />
+                    </button>
                     <div>
-                        <h1 className="text-lg font-black tracking-widest uppercase text-white">
-                            Echo<span className="text-cyan-400">Room</span>
-                        </h1>
-                        <div className="flex items-center gap-2 text-xs text-white/40 uppercase tracking-wider">
-                            {isGroupCall ? <><Users weight="fill" className="w-3 h-3" /> Multi-Node</> : <><Scan weight="fill" className="w-3 h-3" /> Direct Link</>}
+                        <h1 className="text-lg font-bold">EchoRoom</h1>
+                        <div className="flex items-center gap-2 text-xs text-white/40">
+                            {isGroupCall ? <><Users weight="fill" className="w-3 h-3" /> Group</> : 'Private Room'}
                         </div>
                     </div>
                 </div>
@@ -521,25 +422,14 @@ const Room = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleShareRoom}
-                        className="p-2 border border-white/10 hover:border-purple-400/50 hover:bg-purple-400/10 transition-all"
-                        style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
                     >
-                        <ShareNetwork weight="fill" className="w-5 h-5 text-purple-400" />
-                    </motion.button>
-
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowExitConfirm(true)}
-                        className="px-4 py-2 border border-red-400/50 bg-red-400/10 text-red-400 font-bold text-xs uppercase tracking-wider hover:bg-red-400/20 transition-all"
-                        style={{ clipPath: 'polygon(10% 0, 100% 0, 90% 100%, 0% 100%)' }}
-                    >
-                        Terminate
+                        <ShareNetwork weight="fill" className="w-5 h-5 text-blue-400" />
                     </motion.button>
                 </div>
             </header>
 
-            {/* Main Video Area */}
+            {/* Video Area */}
             <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
                 {/* Local Video */}
                 <motion.div 
@@ -548,8 +438,7 @@ const Room = () => {
                     drag
                     dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
                     dragElastic={0.1}
-                    className="absolute bottom-24 right-4 z-30 w-32 h-40 md:w-40 md:h-52 bg-black border border-white/20 overflow-hidden"
-                    style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px))' }}
+                    className="absolute bottom-24 right-4 z-30 w-36 h-48 md:w-44 md:h-56 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move"
                 >
                     <video
                         ref={localVideoRef}
@@ -559,28 +448,18 @@ const Room = () => {
                         className="w-full h-full object-cover"
                         style={{ transform: 'scaleX(-1)' }}
                     />
-                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-mono text-white/80 uppercase">
-                                {userName || 'You'}
-                            </span>
-                            <button 
-                                onClick={() => { setTempName(userName); setShowNameModal(true); }}
-                                className="p-1 hover:bg-white/20 transition-colors"
-                            >
-                                <UserPlus weight="fill" className="w-3 h-3" />
-                            </button>
-                        </div>
+                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                        <span className="text-xs font-medium text-white">{userName || 'You'}</span>
                     </div>
                     <div className="absolute top-2 left-2 flex gap-1">
                         {isMuted && (
-                            <div className="p-1 bg-red-400/80">
-                                <MicrophoneSlash weight="fill" className="w-3 h-3 text-black" />
+                            <div className="p-1 rounded-lg bg-red-500/80">
+                                <MicrophoneSlash weight="fill" className="w-3 h-3 text-white" />
                             </div>
                         )}
                         {isVideoOff && (
-                            <div className="p-1 bg-red-400/80">
-                                <VideoCameraSlash weight="fill" className="w-3 h-3 text-black" />
+                            <div className="p-1 rounded-lg bg-red-500/80">
+                                <VideoCameraSlash weight="fill" className="w-3 h-3 text-white" />
                             </div>
                         )}
                     </div>
@@ -597,8 +476,7 @@ const Room = () => {
                                         initial={{ opacity: 0, scale: 0.9 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.9 }}
-                                        className="relative bg-neutral-900/50 border border-white/10 overflow-hidden"
-                                        style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))' }}
+                                        className="relative rounded-2xl overflow-hidden bg-neutral-900/50 border border-white/10"
                                     >
                                         <video
                                             ref={el => { if (el && stream) { el.srcObject = stream; el.play().catch(() => {}); }}}
@@ -607,22 +485,19 @@ const Room = () => {
                                             className="w-full h-full object-cover"
                                         />
                                         <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                                            <span className="text-xs font-mono text-white/80">Node {peerId.slice(0, 6)}</span>
+                                            <span className="text-xs text-white/80">User {peerId.slice(0, 6)}</span>
                                         </div>
                                     </motion.div>
                                 ))
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-white/30">
-                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-cyan-400" />
-                                    <p className="text-lg font-mono uppercase tracking-widest">Awaiting nodes...</p>
+                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-blue-400" />
+                                    <p className="text-lg">Waiting for others...</p>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div 
-                            className="relative h-full bg-neutral-900/50 border border-white/10 overflow-hidden"
-                            style={{ clipPath: 'polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 30px 100%, 0 calc(100% - 30px))' }}
-                        >
+                        <div className="relative rounded-2xl overflow-hidden bg-neutral-900/50 border border-white/10 h-full">
                             {remoteStream ? (
                                 <>
                                     <video
@@ -641,7 +516,7 @@ const Room = () => {
                                             {reactions.find(r => r.name === remoteReaction)?.icon && 
                                                 React.createElement(reactions.find(r => r.name === remoteReaction).icon, {
                                                     weight: 'fill',
-                                                    className: `w-20 h-20 text-${reactions.find(r => r.name === remoteReaction).color}-400`
+                                                    className: `w-20 h-20`
                                                 })
                                             }
                                         </motion.div>
@@ -649,8 +524,8 @@ const Room = () => {
                                 </>
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-white/30">
-                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-cyan-400" />
-                                    <p className="text-lg font-mono uppercase tracking-widest">Establishing link...</p>
+                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-blue-400" />
+                                    <p className="text-lg">Connecting...</p>
                                 </div>
                             )}
                         </div>
@@ -662,14 +537,14 @@ const Room = () => {
             <motion.div 
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="relative z-20 flex items-center justify-center gap-4 p-4 bg-black/80 backdrop-blur-md border-t border-white/10"
+                className="relative z-20 flex items-center justify-center gap-3 p-4 bg-black/40 backdrop-blur-md border-t border-white/5"
             >
                 <ControlButton
                     onClick={handleToggleMute}
                     active={isMuted}
                     activeIcon={<MicrophoneSlash />}
                     inactiveIcon={<Microphone />}
-                    color={isMuted ? 'red' : 'white'}
+                    label={isMuted ? 'Unmute' : 'Mute'}
                 />
 
                 <ControlButton
@@ -677,7 +552,7 @@ const Room = () => {
                     active={isVideoOff}
                     activeIcon={<VideoCameraSlash />}
                     inactiveIcon={<VideoCamera />}
-                    color={isVideoOff ? 'red' : 'white'}
+                    label={isVideoOff ? 'Start' : 'Stop'}
                 />
 
                 <ControlButton
@@ -685,7 +560,7 @@ const Room = () => {
                     active={isScreenSharing}
                     activeIcon={<Monitor />}
                     inactiveIcon={<Monitor />}
-                    color={isScreenSharing ? 'cyan' : 'white'}
+                    label="Screen"
                 />
 
                 <ControlButton
@@ -693,7 +568,7 @@ const Room = () => {
                     active={isChatOpen}
                     activeIcon={<ChatCircle />}
                     inactiveIcon={<ChatCircle />}
-                    color={isChatOpen ? 'purple' : 'white'}
+                    label="Chat"
                 />
 
                 {/* Reactions */}
@@ -703,7 +578,7 @@ const Room = () => {
                         active={showReactions}
                         activeIcon={<Smiley />}
                         inactiveIcon={<Smiley />}
-                        color="white"
+                        label="React"
                     />
                     
                     <AnimatePresence>
@@ -712,7 +587,7 @@ const Room = () => {
                                 initial={{ opacity: 0, y: 10, scale: 0.9 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 flex gap-2 p-3 bg-black/90 border border-white/20"
+                                className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 flex gap-2 p-3 bg-black/90 backdrop-blur-xl rounded-2xl border border-white/10"
                             >
                                 {reactions.map(reaction => (
                                     <motion.button
@@ -720,10 +595,9 @@ const Room = () => {
                                         whileHover={{ scale: 1.2 }}
                                         whileTap={{ scale: 0.9 }}
                                         onClick={() => sendReaction(reaction)}
-                                        className="p-2 border border-white/10 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all"
-                                        style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                                        className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
                                     >
-                                        <reaction.icon weight="fill" className={`w-6 h-6 text-${reaction.color}-400`} />
+                                        <reaction.icon weight="fill" className={`w-6 h-6`} />
                                     </motion.button>
                                 ))}
                             </motion.div>
@@ -732,65 +606,17 @@ const Room = () => {
                 </div>
 
                 {/* End Call */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                <ControlButton
                     onClick={() => setShowExitConfirm(true)}
-                    className="p-4 border-2 border-red-400 bg-red-400/10 text-red-400 hover:bg-red-400 hover:text-black transition-all"
-                    style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-                >
-                    <PhoneDisconnect weight="fill" className="w-6 h-6" />
-                </motion.button>
+                    active={true}
+                    activeIcon={<PhoneDisconnect />}
+                    inactiveIcon={<PhoneDisconnect />}
+                    color="danger"
+                    label="End"
+                />
             </motion.div>
 
-            {/* Name Modal */}
-            <AnimatePresence>
-                {showNameModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
-                    >
-                        <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            className="bg-black border border-white/20 p-6 max-w-sm w-full"
-                            style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))' }}
-                        >
-                            <h3 className="text-xl font-black text-white mb-4 uppercase tracking-widest">Set Identifier</h3>
-                            <input
-                                type="text"
-                                value={tempName}
-                                onChange={(e) => setTempName(e.target.value)}
-                                placeholder="Enter callsign..."
-                                maxLength={20}
-                                className="w-full bg-white/5 border border-white/20 px-4 py-3 text-white uppercase tracking-wider text-sm placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50 mb-4"
-                                style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
-                                autoFocus
-                                onKeyDown={(e) => { if (e.key === 'Enter') { setUserName(tempName); localStorage.setItem('echoroom_username', tempName); setShowNameModal(false); }}}
-                            />
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowNameModal(false)}
-                                    className="flex-1 py-3 border border-white/20 text-white hover:bg-white/5 transition-all uppercase text-xs font-bold tracking-widest"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => { setUserName(tempName); localStorage.setItem('echoroom_username', tempName); setShowNameModal(false); }}
-                                    className="flex-1 py-3 border-2 border-cyan-400 bg-cyan-400/10 text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all uppercase text-xs font-bold tracking-widest"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Exit Confirmation */}
+            {/* Exit Confirmation Modal */}
             <AnimatePresence>
                 {showExitConfirm && (
                     <motion.div
@@ -800,26 +626,25 @@ const Room = () => {
                         className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
                     >
                         <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
+                            initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            className="bg-black border border-white/20 p-6 max-w-sm w-full"
-                            style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))' }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-slate-900 border border-white/10 rounded-3xl p-6 max-w-sm w-full"
                         >
-                            <h3 className="text-xl font-black text-white mb-2 uppercase tracking-widest">Terminate Connection?</h3>
-                            <p className="text-white/40 text-sm mb-6 uppercase tracking-wider">This will end the current session</p>
+                            <h3 className="text-xl font-bold text-white mb-2">Leave Room?</h3>
+                            <p className="text-white/50 mb-6">Are you sure you want to end this call?</p>
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setShowExitConfirm(false)}
-                                    className="flex-1 py-3 border border-white/20 text-white hover:bg-white/5 transition-all uppercase text-xs font-bold tracking-widest"
+                                    className="flex-1 py-3 rounded-xl bg-white/5 text-white font-medium hover:bg-white/10 transition-colors"
                                 >
                                     Stay
                                 </button>
                                 <button
                                     onClick={handleLeaveRoom}
-                                    className="flex-1 py-3 border-2 border-red-400 bg-red-400/10 text-red-400 hover:bg-red-400 hover:text-black transition-all uppercase text-xs font-bold tracking-widest"
+                                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
                                 >
-                                    Terminate
+                                    Leave
                                 </button>
                             </div>
                         </motion.div>
@@ -843,18 +668,7 @@ const Room = () => {
             </AnimatePresence>
 
             {/* Toast */}
-            <Toaster 
-                position="top-center"
-                toastOptions={{
-                    style: {
-                        background: 'rgba(0, 0, 0, 0.9)',
-                        backdropFilter: 'blur(10px)',
-                        color: '#fff',
-                        border: '1px solid rgba(0, 243, 255, 0.3)',
-                        borderRadius: '0',
-                    },
-                }}
-            />
+            <Toaster position="top-center" />
         </div>
     );
 };

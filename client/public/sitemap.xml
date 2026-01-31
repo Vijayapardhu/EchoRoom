@@ -2,41 +2,75 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
   
-  <!-- Homepage - Highest Priority -->
+  <!-- Homepage - Highest Priority - Main Landing Page -->
   <url>
     <loc>https://echoroom.online/</loc>
     <lastmod>2026-01-31</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://echoroom.online/"/>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="https://echoroom.online/"/>
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://echoroom.online/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://echoroom.online/"/>
     <image:image>
       <image:loc>https://echoroom.online/og-image.png</image:loc>
-      <image:title>EchoRoom - Free Anonymous Video Chat</image:title>
-      <image:caption>Connect with strangers worldwide through instant video chat</image:caption>
+      <image:title>EchoRoom - #1 Free Random Video Chat with Strangers Online</image:title>
+      <image:caption>Meet strangers instantly with EchoRoom. Free anonymous video chat platform - the best Omegle alternative in 2026. No registration required.</image:caption>
+      <image:geo_location>Worldwide</image:geo_location>
     </image:image>
+    <video:video>
+      <video:thumbnail_loc>https://echoroom.online/og-image.png</video:thumbnail_loc>
+      <video:title>EchoRoom - Free Random Video Chat Demo</video:title>
+      <video:description>See how EchoRoom connects you with random strangers for free video chat. HD quality, instant matching, no registration required.</video:description>
+      <video:content_loc>https://echoroom.online/room</video:content_loc>
+      <video:duration>300</video:duration>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:live>no</video:live>
+    </video:video>
   </url>
   
-  <!-- Onboarding Page -->
+  <!-- Onboarding Page - Start Chatting Entry Point -->
   <url>
     <loc>https://echoroom.online/onboarding</loc>
     <lastmod>2026-01-31</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://echoroom.online/og-image.png</image:loc>
+      <image:title>Start Video Chat - EchoRoom Onboarding</image:title>
+      <image:caption>Set up your camera and microphone to start random video chatting with strangers</image:caption>
+    </image:image>
   </url>
   
-  <!-- Video Chat Room -->
+  <!-- Video Chat Room - Main Feature Page -->
   <url>
     <loc>https://echoroom.online/room</loc>
+    <lastmod>2026-01-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://echoroom.online/og-image.png</image:loc>
+      <image:title>Random Video Chat Room - EchoRoom</image:title>
+      <image:caption>Live video chat room to connect with random strangers worldwide</image:caption>
+    </image:image>
+  </url>
+  
+  <!-- Matching Page - Finding Strangers -->
+  <url>
+    <loc>https://echoroom.online/room/matching</loc>
     <lastmod>2026-01-31</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   
-  <!-- Matching Page -->
+  <!-- Post Chat - After Conversation -->
   <url>
-    <loc>https://echoroom.online/room/matching</loc>
+    <loc>https://echoroom.online/room/post-chat</loc>
     <lastmod>2026-01-31</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>

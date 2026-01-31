@@ -8,9 +8,13 @@ const pendingMatches = new Map(); // Track users waiting for matches
 // Rate limiting and connection tracking for scalability
 const connectionRateLimit = new Map(); // IP -> { count, lastReset }
 const activeConnections = new Map(); // socketId -> { ip, connectedAt, roomId }
+const roomConnectionStates = new Map(); // roomId -> { socketId -> connectionState }
+const iceCandidateBuffer = new Map(); // roomId-peerId -> [candidates] for buffering before offer/answer
+
 const MAX_CONNECTIONS_PER_IP = 5;
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
 const MAX_PENDING_MATCHES = 10000;
+const ICE_BUFFER_TIMEOUT = 30000; // 30 seconds to buffer ICE candidates
 
 // Cleanup stale data periodically
 const cleanupInterval = 60000; // 1 minute
@@ -242,14 +246,38 @@ const socketService = (io) => {
             console.log(`User ${socket.id} leaving room ${roomId}`);
             socket.leave(roomId);
             socket.to(roomId).emit('peer-disconnected');
+            
+            // Clean up room state
+            if (roomConnectionStates.has(roomId)) {
+                roomConnectionStates.get(roomId).delete(socket.id);
+                if (roomConnectionStates.get(roomId).size === 0) {
+                    roomConnectionStates.delete(roomId);
+                }
+            }
+            
+            // Clean up ICE candidate buffer
+            const bufferKey = `${roomId}-${socket.id}`;
+            iceCandidateBuffer.delete(bufferKey);
         });
 
-        // Handle WebRTC Signaling (supports both 1-on-1 and group)
+        // Handle WebRTC Signaling with enhanced reliability
         socket.on('offer', (data) => {
             const { roomId, offer, targetPeerId } = data;
+            console.log(`[WebRTC] Offer from ${socket.id} to ${targetPeerId || 'room'}`);
+            
             if (targetPeerId) {
                 // Group call - send to specific peer
                 io.to(targetPeerId).emit('offer', { offer, sender: socket.id });
+                
+                // Send any buffered ICE candidates
+                const bufferKey = `${roomId}-${socket.id}-${targetPeerId}`;
+                if (iceCandidateBuffer.has(bufferKey)) {
+                    const candidates = iceCandidateBuffer.get(bufferKey);
+                    candidates.forEach(candidate => {
+                        io.to(targetPeerId).emit('ice-candidate', { candidate, sender: socket.id });
+                    });
+                    iceCandidateBuffer.delete(bufferKey);
+                }
             } else {
                 // 1-on-1 - broadcast to room
                 socket.to(roomId).emit('offer', { offer, sender: socket.id });
@@ -258,6 +286,8 @@ const socketService = (io) => {
 
         socket.on('answer', (data) => {
             const { roomId, answer, targetPeerId } = data;
+            console.log(`[WebRTC] Answer from ${socket.id} to ${targetPeerId || 'room'}`);
+            
             if (targetPeerId) {
                 io.to(targetPeerId).emit('answer', { answer, sender: socket.id });
             } else {
@@ -267,10 +297,55 @@ const socketService = (io) => {
 
         socket.on('ice-candidate', (data) => {
             const { roomId, candidate, targetPeerId } = data;
+            
+            if (!candidate) return; // Ignore null candidates
+            
             if (targetPeerId) {
                 io.to(targetPeerId).emit('ice-candidate', { candidate, sender: socket.id });
             } else {
                 socket.to(roomId).emit('ice-candidate', { candidate, sender: socket.id });
+            }
+        });
+        
+        // Handle connection state updates for monitoring
+        socket.on('connection-state', (data) => {
+            const { roomId, state } = data;
+            if (!roomConnectionStates.has(roomId)) {
+                roomConnectionStates.set(roomId, new Map());
+            }
+            roomConnectionStates.get(roomId).set(socket.id, { state, timestamp: Date.now() });
+            
+            // Notify peer about connection state
+            socket.to(roomId).emit('peer-connection-state', { peerId: socket.id, state });
+            
+            if (state === 'connected') {
+                console.log(`[WebRTC] Connection established in room ${roomId}`);
+            } else if (state === 'failed') {
+                console.log(`[WebRTC] Connection failed in room ${roomId} for ${socket.id}`);
+            }
+        });
+        
+        // Handle ICE restart requests
+        socket.on('ice-restart', (data) => {
+            const { roomId, offer, targetPeerId } = data;
+            console.log(`[WebRTC] ICE restart requested by ${socket.id}`);
+            
+            if (targetPeerId) {
+                io.to(targetPeerId).emit('ice-restart', { offer, sender: socket.id });
+            } else {
+                socket.to(roomId).emit('ice-restart', { offer, sender: socket.id });
+            }
+        });
+        
+        // Handle renegotiation needed (for adding/removing tracks)
+        socket.on('renegotiate', (data) => {
+            const { roomId, targetPeerId } = data;
+            console.log(`[WebRTC] Renegotiation requested by ${socket.id}`);
+            
+            if (targetPeerId) {
+                io.to(targetPeerId).emit('renegotiate', { sender: socket.id });
+            } else {
+                socket.to(roomId).emit('renegotiate', { sender: socket.id });
             }
         });
 
@@ -317,14 +392,25 @@ const socketService = (io) => {
 
         // Media State Events
         socket.on('toggle-video', ({ roomId, isVideoOff }) => {
-            socket.to(roomId).emit('toggle-video', { isVideoOff });
+            socket.to(roomId).emit('toggle-video', { isVideoOff, peerId: socket.id });
+        });
+        
+        socket.on('toggle-audio', ({ roomId, isMuted }) => {
+            socket.to(roomId).emit('toggle-audio', { isMuted, peerId: socket.id });
+        });
+        
+        // Ping/Pong for connection health monitoring
+        socket.on('ping-server', (callback) => {
+            if (typeof callback === 'function') {
+                callback({ timestamp: Date.now() });
+            }
         });
 
         // Handle Disconnect
         socket.on('disconnecting', () => {
             for (const room of socket.rooms) {
                 if (room !== socket.id) {
-                    socket.to(room).emit('peer-disconnected');
+                    socket.to(room).emit('peer-disconnected', { peerId: socket.id });
                 }
             }
         });
@@ -350,16 +436,30 @@ const socketService = (io) => {
                     if (roomData.participants.size === 0) {
                         groupRooms.delete(roomId);
                         roomsWithInitiator.delete(roomId);
+                        roomConnectionStates.delete(roomId);
                     }
                 }
             }
             
-            // Cleanup initiator tracking for rooms that are now empty
+            // Cleanup initiator tracking and connection states for rooms that are now empty
             for (const room of socket.rooms) {
                 if (room !== socket.id) {
                     const roomObj = io.sockets.adapter.rooms.get(room);
                     if (!roomObj || roomObj.size === 0) {
                         roomsWithInitiator.delete(room);
+                        roomConnectionStates.delete(room);
+                    } else {
+                        // Remove this socket from room connection states
+                        if (roomConnectionStates.has(room)) {
+                            roomConnectionStates.get(room).delete(socket.id);
+                        }
+                    }
+                    
+                    // Clean up ICE candidate buffers for this socket
+                    for (const [key] of iceCandidateBuffer.entries()) {
+                        if (key.includes(socket.id)) {
+                            iceCandidateBuffer.delete(key);
+                        }
                     }
                 }
             }

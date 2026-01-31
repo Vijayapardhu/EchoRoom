@@ -1,146 +1,122 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { playMessageSound } from '../utils/soundEffects';
-import { 
-    PaperPlaneRight, 
-    X, 
-    ChatCircle, 
-    ArrowLeft,
-    Smiley,
-    Image as ImageIcon,
+import {
     Heart,
     Lightning,
     Star,
     Fire,
     HandsClapping,
-    Ghost,
-    Alien,
-    Robot,
-    Skull,
-    GameController,
-    Planet,
-    Rocket,
-    Paperclip,
-    CheckCircle
+    X,
+    PaperPlaneRight,
+    Image as ImageIcon,
+    Files,
+    Smiley,
+    Check,
+    CheckCheck,
+    Clock
 } from '@phosphor-icons/react';
-
-const quickReactions = [
-    { icon: Heart, color: 'red', name: 'heart' },
-    { icon: Lightning, color: 'cyan', name: 'lightning' },
-    { icon: Star, color: 'yellow', name: 'star' },
-    { icon: Fire, color: 'orange', name: 'fire' },
-    { icon: HandsClapping, color: 'purple', name: 'clap' },
-];
-
-const stickers = [
-    { icon: Ghost, name: 'ghost' },
-    { icon: Alien, name: 'alien' },
-    { icon: Robot, name: 'robot' },
-    { icon: Skull, name: 'skull' },
-    { icon: GameController, name: 'game' },
-    { icon: Planet, name: 'planet' },
-    { icon: Rocket, name: 'rocket' },
-];
+import FileUpload from './FileUpload';
 
 const Chat = ({ roomId, isOpen, onClose, userName }) => {
     const socket = useSocket();
     const [messages, setMessages] = useState([]);
-    const [newMessage, setNewMessage] = useState('');
-    const [showPicker, setShowPicker] = useState(null);
+    const [input, setInput] = useState('');
+    const [showStickers, setShowStickers] = useState(false);
+    const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef(null);
-    const fileInputRef = useRef(null);
+    const inputRef = useRef(null);
+
+    const stickers = [
+        { icon: Heart, label: 'Heart', color: 'text-red-400', bg: 'bg-red-400/20' },
+        { icon: Lightning, label: 'Lightning', color: 'text-yellow-400', bg: 'bg-yellow-400/20' },
+        { icon: Star, label: 'Star', color: 'text-blue-400', bg: 'bg-blue-400/20' },
+        { icon: Fire, label: 'Fire', color: 'text-orange-400', bg: 'bg-orange-400/20' },
+        { icon: HandsClapping, label: 'Clap', color: 'text-purple-400', bg: 'bg-purple-400/20' },
+    ];
 
     useEffect(() => {
-        if (!isOpen) return;
-        const handlePopState = (e) => { e.preventDefault(); onClose(); };
-        window.history.pushState({ chatOpen: true }, '');
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, [isOpen, onClose]);
+        if (!socket || !roomId) return;
 
-    useEffect(() => {
-        socket.on('receive-message', (message) => {
-            setMessages((prev) => [...prev, { ...message, isLocal: false }]);
-            if (!isOpen) playMessageSound();
-        });
-        return () => socket.off('receive-message');
-    }, [socket, isOpen]);
+        const handleMessage = (message) => {
+            setMessages(prev => [...prev, { ...message, status: 'received' }]);
+        };
+
+        socket.on('receive-message', handleMessage);
+        return () => socket.off('receive-message', handleMessage);
+    }, [socket, roomId]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    useEffect(() => {
+        if (isOpen && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [isOpen]);
+
     const sendMessage = (e) => {
         e?.preventDefault();
-        if (!newMessage.trim()) return;
-        const messageData = { type: 'text', content: newMessage, timestamp: new Date().toISOString() };
-        socket.emit('send-message', { roomId, message: messageData });
-        setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
-        setNewMessage('');
-        setShowPicker(null);
+        if (!input.trim()) return;
+
+        const message = {
+            id: Date.now(),
+            text: input.trim(),
+            sender: userName || 'Anonymous',
+            timestamp: new Date().toISOString(),
+            type: 'text',
+            status: 'sending'
+        };
+
+        socket.emit('send-message', { roomId, message });
+        setMessages(prev => [...prev, message]);
+        setInput('');
+        
+        setTimeout(() => {
+            setMessages(prev => prev.map(m => m.id === message.id ? { ...m, status: 'sent' } : m));
+        }, 300);
     };
 
     const sendSticker = (sticker) => {
-        const messageData = { type: 'sticker', content: sticker, timestamp: new Date().toISOString() };
-        socket.emit('send-message', { roomId, message: messageData });
-        setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
-        setShowPicker(null);
+        const message = {
+            id: Date.now(),
+            type: 'sticker',
+            sticker,
+            sender: userName || 'Anonymous',
+            timestamp: new Date().toISOString(),
+            status: 'sent'
+        };
+        socket.emit('send-message', { roomId, message });
+        setMessages(prev => [...prev, message]);
+        setShowStickers(false);
     };
 
-    const sendReaction = (reaction) => {
-        const messageData = { type: 'reaction', content: reaction, timestamp: new Date().toISOString() };
-        socket.emit('send-message', { roomId, message: messageData });
-        setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
-        setShowPicker(null);
-    };
-
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
+    const handleFileSelect = (file) => {
         if (!file) return;
-        if (file.size > 1024 * 1024) {
-            alert('File too large! Max 1MB.');
-            return;
-        }
+
         const reader = new FileReader();
-        reader.onload = () => {
-            const messageData = { type: 'image', content: reader.result, timestamp: new Date().toISOString() };
-            socket.emit('send-message', { roomId, message: messageData });
-            setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
+        reader.onloadend = () => {
+            const message = {
+                id: Date.now(),
+                type: 'image',
+                image: reader.result,
+                sender: userName || 'Anonymous',
+                timestamp: new Date().toISOString(),
+                status: 'sending'
+            };
+            socket.emit('send-message', { roomId, message });
+            setMessages(prev => [...prev, message]);
         };
         reader.readAsDataURL(file);
     };
 
-    const renderMessageContent = (msg) => {
-        switch (msg.type) {
-            case 'image':
-                return (
-                    <img
-                        src={msg.content}
-                        alt="Shared"
-                        className="max-w-full border border-white/10 cursor-pointer hover:border-cyan-400/50 transition-colors"
-                        onClick={() => window.open(msg.content, '_blank')}
-                    />
-                );
-            case 'sticker':
-                const StickerIcon = msg.content.icon;
-                return (
-                    <div className="flex items-center justify-center p-2">
-                        <StickerIcon weight="fill" className="w-12 h-12 text-cyan-400" />
-                    </div>
-                );
-            case 'reaction':
-                const ReactionIcon = msg.content.icon;
-                return (
-                    <div className="flex items-center gap-2">
-                        <ReactionIcon weight="fill" className={`w-6 h-6 text-${msg.content.color}-400`} />
-                        <span className="text-xs text-white/50 uppercase tracking-wider">{msg.content.name}</span>
-                    </div>
-                );
-            default:
-                return <span className="text-sm">{msg.content}</span>;
-        }
+    const formatTime = (timestamp) => {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
+
+    const isMe = (sender) => sender === (userName || 'Anonymous');
 
     return (
         <AnimatePresence>
@@ -149,176 +125,174 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                     initial={{ x: '100%', opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: '100%', opacity: 0 }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed md:absolute inset-0 md:top-0 md:right-0 md:left-auto md:bottom-0 h-full w-full md:w-96 bg-black/95 border-l border-white/10 z-50 flex flex-col"
+                    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                    className="absolute top-0 right-0 w-full max-w-md h-full bg-black/95 backdrop-blur-xl border-l border-white/10 z-40 flex flex-col"
                 >
                     {/* Header */}
-                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/50">
-                        <motion.button
-                            onClick={onClose}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="md:hidden p-2 border border-white/10 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all flex items-center gap-2"
-                            style={{ clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0% 100%)' }}
-                        >
-                            <ArrowLeft weight="bold" className="w-5 h-5" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Back</span>
-                        </motion.button>
-                        
+                    <div className="flex items-center justify-between px-5 py-4 bg-white/5 border-b border-white/10">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 border border-cyan-400/30 bg-cyan-400/10 hidden md:flex">
-                                <ChatCircle weight="fill" className="w-5 h-5 text-cyan-400" />
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
+                                <Smiley weight="fill" className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h3 className="font-black tracking-widest uppercase text-sm text-white">Data Link</h3>
-                                <p className="text-xs text-white/30 font-mono">{messages.length} packets</p>
+                                <h3 className="font-bold text-white">Chat</h3>
+                                <p className="text-xs text-white/50">{messages.length} messages</p>
                             </div>
                         </div>
-                        
-                        <motion.button
+                        <button
                             onClick={onClose}
-                            whileHover={{ scale: 1.1, rotate: 90 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="hidden md:flex p-2 border border-white/10 hover:border-red-400/50 hover:bg-red-400/10 transition-all"
-                            style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
                         >
                             <X weight="bold" className="w-5 h-5" />
-                        </motion.button>
-                        
-                        <div className="md:hidden w-20" />
+                        </button>
                     </div>
 
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {messages.length === 0 && (
-                            <motion.div 
-                                className="flex flex-col items-center justify-center h-full text-white/20 space-y-3"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                            >
-                                <ChatCircle weight="thin" className="w-12 h-12 opacity-20" />
-                                <p className="text-xs uppercase tracking-widest">No data transmitted</p>
-                            </motion.div>
-                        )}
-
-                        {messages.map((msg, index) => (
-                            <motion.div
-                                key={index}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`flex ${msg.isLocal ? 'justify-end' : 'justify-start'}`}
-                            >
-                                <div
-                                    className={`max-w-[80%] p-3 text-white ${msg.isLocal
-                                        ? 'border border-cyan-400/30 bg-cyan-400/5'
-                                        : 'border border-white/10 bg-white/5'
-                                    }`}
-                                    style={{ clipPath: msg.isLocal ? 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' : 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)' }}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {messages.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-white/30">
+                                <Smiley weight="bold" className="w-16 h-16 mb-4 opacity-50" />
+                                <p className="text-sm">No messages yet</p>
+                                <p className="text-xs">Say hello to start the conversation!</p>
+                            </div>
+                        ) : (
+                            messages.map((msg, index) => (
+                                <motion.div
+                                    key={msg.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`flex ${isMe(msg.sender) ? 'justify-end' : 'justify-start'}`}
                                 >
-                                    {renderMessageContent(msg)}
-                                </div>
-                            </motion.div>
-                        ))}
+                                    <div className={`max-w-[80%] ${isMe(msg.sender) ? 'items-end' : 'items-start'} flex flex-col`}>
+                                        {msg.type === 'text' && (
+                                            <div className={`
+                                                px-4 py-3 rounded-2xl text-sm
+                                                ${isMe(msg.sender) 
+                                                    ? 'bg-blue-500 text-white rounded-br-md' 
+                                                    : 'bg-white/10 text-white rounded-bl-md'
+                                                }
+                                            `}>
+                                                <p>{msg.text}</p>
+                                            </div>
+                                        )}
+
+                                        {msg.type === 'sticker' && (
+                                            <div className={`
+                                                p-4 rounded-2xl
+                                                ${isMe(msg.sender) 
+                                                    ? 'bg-blue-500/20 border border-blue-500/30 rounded-br-md' 
+                                                    : 'bg-white/10 rounded-bl-md'
+                                                }
+                                            `}>
+                                                <msg.sticker.icon 
+                                                    weight="fill" 
+                                                    className={`w-12 h-12 ${msg.sticker.color}`} 
+                                                />
+                                            </div>
+                                        )}
+
+                                        {msg.type === 'image' && (
+                                            <div className="rounded-2xl overflow-hidden max-w-[240px]">
+                                                <img 
+                                                    src={msg.image} 
+                                                    alt="Shared" 
+                                                    className="w-full h-auto object-cover"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Timestamp */}
+                                        <div className="flex items-center gap-1 mt-1 px-1">
+                                            <span className="text-[10px] text-white/40">
+                                                {formatTime(msg.timestamp)}
+                                            </span>
+                                            {isMe(msg.sender) && (
+                                                <span className="text-white/40">
+                                                    {msg.status === 'sending' && <Clock weight="bold" className="w-3 h-3" />}
+                                                    {msg.status === 'sent' && <Check weight="bold" className="w-3 h-3" />}
+                                                    {msg.status === 'received' && <CheckCheck weight="bold" className="w-3 h-3 text-blue-400" />}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))
+                        )}
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Picker */}
+                    {/* Sticker Picker */}
                     <AnimatePresence>
-                        {showPicker && (
+                        {showStickers && (
                             <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="bg-black/80 border-t border-white/10 overflow-hidden"
+                                initial={{ y: 100, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: 100, opacity: 0 }}
+                                className="px-4 py-3 bg-white/5 border-t border-white/10"
                             >
-                                <div className="p-4">
-                                    {showPicker === 'emoji' ? (
-                                        <div className="grid grid-cols-5 gap-3">
-                                            {quickReactions.map((reaction, i) => (
-                                                <motion.button 
-                                                    key={reaction.name}
-                                                    onClick={() => sendReaction(reaction)} 
-                                                    initial={{ opacity: 0, scale: 0 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    transition={{ delay: i * 0.03 }}
-                                                    whileHover={{ scale: 1.2 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    className="p-3 border border-white/10 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all flex items-center justify-center"
-                                                    style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-                                                >
-                                                    <reaction.icon weight="fill" className={`w-6 h-6 text-${reaction.color}-400`} />
-                                                </motion.button>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-4 gap-3">
-                                            {stickers.map((sticker, i) => (
-                                                <motion.button 
-                                                    key={sticker.name}
-                                                    onClick={() => sendSticker(sticker)} 
-                                                    initial={{ opacity: 0, scale: 0 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    transition={{ delay: i * 0.03 }}
-                                                    whileHover={{ scale: 1.2 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    className="p-3 border border-white/10 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all flex items-center justify-center"
-                                                    style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-                                                >
-                                                    <sticker.icon weight="fill" className="w-8 h-8 text-cyan-400" />
-                                                </motion.button>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="flex gap-2 justify-center">
+                                    {stickers.map((sticker) => (
+                                        <motion.button
+                                            key={sticker.label}
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={() => sendSticker(sticker)}
+                                            className={`p-3 rounded-xl ${sticker.bg} hover:opacity-80 transition-opacity`}
+                                        >
+                                            <sticker.icon weight="fill" className={`w-6 h-6 ${sticker.color}`} />
+                                        </motion.button>
+                                    ))}
                                 </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
 
                     {/* Input */}
-                    <form onSubmit={sendMessage} className="p-4 border-t border-white/10 bg-black/50">
-                        <div className="relative flex items-center gap-2">
+                    <div className="p-4 bg-white/5 border-t border-white/10">
+                        <form onSubmit={sendMessage} className="flex items-center gap-2">
+                            <FileUpload onFileSelect={handleFileSelect} accept="image/*">
+                                <motion.button
+                                    type="button"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                                >
+                                    <ImageIcon weight="bold" className="w-5 h-5" />
+                                </motion.button>
+                            </FileUpload>
+
                             <motion.button
                                 type="button"
-                                onClick={() => setShowPicker(showPicker === 'emoji' ? null : 'emoji')}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                className={`p-2 border transition-all ${showPicker === 'emoji' ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400' : 'border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}
-                                style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                                onClick={() => setShowStickers(!showStickers)}
+                                className={`p-3 rounded-xl transition-colors ${showStickers ? 'bg-blue-500 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white'}`}
                             >
                                 <Smiley weight="fill" className="w-5 h-5" />
                             </motion.button>
-                            <motion.button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                className="p-2 border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition-all"
-                                style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-                            >
-                                <Paperclip weight="bold" className="w-5 h-5" />
-                            </motion.button>
-                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
 
-                            <input
-                                type="text"
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Transmit data..."
-                                className="flex-1 bg-black/50 border border-white/10 px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50 transition-colors"
-                                style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
-                            />
+                            <div className="flex-1 relative">
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    placeholder="Type a message..."
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
+                                />
+                            </div>
+
                             <motion.button
                                 type="submit"
-                                disabled={!newMessage.trim()}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                className="p-3 border-2 border-cyan-400 bg-cyan-400 text-black disabled:opacity-30 disabled:hover:bg-cyan-400 hover:bg-cyan-300 transition-all"
-                                style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                                disabled={!input.trim()}
+                                className="p-3 rounded-xl bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                             >
-                                <PaperPlaneRight weight="fill" className="w-4 h-4" />
+                                <PaperPlaneRight weight="fill" className="w-5 h-5" />
                             </motion.button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </motion.div>
             )}
         </AnimatePresence>

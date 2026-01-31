@@ -1,27 +1,43 @@
 {
-  "name": "EchoRoom",
+  "name": "EchoRoom - Free Random Video Chat with Strangers",
   "short_name": "EchoRoom",
-  "description": "Free anonymous video chat platform to meet strangers online. Instant video calls, text chat, and interest-based matching.",
-  "start_url": "/",
+  "description": "EchoRoom is the #1 free random video chat platform to meet strangers online. HD video calls, text chat, interest-based matching & 100% anonymous. Best Omegle alternative - no registration required!",
+  "start_url": "/?source=pwa",
+  "id": "echoroom-video-chat",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#000000",
   "theme_color": "#06b6d4",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "scope": "/",
   "lang": "en-US",
-  "categories": ["social", "communication", "entertainment"],
+  "dir": "ltr",
+  "categories": ["social", "communication", "entertainment", "lifestyle"],
+  "iarc_rating_id": "",
   "icons": [
     {
       "src": "/favicon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/favicon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
@@ -30,18 +46,47 @@
       "sizes": "1200x630",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "EchoRoom Video Chat Homepage"
+      "label": "EchoRoom - Random Video Chat Homepage"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "EchoRoom Mobile Video Chat"
     }
   ],
   "shortcuts": [
     {
       "name": "Start Video Chat",
       "short_name": "Chat",
-      "description": "Start a new random video chat",
-      "url": "/onboarding",
+      "description": "Start a new random video chat with strangers",
+      "url": "/onboarding?source=shortcut",
+      "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Find Match",
+      "short_name": "Match",
+      "description": "Find a random stranger to video chat with",
+      "url": "/room/matching?source=shortcut",
       "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
     }
   ],
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
   "related_applications": [],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
 }

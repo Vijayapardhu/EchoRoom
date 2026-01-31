@@ -19,6 +19,24 @@ export const ConnectionState = {
     FAILED: 'failed'
 };
 
+// Fetch TURN credentials from server (with fallback)
+const fetchTurnCredentials = async (serverUrl) => {
+    try {
+        const response = await fetch(`${serverUrl}/api/turn-credentials`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000
+        });
+        if (response.ok) {
+            const data = await response.json();
+            return data.iceServers;
+        }
+    } catch (error) {
+        console.warn('[WebRTCManager] Failed to fetch TURN credentials, using defaults');
+    }
+    return null;
+};
+
 class WebRTCManager {
     constructor(iceServers = null) {
         this.peerConnection = null;
@@ -34,6 +52,7 @@ class WebRTCManager {
         this.iceGatheringTimeout = null;
         this.connectionStartTime = null;
         this.hasReceivedStream = false;
+        this.connectionStateCallback = null; // For reporting state to server
 
         // Event listeners
         this.listeners = {
@@ -42,7 +61,8 @@ class WebRTCManager {
             iceCandidate: [],
             error: [],
             stats: [],
-            connectionQuality: []
+            connectionQuality: [],
+            iceRestart: []
         };
 
         // Optimized ICE servers configuration - prioritize faster options
@@ -72,6 +92,24 @@ class WebRTCManager {
         ];
 
         console.log('[WebRTCManager] Initialized with enhanced ICE config');
+    }
+    
+    /**
+     * Set connection state callback for reporting to signaling server
+     */
+    setConnectionStateCallback(callback) {
+        this.connectionStateCallback = callback;
+    }
+    
+    /**
+     * Update ICE servers from server
+     */
+    async updateIceServers(serverUrl) {
+        const servers = await fetchTurnCredentials(serverUrl);
+        if (servers) {
+            this.iceServers = servers;
+            console.log('[WebRTCManager] Updated ICE servers from server');
+        }
     }
     
     /**
@@ -254,6 +292,11 @@ class WebRTCManager {
                     this.setState(ConnectionState.DISCONNECTED);
                     break;
             }
+            
+            // Report state to server
+            if (this.connectionStateCallback) {
+                this.connectionStateCallback(iceState);
+            }
         };
 
         // Connection state handler
@@ -266,6 +309,11 @@ class WebRTCManager {
             } else if (connState === 'failed') {
                 this.handleConnectionFailure();
             }
+            
+            // Report state to server
+            if (this.connectionStateCallback) {
+                this.connectionStateCallback(connState);
+            }
         };
 
         // Signaling state handler
@@ -276,7 +324,7 @@ class WebRTCManager {
         // Negotiation needed handler
         this.peerConnection.onnegotiationneeded = async () => {
             console.log('[WebRTCManager] Negotiation needed');
-            // This is handled by the application layer
+            this.emit('negotiationNeeded', {});
         };
 
         // ICE gathering state handler

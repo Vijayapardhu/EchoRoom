@@ -1,29 +1,65 @@
-# EchoRoom Robots.txt
+# EchoRoom Robots.txt - Optimized for SEO
 # https://echoroom.online
+# Last updated: 2026-01-31
 
+# Default rules for all crawlers
 User-agent: *
 Allow: /
+Allow: /onboarding
+Allow: /room
 Disallow: /api/
 Disallow: /admin/
 Disallow: /*.json$
+Disallow: /assets/
+Disallow: /src/
 
-# Crawl-delay for respectful crawling
-Crawl-delay: 1
-
-# Sitemap location
+# Sitemap locations
 Sitemap: https://echoroom.online/sitemap.xml
 
-# Google
+# Google (priority crawler - no delay)
 User-agent: Googlebot
 Allow: /
 Crawl-delay: 0
+
+User-agent: Googlebot-Image
+Allow: /og-image.png
+Allow: /favicon.png
+
+User-agent: Googlebot-Video
+Allow: /
+
+User-agent: Googlebot-Mobile
+Allow: /
 
 # Bing
 User-agent: Bingbot
 Allow: /
 Crawl-delay: 1
 
-# Social Media Bots
+User-agent: msnbot
+Allow: /
+
+# Yahoo
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
+
+# Yandex
+User-agent: Yandex
+Allow: /
+Crawl-delay: 2
+
+# Baidu
+User-agent: Baiduspider
+Allow: /
+Crawl-delay: 2
+
+# DuckDuckGo
+User-agent: DuckDuckBot
+Allow: /
+Crawl-delay: 1
+
+# Social Media Bots (allow all for better sharing)
 User-agent: facebookexternalhit
 Allow: /
 
@@ -36,7 +72,19 @@ Allow: /
 User-agent: Pinterest
 Allow: /
 
-# Block bad bots
+User-agent: WhatsApp
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: Discordbot
+Allow: /
+
+# Block aggressive SEO tool bots
 User-agent: AhrefsBot
 Disallow: /
 
@@ -47,4 +95,13 @@ User-agent: MJ12bot
 Disallow: /
 
 User-agent: DotBot
+Disallow: /
+
+User-agent: BLEXBot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: PetalBot
 Disallow: /
