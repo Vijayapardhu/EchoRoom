@@ -160,15 +160,31 @@ export const WebRTCProvider = ({ children }) => {
                 { urls: 'stun:stun3.l.google.com:19302' },
                 { urls: 'stun:stun4.l.google.com:19302' },
                 { urls: 'stun:global.stun.twilio.com:3478' },
+                // Metered.ca free TURN servers (reliable)
                 {
-                    urls: 'turn:openrelay.metered.ca:80',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    urls: 'turn:a.relay.metered.ca:80',
+                    username: 'e8dd65c92eb0fb1e27f3b6c4',
+                    credential: 'u/LHJ+nC+RxSWmup'
                 },
                 {
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
+                    urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                    username: 'e8dd65c92eb0fb1e27f3b6c4',
+                    credential: 'u/LHJ+nC+RxSWmup'
+                },
+                {
+                    urls: 'turn:a.relay.metered.ca:443',
+                    username: 'e8dd65c92eb0fb1e27f3b6c4',
+                    credential: 'u/LHJ+nC+RxSWmup'
+                },
+                {
+                    urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+                    username: 'e8dd65c92eb0fb1e27f3b6c4',
+                    credential: 'u/LHJ+nC+RxSWmup'
+                },
+                {
+                    urls: 'turns:a.relay.metered.ca:443',
+                    username: 'e8dd65c92eb0fb1e27f3b6c4',
+                    credential: 'u/LHJ+nC+RxSWmup'
                 }
             ],
             iceCandidatePoolSize: 10,
