@@ -274,6 +274,54 @@ const LandingPage = () => {
                     </div>
                 </div>
             </footer>
+
+            {/* SEO Rich Content Section - Hidden visually but accessible to crawlers */}
+            <section className="sr-only" aria-label="About EchoRoom">
+                <h2>EchoRoom - The Best Free Anonymous Video Chat Platform</h2>
+                <p>
+                    EchoRoom is the premier Omegle alternative for 2026, offering free anonymous video chat with strangers worldwide. 
+                    Connect instantly through HD video calls, text messaging, and interest-based matching without any registration required.
+                </p>
+                
+                <h3>Why Choose EchoRoom Over Other Video Chat Platforms?</h3>
+                <ul>
+                    <li>100% Free - No hidden charges or premium features</li>
+                    <li>Anonymous - No login or personal information required</li>
+                    <li>Interest Matching - Connect with people who share your interests</li>
+                    <li>HD Video Quality - Crystal clear video and audio</li>
+                    <li>Mobile Friendly - Works on all devices without app download</li>
+                    <li>Safe and Secure - Built-in safety features and reporting</li>
+                    <li>Real-time Reactions - Express yourself with emoji reactions</li>
+                    <li>Text Chat - Send messages alongside video chat</li>
+                </ul>
+
+                <h3>How to Use EchoRoom Video Chat</h3>
+                <ol>
+                    <li>Visit EchoRoom website - No download or registration needed</li>
+                    <li>Allow camera and microphone access</li>
+                    <li>Select your interests for better matching</li>
+                    <li>Click Start and get matched with a random stranger</li>
+                    <li>Enjoy your conversation - Skip anytime to meet someone new</li>
+                </ol>
+
+                <h3>EchoRoom Features</h3>
+                <p>
+                    Random video chat with strangers, anonymous text messaging, interest-based matching algorithm, 
+                    real-time emoji reactions, HD video streaming, low latency connections, mobile responsive design, 
+                    no registration required, completely free to use, end-to-end encrypted chats, safe chat environment,
+                    report and block features, friend code system for reconnecting, post-chat feedback.
+                </p>
+
+                <h3>Keywords</h3>
+                <p>
+                    omegle alternative, video chat with strangers, random video chat, anonymous chat, talk to strangers, 
+                    free video chat, omegle replacement, chatroulette alternative, online video chat, stranger chat app, 
+                    random chat rooms, video calling strangers, meet new people online, anonymous video call, 
+                    chat with strangers online free, video chat app, live video chat, webcam chat, instant video chat, 
+                    random video call, video chat no registration, free cam chat, stranger video call, omegle like sites,
+                    best omegle alternative 2026, random stranger chat, anonymous webcam chat, video chat platform
+                </p>
+            </section>
         </div>
     );
 };
