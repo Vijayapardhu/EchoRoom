@@ -208,9 +208,11 @@ const Room = () => {
     useEffect(() => {
         if (!socket || !roomId) return;
 
-        socket.emit('join-room', { roomId, userName });
+        console.log('[Room] Setting up socket listeners for room:', roomId);
 
+        // Define all handlers FIRST before emitting join-room
         const handleExistingPeers = async ({ peers }) => {
+            console.log('[Room] Received existing peers:', peers);
             if (!localStream) {
                 setTimeout(() => handleExistingPeers({ peers }), 100);
                 return;
@@ -410,6 +412,7 @@ const Room = () => {
             playLeaveSound();
         };
 
+        // IMPORTANT: Set up ALL listeners FIRST
         socket.on('existing-peers', handleExistingPeers);
         socket.on('peer-joined', handlePeerJoined);
         socket.on('peer-left', handlePeerLeft);
@@ -419,6 +422,10 @@ const Room = () => {
         socket.on('answer', handleAnswerReceived);
         socket.on('ice-candidate', handleIceCandidateReceived);
         socket.on('receive-reaction', handleReaction);
+
+        // THEN emit join-room AFTER listeners are ready
+        console.log('[Room] Emitting join-room for:', roomId);
+        socket.emit('join-room', { roomId, userName });
 
         playJoinSound();
 
