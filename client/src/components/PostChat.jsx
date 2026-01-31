@@ -1,1 +1,229 @@
-import React, { useState } from 'react';\nimport { useNavigate, useLocation } from 'react-router-dom';\nimport { motion } from 'framer-motion';\nimport { ThumbsUp, ThumbsDown, Home, RefreshCw, MessageSquare, UserPlus, Heart, Star, Share2, Copy } from 'lucide-react';\nimport toast, { Toaster } from 'react-hot-toast';\n\nconst PostChat = () => {\n    const navigate = useNavigate();\n    const location = useLocation();\n    const [rating, setRating] = useState(null);\n    const [feedback, setFeedback] = useState('');\n    const [showAddFriend, setShowAddFriend] = useState(false);\n    const [friendCode, setFriendCode] = useState('');\n\n    // Get partner info from location state if available\n    const partnerInfo = location.state?.partner || null;\n\n    const handleSubmit = () => {\n        // In a real app, send this to backend\n        console.log({ rating, feedback });\n        toast.success('Thanks for your feedback!');\n        setRating(null);\n        setFeedback('');\n    };\n\n    const generateFriendCode = () => {\n        // Generate a unique friend code\n        const code = Math.random().toString(36).substring(2, 8).toUpperCase();\n        setFriendCode(code);\n        setShowAddFriend(true);\n    };\n\n    const copyFriendCode = () => {\n        navigator.clipboard.writeText(friendCode);\n        toast.success('Friend code copied!');\n    };\n\n    return (\n        <div className=\"min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden\">\n            <Toaster position=\"top-center\" />\n            \n            {/* Background Effects */}\n            <div className=\"absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50\" />\n            <div className=\"absolute bottom-0 right-0 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[100px] pointer-events-none\" />\n            <div className=\"absolute top-1/4 left-0 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none\" />\n\n            <motion.div\n                initial={{ opacity: 0, scale: 0.95 }}\n                animate={{ opacity: 1, scale: 1 }}\n                className=\"max-w-md w-full bg-neutral-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl\"\n            >\n                <div className=\"text-center mb-8\">\n                    <div className=\"w-20 h-20 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10\">\n                        <MessageSquare className=\"w-10 h-10 text-white\" />\n                    </div>\n                    <h2 className=\"text-3xl font-bold text-white mb-2\">Chat Ended</h2>\n                    <p className=\"text-neutral-400\">How was your conversation?</p>\n                </div>\n\n                {/* Rating */}\n                <div className=\"flex justify-center gap-4 mb-6\">\n                    <motion.button\n                        whileHover={{ scale: 1.05 }}\n                        whileTap={{ scale: 0.95 }}\n                        onClick={() => setRating('good')}\n                        className={`p-5 rounded-2xl border-2 transition-all ${rating === 'good' ? 'bg-green-500/20 border-green-500 text-green-400 shadow-lg shadow-green-500/20' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}\n                    >\n                        <ThumbsUp className=\"w-8 h-8\" />\n                    </motion.button>\n                    <motion.button\n                        whileHover={{ scale: 1.05 }}\n                        whileTap={{ scale: 0.95 }}\n                        onClick={() => setRating('bad')}\n                        className={`p-5 rounded-2xl border-2 transition-all ${rating === 'bad' ? 'bg-red-500/20 border-red-500 text-red-400 shadow-lg shadow-red-500/20' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}\n                    >\n                        <ThumbsDown className=\"w-8 h-8\" />\n                    </motion.button>\n                </div>\n\n                {/* Quick Reactions */}\n                <div className=\"flex justify-center gap-2 mb-6\">\n                    {['😊', '😂', '🤔', '👋', '❤️'].map((emoji) => (\n                        <button\n                            key={emoji}\n                            onClick={() => toast(emoji, { duration: 1000 })}\n                            className=\"w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-xl transition-all hover:scale-110\"\n                        >\n                            {emoji}\n                        </button>\n                    ))}\n                </div>\n\n                {/* Feedback Text */}\n                <div className=\"mb-6\">\n                    <textarea\n                        value={feedback}\n                        onChange={(e) => setFeedback(e.target.value)}\n                        placeholder=\"Any additional comments? (Optional)\"\n                        className=\"w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all resize-none h-24\"\n                    />\n                    {rating && (\n                        <motion.button\n                            initial={{ opacity: 0, y: -10 }}\n                            animate={{ opacity: 1, y: 0 }}\n                            onClick={handleSubmit}\n                            className=\"w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-white/10 text-sm font-medium text-white hover:from-cyan-500/30 hover:to-purple-500/30 transition-all\"\n                        >\n                            Submit Feedback\n                        </motion.button>\n                    )}\n                </div>\n\n                {/* Add Friend Section */}\n                {!showAddFriend ? (\n                    <motion.button\n                        whileHover={{ scale: 1.02 }}\n                        whileTap={{ scale: 0.98 }}\n                        onClick={generateFriendCode}\n                        className=\"w-full py-3 mb-4 bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/30 text-pink-400 font-medium rounded-xl flex items-center justify-center gap-2 hover:from-pink-500/30 hover:to-purple-500/30 transition-all\"\n                    >\n                        <UserPlus className=\"w-5 h-5\" />\n                        Want to reconnect? Get Friend Code\n                    </motion.button>\n                ) : (\n                    <motion.div\n                        initial={{ opacity: 0, height: 0 }}\n                        animate={{ opacity: 1, height: 'auto' }}\n                        className=\"mb-4 p-4 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/20 rounded-xl\"\n                    >\n                        <p className=\"text-sm text-neutral-400 mb-2 text-center\">Share this code with your chat partner</p>\n                        <div className=\"flex items-center gap-2\">\n                            <div className=\"flex-1 bg-black/50 rounded-lg px-4 py-3 text-center\">\n                                <span className=\"text-2xl font-mono font-bold text-white tracking-widest\">{friendCode}</span>\n                            </div>\n                            <button\n                                onClick={copyFriendCode}\n                                className=\"p-3 bg-pink-500 hover:bg-pink-400 rounded-lg transition-colors\"\n                            >\n                                <Copy className=\"w-5 h-5 text-white\" />\n                            </button>\n                        </div>\n                    </motion.div>\n                )}\n\n                {/* Actions */}\n                <div className=\"space-y-3\">\n                    <motion.button\n                        whileHover={{ scale: 1.02 }}\n                        whileTap={{ scale: 0.98 }}\n                        onClick={() => navigate('/room/matching')}\n                        className=\"w-full py-4 bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:from-cyan-400 hover:to-cyan-300 transition-all shadow-lg shadow-cyan-500/20 group\"\n                    >\n                        <RefreshCw className=\"w-5 h-5 group-hover:rotate-180 transition-transform duration-500\" />\n                        Find New Match\n                    </motion.button>\n                    <button\n                        onClick={() => navigate('/')}\n                        className=\"w-full py-4 bg-white/5 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/10\"\n                    >\n                        <Home className=\"w-5 h-5\" />\n                        Return Home\n                    </button>\n                </div>\n            </motion.div>\n        </div>\n    );\n};\n\nexport default PostChat;
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ThumbsUp, ThumbsDown, Home, RefreshCw, MessageSquare, UserPlus, Heart, Star, Share2, Copy } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
+
+const PostChat = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [rating, setRating] = useState(null);
+    const [feedback, setFeedback] = useState('');
+    const [showAddFriend, setShowAddFriend] = useState(false);
+    const [friendCode, setFriendCode] = useState('');
+
+    // Get partner info from location state if available
+    const partnerInfo = location.state?.partner || null;
+
+    const handleSubmit = () => {
+        // In a real app, send this to backend
+        console.log({ rating, feedback });
+        toast.success('Thanks for your feedback!');
+        setRating(null);
+        setFeedback('');
+    };
+
+    const generateFriendCode = () => {
+        // Generate a unique friend code
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        setFriendCode(code);
+        setShowAddFriend(true);
+    };
+
+    const copyFriendCode = () => {
+        navigator.clipboard.writeText(friendCode);
+        toast.success('Friend code copied!');
+    };
+
+    return (
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
+            <Toaster position="top-center" toastOptions={{
+                style: {
+                    background: 'rgba(0,0,0,0.9)',
+                    color: '#fff',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    backdropFilter: 'blur(10px)',
+                },
+            }} />
+            
+            {/* Background Effects */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50" />
+            <motion.div 
+                className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[100px] pointer-events-none"
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div 
+                className="absolute top-1/4 left-0 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"
+                animate={{ scale: [1, 1.3, 1], x: [0, 30, 0] }}
+                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="max-w-md w-full glass-panel rounded-3xl p-8 shadow-2xl"
+            >
+                <motion.div 
+                    className="text-center mb-8"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                >
+                    <motion.div 
+                        className="w-20 h-20 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10"
+                        animate={{ rotate: [0, 5, -5, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                    >
+                        <MessageSquare className="w-10 h-10 text-white" />
+                    </motion.div>
+                    <h2 className="text-3xl font-bold text-white mb-2">Chat Ended</h2>
+                    <p className="text-neutral-400">How was your conversation?</p>
+                </motion.div>
+
+                {/* Rating */}
+                <motion.div 
+                    className="flex justify-center gap-4 mb-6"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                >
+                    <motion.button
+                        whileHover={{ scale: 1.1, y: -5 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setRating('good')}
+                        className={`p-5 rounded-2xl border-2 transition-all ${rating === 'good' ? 'bg-green-500/20 border-green-500 text-green-400 shadow-lg shadow-green-500/30' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}
+                    >
+                        <ThumbsUp className="w-8 h-8" />
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.1, y: -5 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setRating('bad')}
+                        className={`p-5 rounded-2xl border-2 transition-all ${rating === 'bad' ? 'bg-red-500/20 border-red-500 text-red-400 shadow-lg shadow-red-500/30' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}
+                    >
+                        <ThumbsDown className="w-8 h-8" />
+                    </motion.button>
+                </motion.div>
+
+                {/* Quick Reactions */}
+                <motion.div 
+                    className="flex justify-center gap-2 mb-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                >
+                    {['😊', '😂', '🤔', '👋', '❤️'].map((emoji, i) => (
+                        <motion.button
+                            key={emoji}
+                            initial={{ opacity: 0, scale: 0 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.4 + i * 0.05 }}
+                            whileHover={{ scale: 1.2, y: -3 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => toast(emoji, { duration: 1000 })}
+                            className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-xl transition-all"
+                        >
+                            {emoji}
+                        </motion.button>
+                    ))}
+                </motion.div>
+
+                {/* Feedback Text */}
+                <motion.div 
+                    className="mb-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                >
+                    <textarea
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        placeholder="Any additional comments? (Optional)"
+                        className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 focus:shadow-[0_0_20px_rgba(6,182,212,0.1)] transition-all resize-none h-24"
+                    />
+                    {rating && (
+                        <motion.button
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handleSubmit}
+                            className="w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-white/10 text-sm font-medium text-white hover:from-cyan-500/30 hover:to-purple-500/30 transition-all"
+                        >
+                            Submit Feedback
+                        </motion.button>
+                    )}
+                </motion.div>
+
+                {/* Add Friend Section */}
+                {!showAddFriend ? (
+                    <motion.button
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.6 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={generateFriendCode}
+                        className="w-full py-3 mb-4 bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/30 text-pink-400 font-medium rounded-xl flex items-center justify-center gap-2 hover:from-pink-500/30 hover:to-purple-500/30 transition-all shadow-[0_0_20px_rgba(236,72,153,0.1)]"
+                    >
+                        <UserPlus className="w-5 h-5" />
+                        Want to reconnect? Get Friend Code
+                    </motion.button>
+                ) : (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mb-4 p-4 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/20 rounded-xl"
+                    >
+                        <p className="text-sm text-neutral-400 mb-2 text-center">Share this code with your chat partner</p>
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-black/50 rounded-lg px-4 py-3 text-center border border-white/10">
+                                <span className="text-2xl font-mono font-bold text-white tracking-widest">{friendCode}</span>
+                            </div>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={copyFriendCode}
+                                className="p-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-400 hover:to-purple-400 rounded-lg transition-colors shadow-lg shadow-pink-500/30"
+                            >
+                                <Copy className="w-5 h-5 text-white" />
+                            </motion.button>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Actions */}
+                <motion.div 
+                    className="space-y-3"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.7 }}
+                >
+                    <motion.button
+                        whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(6, 182, 212, 0.4)' }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => navigate('/room/matching')}
+                        className="w-full py-4 bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:from-cyan-400 hover:to-cyan-300 transition-all shadow-lg shadow-cyan-500/30 group"
+                    >
+                        <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                        Find New Match
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => navigate('/')}
+                        className="w-full py-4 bg-white/5 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/10"
+                    >
+                        <Home className="w-5 h-5" />
+                        Return Home
+                    </motion.button>
+                </motion.div>
+            </motion.div>
+        </div>
+    );
+};
+
+export default PostChat;
