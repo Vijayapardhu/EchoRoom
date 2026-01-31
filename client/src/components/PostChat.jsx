@@ -2,295 +2,235 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-    ThumbsUp, 
-    ThumbsDown, 
-    House, 
-    ArrowClockwise, 
-    ChatCircle, 
-    UserPlus, 
-    Heart, 
-    Smiley,
-    Question,
-    HandWaving,
+    ArrowRight,
+    ThumbsUp,
+    ThumbsDown,
+    ArrowClockwise,
+    House,
+    ShareNetwork,
+    Heart,
+    Star,
+    Users,
+    ChatCircleText,
+    ShieldCheck,
     Copy,
-    CheckCircle,
-    Lightning,
-    Crosshair,
-    Scan,
-    X
+    CheckCircle
 } from '@phosphor-icons/react';
-import toast, { Toaster } from 'react-hot-toast';
-
-const NeonButton = ({ children, onClick, primary = false, icon: Icon, className = '' }) => (
-    <motion.button
-        onClick={onClick}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className={`
-            relative group px-8 py-4 font-bold text-sm tracking-widest uppercase overflow-hidden
-            transition-all duration-300
-            ${primary 
-                ? 'bg-transparent text-cyan-400 border-2 border-cyan-400 hover:bg-cyan-400/10' 
-                : 'bg-transparent text-white border-2 border-white/30 hover:border-white hover:bg-white/5'
-            }
-            ${className}
-        `}
-        style={{
-            clipPath: primary ? 'polygon(10% 0, 100% 0, 90% 100%, 0% 100%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%)',
-            boxShadow: primary ? '0 0 20px rgba(0, 243, 255, 0.3), inset 0 0 20px rgba(0, 243, 255, 0.1)' : 'none'
-        }}
-    >
-        <span className="relative z-10 flex items-center gap-3">
-            {Icon && <Icon weight="fill" className="w-5 h-5" />}
-            {children}
-        </span>
-        {primary && (
-            <>
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/20 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                <div className="absolute top-0 left-0 w-full h-[2px] bg-cyan-400 shadow-[0_0_10px_#00f3ff]" />
-                <div className="absolute bottom-0 right-0 w-full h-[2px] bg-cyan-400 shadow-[0_0_10px_#00f3ff]" />
-            </>
-        )}
-    </motion.button>
-);
-
-const SharpCard = ({ children, selected, onClick, icon: Icon, label }) => (
-    <motion.button
-        onClick={onClick}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className={`
-            p-6 border transition-all relative overflow-hidden
-            ${selected 
-                ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400' 
-                : 'border-white/10 bg-white/5 text-white/50 hover:border-white/30 hover:text-white'
-            }
-        `}
-        style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px))' }}
-    >
-        {selected && <div className="absolute top-0 left-0 w-full h-[2px] bg-cyan-400" />}
-        <Icon weight="fill" className="w-8 h-8 mx-auto mb-2" />
-        <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
-    </motion.button>
-);
-
-const ReactionButton = ({ icon: Icon, color, label, onClick }) => {
-    const colorClasses = {
-        yellow: 'from-yellow-400 to-orange-500',
-        blue: 'from-blue-400 to-cyan-500',
-        pink: 'from-pink-400 to-rose-500',
-        red: 'from-red-400 to-pink-500'
-    };
-
-    return (
-        <motion.button
-            whileHover={{ scale: 1.1, y: -5 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={onClick}
-            className="group relative"
-        >
-            <div className={`w-12 h-12 border border-white/20 bg-gradient-to-br ${colorClasses[color]} bg-opacity-20 flex items-center justify-center transition-all group-hover:border-white/50`}
-                style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-            >
-                <Icon weight="fill" className="w-6 h-6 text-white" />
-            </div>
-        </motion.button>
-    );
-};
+import toast from 'react-hot-toast';
 
 const PostChat = () => {
     const navigate = useNavigate();
-    const [rating, setRating] = useState(null);
-    const [feedback, setFeedback] = useState('');
-    const [showAddFriend, setShowAddFriend] = useState(false);
-    const [friendCode, setFriendCode] = useState('');
+    const [feedback, setFeedback] = useState(null);
+    const [copied, setCopied] = useState(false);
 
-    const handleSubmit = () => {
-        toast.success('Feedback transmitted', {
-            icon: <CheckCircle weight="fill" className="w-5 h-5 text-cyan-400" />
-        });
-        setRating(null);
-        setFeedback('');
+    const handleFeedback = (type) => {
+        setFeedback(type);
+        toast.success('Thanks for your feedback!');
     };
 
-    const generateFriendCode = () => {
-        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        setFriendCode(code);
-        setShowAddFriend(true);
+    const handleNewChat = () => {
+        navigate('/matching', { state: { mode: 'video', interests: [] } });
     };
 
-    const copyFriendCode = () => {
-        navigator.clipboard.writeText(friendCode);
-        toast.success('Code copied to clipboard', {
-            icon: <CheckCircle weight="fill" className="w-5 h-5 text-cyan-400" />
-        });
+    const handleGoHome = () => {
+        navigate('/');
+    };
+
+    const handleShare = () => {
+        navigator.clipboard.writeText('https://echoroom.app');
+        setCopied(true);
+        toast.success('Link copied to clipboard!');
+        setTimeout(() => setCopied(false), 2000);
     };
 
     return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
-            <Toaster position="top-center" toastOptions={{
-                style: {
-                    background: 'rgba(0,0,0,0.9)',
-                    color: '#fff',
-                    border: '1px solid rgba(0, 243, 255, 0.3)',
-                    borderRadius: '0',
-                },
-            }} />
-
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
             {/* Background */}
             <div className="absolute inset-0">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-900/10 via-black to-black" />
-                <div 
-                    className="absolute inset-0 opacity-20"
-                    style={{
-                        backgroundImage: `linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px)`,
-                        backgroundSize: '80px 80px'
-                    }}
-                />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-900/20 via-slate-950 to-slate-950" />
+                
+                {/* Animated particles */}
+                <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-blue-400/30 rounded-full animate-ping" />
+                <div className="absolute top-3/4 right-1/3 w-2 h-2 bg-violet-400/30 rounded-full animate-ping" style={{ animationDelay: '1s' }} />
+                <div className="absolute bottom-1/3 left-1/2 w-2 h-2 bg-emerald-400/30 rounded-full animate-ping" style={{ animationDelay: '0.5s' }} />
             </div>
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="max-w-md w-full relative z-10"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="relative z-10 max-w-lg w-full"
             >
-                <div 
-                    className="border border-white/10 bg-black/80 backdrop-blur-xl p-8 relative overflow-hidden"
-                    style={{ clipPath: 'polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 40px 100%, 0 calc(100% - 40px))' }}
-                >
-                    {/* Corner Accents */}
-                    <div className="absolute top-0 left-0 w-20 h-[2px] bg-cyan-400" />
-                    <div className="absolute top-0 left-0 w-[2px] h-20 bg-cyan-400" />
-                    <div className="absolute bottom-0 right-0 w-20 h-[2px] bg-cyan-400" />
-                    <div className="absolute bottom-0 right-0 w-[2px] h-20 bg-cyan-400" />
-
+                <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
                     {/* Header */}
-                    <div className="text-center mb-8">
-                        <motion.div 
-                            className="w-20 h-20 border border-cyan-400/30 bg-cyan-400/5 flex items-center justify-center mx-auto mb-4"
-                            style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-                            animate={{ rotate: [0, 5, -5, 0] }}
-                            transition={{ duration: 4, repeat: Infinity }}
+                    <div className="text-center mb-10">
+                        <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.2, type: 'spring' }}
+                            className="relative w-24 h-24 mx-auto mb-6"
                         >
-                            <Scan weight="fill" className="w-10 h-10 text-cyan-400" />
-                        </motion.div>
-                        <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">Session Ended</h2>
-                        <p className="text-white/40 uppercase tracking-widest text-xs">Transmit session feedback</p>
-                    </div>
-
-                    {/* Rating */}
-                    <div className="flex justify-center gap-4 mb-8">
-                        <SharpCard
-                            icon={ThumbsUp}
-                            label="Positive"
-                            selected={rating === 'good'}
-                            onClick={() => setRating('good')}
-                        />
-                        <SharpCard
-                            icon={ThumbsDown}
-                            label="Negative"
-                            selected={rating === 'bad'}
-                            onClick={() => setRating('bad')}
-                        />
-                    </div>
-
-                    {/* Reactions */}
-                    <div className="flex justify-center gap-4 mb-8">
-                        {[
-                            { icon: Smiley, color: 'yellow', label: 'Happy' },
-                            { icon: Question, color: 'blue', label: 'Curious' },
-                            { icon: HandWaving, color: 'pink', label: 'Farewell' },
-                            { icon: Heart, color: 'red', label: 'Loved' },
-                        ].map((emoji) => (
-                            <ReactionButton
-                                key={emoji.label}
-                                icon={emoji.icon}
-                                color={emoji.color}
-                                label={emoji.label}
-                                onClick={() => toast(
-                                    <div className="flex items-center gap-2">
-                                        <emoji.icon weight="fill" className="w-5 h-5 text-cyan-400" />
-                                        <span>{emoji.label}</span>
-                                    </div>,
-                                    { duration: 1500 }
-                                )}
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-violet-500/20 rounded-full animate-pulse" />
+                            <div className="relative w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                                <CheckCircle weight="bold" className="w-10 h-10 text-white" />
+                            </div>
+                            {/* Orbit effect */}
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+                                className="absolute inset-[-8px] border border-white/10 rounded-full"
                             />
-                        ))}
-                    </div>
+                        </motion.div>
 
-                    {/* Feedback */}
-                    <div className="mb-8">
-                        <textarea
-                            value={feedback}
-                            onChange={(e) => setFeedback(e.target.value)}
-                            placeholder="Additional telemetry (optional)..."
-                            className="w-full bg-black/50 border border-white/10 p-4 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50 transition-colors resize-none h-24 uppercase tracking-wider"
-                            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
-                        />
-                        {rating && (
-                            <motion.button
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={handleSubmit}
-                                className="w-full mt-3 py-3 border border-cyan-400/30 bg-cyan-400/5 text-cyan-400 text-xs font-bold uppercase tracking-widest hover:bg-cyan-400/10 transition-all"
-                            >
-                                Transmit Feedback
-                            </motion.button>
-                        )}
-                    </div>
-
-                    {/* Friend Code */}
-                    {!showAddFriend ? (
-                        <motion.button
+                        <motion.h2
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={generateFriendCode}
-                            className="w-full py-3 mb-4 border border-purple-400/30 bg-purple-400/5 text-purple-400 font-bold text-xs uppercase tracking-widest hover:bg-purple-400/10 transition-all flex items-center justify-center gap-2"
+                            transition={{ delay: 0.3 }}
+                            className="text-2xl md:text-3xl font-bold text-white mb-3"
                         >
-                            <UserPlus weight="fill" className="w-5 h-5" />
-                            Generate Reconnect Code
-                        </motion.button>
-                    ) : (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="mb-4 p-4 border border-purple-400/20 bg-purple-400/5"
+                            Chat Ended
+                        </motion.h2>
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.4 }}
+                            className="text-white/50"
                         >
-                            <p className="text-xs text-white/40 mb-2 text-center uppercase tracking-wider">Share with partner</p>
-                            <div className="flex items-center gap-2">
-                                <div 
-                                    className="flex-1 bg-black/50 border border-white/10 px-4 py-3 text-center"
-                                    style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
-                                >
-                                    <span className="text-2xl font-mono font-bold text-white tracking-widest">{friendCode}</span>
-                                </div>
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={copyFriendCode}
-                                    className="p-3 border-2 border-purple-400 bg-purple-400/10 hover:bg-purple-400 hover:text-black transition-all"
-                                    style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
-                                >
-                                    <Copy weight="fill" className="w-5 h-5" />
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    )}
+                            Thanks for using EchoRoom. Your conversation was private and secure.
+                        </motion.p>
+                    </div>
+
+                    {/* Stats */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="grid grid-cols-3 gap-4 mb-10"
+                    >
+                        <div className="text-center p-4 rounded-2xl bg-white/5 border border-white/5">
+                            <ChatCircleText weight="fill" className="w-6 h-6 text-blue-400 mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">P2P</div>
+                            <div className="text-xs text-white/40">Direct Connection</div>
+                        </div>
+                        <div className="text-center p-4 rounded-2xl bg-white/5 border border-white/5">
+                            <ShieldCheck weight="fill" className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">100%</div>
+                            <div className="text-xs text-white/40">Encrypted</div>
+                        </div>
+                        <div className="text-center p-4 rounded-2xl bg-white/5 border border-white/5">
+                            <Users weight="fill" className="w-6 h-6 text-violet-400 mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">0</div>
+                            <div className="text-xs text-white/40">Data Stored</div>
+                        </div>
+                    </motion.div>
+
+                    {/* Feedback */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6 }}
+                        className="mb-10"
+                    >
+                        <p className="text-sm text-white/50 text-center mb-4">How was your experience?</p>
+                        <div className="flex justify-center gap-3">
+                            <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleFeedback('positive')}
+                                className={`
+                                    p-4 rounded-2xl transition-all
+                                    ${feedback === 'positive' 
+                                        ? 'bg-emerald-500/20 border-emerald-500/50' 
+                                        : 'bg-white/5 hover:bg-white/10 border-transparent'
+                                    }
+                                    border
+                                `}
+                            >
+                                <ThumbsUp 
+                                    weight={feedback === 'positive' ? 'fill' : 'bold'}
+                                    className={`w-6 h-6 ${feedback === 'positive' ? 'text-emerald-400' : 'text-white/60'}`}
+                                />
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleFeedback('negative')}
+                                className={`
+                                    p-4 rounded-2xl transition-all
+                                    ${feedback === 'negative' 
+                                        ? 'bg-red-500/20 border-red-500/50' 
+                                        : 'bg-white/5 hover:bg-white/10 border-transparent'
+                                    }
+                                    border
+                                `}
+                            >
+                                <ThumbsDown 
+                                    weight={feedback === 'negative' ? 'fill' : 'bold'}
+                                    className={`w-6 h-6 ${feedback === 'negative' ? 'text-red-400' : 'text-white/60'}`}
+                                />
+                            </motion.button>
+                        </div>
+                    </motion.div>
 
                     {/* Actions */}
-                    <div className="space-y-3">
-                        <NeonButton onClick={() => navigate('/room/matching')} primary icon={ArrowClockwise}>
-                            New Connection
-                        </NeonButton>
-                        <NeonButton onClick={() => navigate('/')} icon={House}>
-                            Return to Base
-                        </NeonButton>
-                    </div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.7 }}
+                        className="space-y-3"
+                    >
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handleNewChat}
+                            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all flex items-center justify-center gap-2"
+                        >
+                            <ArrowClockwise weight="bold" className="w-5 h-5" />
+                            Start New Chat
+                        </motion.button>
+
+                        <div className="flex gap-3">
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={handleGoHome}
+                                className="flex-1 py-4 px-6 rounded-2xl bg-white/5 text-white font-medium hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <House weight="bold" className="w-5 h-5" />
+                                Home
+                            </motion.button>
+                            
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={handleShare}
+                                className="flex-1 py-4 px-6 rounded-2xl bg-white/5 text-white font-medium hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {copied ? (
+                                    <>
+                                        <CheckCircle weight="fill" className="w-5 h-5 text-emerald-400" />
+                                        Copied!
+                                    </>
+                                ) : (
+                                    <>
+                                        <ShareNetwork weight="bold" className="w-5 h-5" />
+                                        Share
+                                    </>
+                                )}
+                            </motion.button>
+                        </div>
+                    </motion.div>
                 </div>
+
+                {/* Footer note */}
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.9 }}
+                    className="text-center text-white/30 text-sm mt-6"
+                >
+                    Spread the word about private video chat
+                </motion.p>
             </motion.div>
         </div>
     );

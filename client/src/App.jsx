@@ -4,11 +4,11 @@ import { SocketProvider } from './context/SocketContext';
 import { WebRTCProvider } from './context/WebRTCContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import PremiumLanding from './components/PremiumLanding';
-import Onboarding from './components/Onboarding';
 import Matching from './components/Matching';
 import Room from './components/Room';
 import PostChat from './components/PostChat';
 import NotFound from './components/NotFound';
+import JoinModal from './components/JoinModal';
 
 function App() {
   return (
@@ -18,8 +18,7 @@ function App() {
           <Router>
             <Routes>
               <Route path="/" element={<PremiumLanding />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/room/matching" element={<Matching />} />
+              <Route path="/matching" element={<Matching />} />
               <Route path="/room/:roomId" element={<Room />} />
               <Route path="/post-chat" element={<PostChat />} />
               <Route path="*" element={<NotFound />} />

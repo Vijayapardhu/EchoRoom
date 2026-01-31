@@ -13,7 +13,7 @@ import {
     Files,
     Smiley,
     Check,
-    CheckCheck,
+    CheckCircle,
     Clock
 } from '@phosphor-icons/react';
 import FileUpload from './FileUpload';
@@ -210,7 +210,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                                 <span className="text-white/40">
                                                     {msg.status === 'sending' && <Clock weight="bold" className="w-3 h-3" />}
                                                     {msg.status === 'sent' && <Check weight="bold" className="w-3 h-3" />}
-                                                    {msg.status === 'received' && <CheckCheck weight="bold" className="w-3 h-3 text-blue-400" />}
+                                                    {msg.status === 'received' && <CheckCircle weight="fill" className="w-3 h-3 text-blue-400" />}
                                                 </span>
                                             )}
                                         </div>
