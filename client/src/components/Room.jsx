@@ -175,13 +175,14 @@ const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
 
     return (
         <motion.div
-            initial={{ opacity: 1, y: 0, scale: 0.5 }}
-            animate={{ opacity: 0, y: -200, scale: 1.5 }}
+            initial={{ opacity: 1, y: 0, scale: 0.5, x: '-50%' }}
+            animate={{ opacity: 0, y: -150, scale: 1.2, x: '-50%' }}
             exit={{ opacity: 0 }}
             transition={{ duration: 2, ease: 'easeOut' }}
-            className="absolute bottom-32 left-1/2 pointer-events-none z-40"
+            className="fixed bottom-32 left-1/2 pointer-events-none z-[100]"
+            style={{ marginLeft: `${(Math.random() - 0.5) * 100}px` }} // Random horizontal offset
         >
-            <Icon weight="fill" className={`w-16 h-16 ${colorClasses[color]}`} />
+            <Icon weight="fill" className={`w-12 h-12 md:w-16 md:h-16 ${colorClasses[color]}`} />
         </motion.div>
     );
 };
@@ -765,16 +766,16 @@ const Room = () => {
                         </div>
                     </motion.div>
 
-                    {/* Remote Video - Full Screen */}
-                    <div className="flex-1 h-full">
-                        <div className="relative rounded-2xl overflow-hidden bg-neutral-900/50 border border-white/10 h-full">
+                    {/* Remote Video - Full Screen with Original Aspect Ratio */}
+                    <div className="flex-1 h-full flex items-center justify-center">
+                        <div className="relative w-full h-full max-w-full max-h-full flex items-center justify-center rounded-2xl overflow-hidden bg-neutral-900/50 border border-white/10">
                             {remoteStream ? (
                                 <>
                                     <video
                                         ref={remoteVideoRef}
                                         autoPlay
                                         playsInline
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-contain"
                                     />
                                     {/* Peer Info Overlay */}
                                     {remotePeerInfo && (
