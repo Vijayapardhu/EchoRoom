@@ -374,8 +374,8 @@ class WebRTCManager {
         try {
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
             
-            // Process any queued candidates
-            this.processCandidateQueue();
+            // Process any queued candidates immediately
+            await this.processCandidateQueue();
             
             console.log('[WebRTCManager] Answer set successfully');
         } catch (error) {
@@ -420,27 +420,35 @@ class WebRTCManager {
                 const stats = await this.peerConnection.getStats();
                 let rtt = 0;
                 let packetsLost = 0;
+                let jitter = 0;
+                let bytesReceived = 0;
 
                 stats.forEach(report => {
                     if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
-                        rtt = report.currentRoundTripTime * 1000; // Convert to ms
+                        rtt = Math.round(report.currentRoundTripTime * 1000); // Convert to ms
                     }
                     if (report.type === 'inbound-rtp' && report.kind === 'video') {
                         packetsLost = report.packetsLost || 0;
+                        jitter = report.jitter || 0;
+                        bytesReceived = report.bytesReceived || 0;
                     }
                 });
 
-                this.emit('stats', { rtt, packetsLost });
+                this.emit('stats', { rtt, packetsLost, jitter, bytesReceived });
             } catch (err) {
                 // silently fail for stats
             }
-        }, 2000);
+        }, 1000);
     }
 
     /**
      * Close peer connection
      */
     closePeerConnection() {
+        if (this.statsInterval) {
+            clearInterval(this.statsInterval);
+            this.statsInterval = null;
+        }
         if (this.peerConnection) {
             this.peerConnection.close();
             this.peerConnection = null;

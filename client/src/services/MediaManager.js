@@ -81,6 +81,33 @@ class MediaManager {
             };
         }
 
+        if (errorType === 'constraints') {
+            // Try with lower quality constraints
+            console.log('[MediaManager] Attempting lower quality fallback');
+            try {
+                this.localStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        frameRate: { ideal: 24 }
+                    },
+                    audio: this.currentConstraints.audio
+                });
+                return this.localStream;
+            } catch (lowerQualityError) {
+                console.warn('[MediaManager] Lower quality also failed, trying basic');
+                try {
+                    this.localStream = await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: true
+                    });
+                    return this.localStream;
+                } catch (basicError) {
+                    // Continue to notfound handling
+                }
+            }
+        }
+
         if (errorType === 'notfound') {
             // Try audio-only
             console.log('[MediaManager] Attempting audio-only fallback');
@@ -193,14 +220,17 @@ class MediaManager {
 
     /**
      * Toggle video track
+     * @param {boolean|undefined} enabled - If provided, sets to this value. Otherwise toggles.
      */
     toggleVideo(enabled) {
         if (!this.localStream) return false;
 
         const videoTrack = this.localStream.getVideoTracks()[0];
         if (videoTrack) {
-            videoTrack.enabled = enabled;
-            console.log('[MediaManager] Video toggled:', enabled);
+            // If enabled is undefined, toggle current state
+            const newState = enabled !== undefined ? enabled : !videoTrack.enabled;
+            videoTrack.enabled = newState;
+            console.log('[MediaManager] Video toggled:', newState);
             return videoTrack.enabled;
         }
         return false;
@@ -208,14 +238,17 @@ class MediaManager {
 
     /**
      * Toggle audio track
+     * @param {boolean|undefined} enabled - If provided, sets to this value. Otherwise toggles.
      */
     toggleAudio(enabled) {
         if (!this.localStream) return false;
 
         const audioTrack = this.localStream.getAudioTracks()[0];
         if (audioTrack) {
-            audioTrack.enabled = enabled;
-            console.log('[MediaManager] Audio toggled:', enabled);
+            // If enabled is undefined, toggle current state
+            const newState = enabled !== undefined ? enabled : !audioTrack.enabled;
+            audioTrack.enabled = newState;
+            console.log('[MediaManager] Audio toggled:', newState);
             return audioTrack.enabled;
         }
         return false;

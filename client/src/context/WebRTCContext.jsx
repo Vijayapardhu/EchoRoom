@@ -286,18 +286,29 @@ export const WebRTCProvider = ({ children }) => {
 
     /**
      * Toggle video
+     * @param {boolean|undefined} enabled - If provided, sets to this value. Otherwise toggles.
      */
     const toggleVideo = useCallback((enabled) => {
         if (!webrtcManagerRef.current) return false;
-        const result = webrtcManagerRef.current.getMediaManager().toggleVideo(enabled);
+        
+        // Get current state if no explicit value provided
+        let newEnabled = enabled;
+        if (enabled === undefined && localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                newEnabled = !videoTrack.enabled;
+            }
+        }
+        
+        const result = webrtcManagerRef.current.getMediaManager().toggleVideo(newEnabled);
 
         // Update peer connection if exists
         if (peerConnection.current && localStream) {
             const videoTrack = localStream.getVideoTracks()[0];
             if (videoTrack) {
-                const sender = peerConnection.current.getSenders().find(s => s.track === videoTrack);
-                if (sender) {
-                    sender.track.enabled = enabled;
+                const sender = peerConnection.current.getSenders().find(s => s.track?.kind === 'video');
+                if (sender && sender.track) {
+                    sender.track.enabled = result;
                 }
             }
         }
@@ -307,18 +318,29 @@ export const WebRTCProvider = ({ children }) => {
 
     /**
      * Toggle audio
+     * @param {boolean|undefined} enabled - If provided, sets to this value. Otherwise toggles.
      */
     const toggleAudio = useCallback((enabled) => {
         if (!webrtcManagerRef.current) return false;
-        const result = webrtcManagerRef.current.getMediaManager().toggleAudio(enabled);
+        
+        // Get current state if no explicit value provided
+        let newEnabled = enabled;
+        if (enabled === undefined && localStream) {
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                newEnabled = !audioTrack.enabled;
+            }
+        }
+        
+        const result = webrtcManagerRef.current.getMediaManager().toggleAudio(newEnabled);
 
         // Update peer connection if exists
         if (peerConnection.current && localStream) {
             const audioTrack = localStream.getAudioTracks()[0];
             if (audioTrack) {
-                const sender = peerConnection.current.getSenders().find(s => s.track === audioTrack);
-                if (sender) {
-                    sender.track.enabled = enabled;
+                const sender = peerConnection.current.getSenders().find(s => s.track?.kind === 'audio');
+                if (sender && sender.track) {
+                    sender.track.enabled = result;
                 }
             }
         }

@@ -3,8 +3,36 @@ const safetyService = require('./safetyService');
 
 const roomsWithInitiator = new Set();
 const groupRooms = new Map(); // Track group rooms: roomId -> { participants: Set, maxSize: 6, topic: string }
+const pendingMatches = new Map(); // Track users waiting for matches
 
 const socketService = (io) => {
+    // Periodic matching check for waiting users
+    setInterval(async () => {
+        for (const [socketId, prefs] of pendingMatches.entries()) {
+            const socket = io.sockets.sockets.get(socketId);
+            if (!socket) {
+                pendingMatches.delete(socketId);
+                continue;
+            }
+            
+            try {
+                const match = await matchingService.findMatch(socketId);
+                if (match) {
+                    pendingMatches.delete(socketId);
+                    pendingMatches.delete(match.socketId);
+                    
+                    const roomId = `${socketId}-${match.socketId}`;
+                    socket.join(roomId);
+                    io.sockets.sockets.get(match.socketId)?.join(roomId);
+                    io.to(roomId).emit('match-found', { roomId, isGroup: false });
+                    console.log(`[Periodic] Match found: ${socketId} <-> ${match.socketId}`);
+                }
+            } catch (err) {
+                console.error('[Periodic] Match check error:', err);
+            }
+        }
+    }, 2000); // Check every 2 seconds
+
     io.on('connection', async (socket) => {
         const clientIp = socket.handshake.address;
         console.log('User connected:', socket.id, 'IP:', clientIp);
@@ -70,12 +98,19 @@ const socketService = (io) => {
                         console.log(`Match found: ${socket.id} <-> ${match.socketId}`);
                         const roomId = `${socket.id}-${match.socketId}`;
 
+                        // Remove from pending matches
+                        pendingMatches.delete(socket.id);
+                        pendingMatches.delete(match.socketId);
+
                         // Join both users to the room
                         socket.join(roomId);
                         io.sockets.sockets.get(match.socketId)?.join(roomId);
 
                         // Notify both users
                         io.to(roomId).emit('match-found', { roomId, isGroup: false });
+                    } else {
+                        // Add to pending matches for periodic check
+                        pendingMatches.set(socket.id, preferences);
                     }
                 }
             } catch (err) {
@@ -201,6 +236,11 @@ const socketService = (io) => {
             socket.to(roomId).emit('receive-message', message);
         });
 
+        // Reaction Events
+        socket.on('send-reaction', ({ roomId, reaction }) => {
+            socket.to(roomId).emit('receive-reaction', { reaction, sender: socket.id });
+        });
+
         // Media State Events
         socket.on('toggle-video', ({ roomId, isVideoOff }) => {
             socket.to(roomId).emit('toggle-video', { isVideoOff });
@@ -218,6 +258,9 @@ const socketService = (io) => {
         socket.on('disconnect', async () => {
             console.log('User disconnected:', socket.id);
             await matchingService.removeUserFromQueue(socket.id);
+            
+            // Remove from pending matches
+            pendingMatches.delete(socket.id);
             
             // Cleanup group rooms
             for (const [roomId, roomData] of groupRooms.entries()) {

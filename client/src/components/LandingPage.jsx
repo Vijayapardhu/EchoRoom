@@ -73,11 +73,42 @@ const LandingPage = () => {
                         </button>
                     </div>
 
-                    {/* Minimal Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-20 border-t border-white/5 mt-20">
-                        <FeatureItem icon={<Shield />} label="Encrypted" />
-                        <FeatureItem icon={<Video />} label="HD Stream" />
-                        <FeatureItem icon={<Activity />} label="Low Latency" />
+                    {/* Features Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-16 border-t border-white/5 mt-16">
+                        <FeatureCard 
+                            icon={<Shield />} 
+                            label="End-to-End Encrypted" 
+                            description="Your conversations are fully private and secure"
+                            color="cyan"
+                        />
+                        <FeatureCard 
+                            icon={<Video />} 
+                            label="Crystal Clear HD" 
+                            description="High quality video and audio streaming"
+                            color="purple"
+                        />
+                        <FeatureCard 
+                            icon={<Activity />} 
+                            label="Ultra Low Latency" 
+                            description="Real-time connection with minimal delay"
+                            color="green"
+                        />
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex justify-center gap-12 mt-16">
+                        <div className="text-center">
+                            <div className="text-3xl font-bold text-white">{activeUsers || '0'}</div>
+                            <div className="text-xs text-neutral-500 uppercase tracking-wider">Online Now</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-3xl font-bold text-white">100%</div>
+                            <div className="text-xs text-neutral-500 uppercase tracking-wider">Anonymous</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-3xl font-bold text-white">Free</div>
+                            <div className="text-xs text-neutral-500 uppercase tracking-wider">Forever</div>
+                        </div>
                     </div>
                 </motion.div>
             </div>
@@ -104,13 +135,22 @@ const LandingPage = () => {
     );
 };
 
-const FeatureItem = ({ icon, label }) => (
-    <div className="flex flex-col items-center gap-4 text-neutral-500 hover:text-cyan-400 transition-colors duration-500 group cursor-default">
-        <div className="p-4 rounded-full border border-white/5 group-hover:border-cyan-500/30 group-hover:bg-cyan-500/5 transition-all">
-            {React.cloneElement(icon, { className: "w-6 h-6" })}
+const FeatureCard = ({ icon, label, description, color }) => {
+    const colors = {
+        cyan: 'group-hover:border-cyan-500/30 group-hover:bg-cyan-500/5 group-hover:text-cyan-400',
+        purple: 'group-hover:border-purple-500/30 group-hover:bg-purple-500/5 group-hover:text-purple-400',
+        green: 'group-hover:border-green-500/30 group-hover:bg-green-500/5 group-hover:text-green-400',
+    };
+    
+    return (
+        <div className={`group p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 cursor-default ${colors[color]}`}>
+            <div className={`p-3 rounded-xl border border-white/10 bg-white/5 inline-block mb-4 transition-all ${colors[color]}`}>
+                {React.cloneElement(icon, { className: "w-6 h-6" })}
+            </div>
+            <h3 className="text-white font-semibold mb-2">{label}</h3>
+            <p className="text-neutral-500 text-sm">{description}</p>
         </div>
-        <span className="text-sm tracking-widest uppercase">{label}</span>
-    </div>
-);
+    );
+};
 
 export default LandingPage;

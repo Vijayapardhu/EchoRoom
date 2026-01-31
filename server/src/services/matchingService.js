@@ -5,7 +5,7 @@ class MatchingService {
         this.QUEUE_KEY = 'matching_queue';
         this.USER_PREFIX = 'user:';
         this.MATCH_THRESHOLD = 50;
-        this.MAX_WAIT_TIME = 10000; // 10 seconds before relaxing rules
+        this.MAX_WAIT_TIME = 5000; // 5 seconds before relaxing rules (faster matching)
 
         // In-memory fallback
         this.localQueue = [];

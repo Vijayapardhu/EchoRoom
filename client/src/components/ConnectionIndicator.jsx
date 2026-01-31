@@ -36,6 +36,14 @@ const ConnectionIndicator = () => {
     }, [peerConnection]);
 
     const getColor = () => {
+        // Use RTT for more accurate quality indicator
+        if (connectionStats.rtt > 0) {
+            if (connectionStats.rtt < 100) return 'text-green-400';
+            if (connectionStats.rtt < 200) return 'text-yellow-400';
+            if (connectionStats.rtt < 400) return 'text-orange-400';
+            return 'text-red-400';
+        }
+        
         switch (quality) {
             case 'good': return 'text-green-400';
             case 'fair': return 'text-yellow-400';
@@ -47,11 +55,11 @@ const ConnectionIndicator = () => {
 
     const getLabel = () => {
         if (connectionStats.rtt > 0) {
-            return `${Math.round(connectionStats.rtt)}ms`;
+            return `${connectionStats.rtt}ms`;
         }
         
         switch (quality) {
-            case 'good': return 'Excellent';
+            case 'good': return 'Connected';
             case 'fair': return 'Connecting...';
             case 'poor': return 'Weak Signal';
             case 'disconnected': return 'Disconnected';
