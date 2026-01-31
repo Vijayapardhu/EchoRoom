@@ -281,6 +281,7 @@ const LandingPage = () => {
                 <p>
                     EchoRoom is the premier Omegle alternative for 2026, offering free anonymous video chat with strangers worldwide. 
                     Connect instantly through HD video calls, text messaging, and interest-based matching without any registration required.
+                    Popular in India, Asia, and globally for random stranger video chat.
                 </p>
                 
                 <h3>Why Choose EchoRoom Over Other Video Chat Platforms?</h3>
@@ -293,6 +294,8 @@ const LandingPage = () => {
                     <li>Safe and Secure - Built-in safety features and reporting</li>
                     <li>Real-time Reactions - Express yourself with emoji reactions</li>
                     <li>Text Chat - Send messages alongside video chat</li>
+                    <li>Global Community - Connect with users from India, USA, UK, Singapore, Philippines, Malaysia, Australia</li>
+                    <li>Low Data Usage - Optimized for mobile networks in Asia</li>
                 </ul>
 
                 <h3>How to Use EchoRoom Video Chat</h3>
@@ -312,6 +315,13 @@ const LandingPage = () => {
                     report and block features, friend code system for reconnecting, post-chat feedback.
                 </p>
 
+                <h3>Popular in India and Asia</h3>
+                <p>
+                    EchoRoom is the best Omegle alternative in India. Talk to strangers from Mumbai, Delhi, Bangalore, 
+                    Chennai, Kolkata, Hyderabad, and all across India. Connect with people from Singapore, Philippines, 
+                    Malaysia, Indonesia, Thailand, Vietnam, and other Asian countries. Make new friends online for free.
+                </p>
+
                 <h3>Keywords</h3>
                 <p>
                     omegle alternative, video chat with strangers, random video chat, anonymous chat, talk to strangers, 
@@ -319,7 +329,13 @@ const LandingPage = () => {
                     random chat rooms, video calling strangers, meet new people online, anonymous video call, 
                     chat with strangers online free, video chat app, live video chat, webcam chat, instant video chat, 
                     random video call, video chat no registration, free cam chat, stranger video call, omegle like sites,
-                    best omegle alternative 2026, random stranger chat, anonymous webcam chat, video chat platform
+                    best omegle alternative 2026, random stranger chat, anonymous webcam chat, video chat platform,
+                    omegle india, video chat india, talk to strangers india, random video chat india, omegle alternative india,
+                    free video call app india, stranger chat india, online chat india, video chat asia, omegle asian,
+                    random chat asia, desi chat, indian video chat, asian video chat, omegle mumbai, omegle delhi,
+                    omegle bangalore, chat with indian strangers, free video chat india, anonymous chat india,
+                    video call strangers india, random call india, meet strangers online india, omegle singapore,
+                    omegle philippines, omegle malaysia, video chat southeast asia, free chat app asia
                 </p>
             </section>
         </div>
