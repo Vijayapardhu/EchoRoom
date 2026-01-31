@@ -10,44 +10,39 @@ import {
     VideoCamera, 
     VideoCameraSlash, 
     PhoneDisconnect, 
-    Flag,
     ChatCircle,
     Monitor,
-    SkipForward,
     ArrowClockwise,
     Spinner,
-    ArrowsOutSimple,
-    ArrowsInSimple,
-    Heart,
-    ThumbsUp,
-    Smiley,
-    Fire,
-    HandsClapping,
     ShareNetwork,
     Copy,
     UserPlus,
     X,
-    Gear,
     WifiHigh,
     WifiMedium,
     WifiLow,
     WifiSlash,
     CheckCircle,
-    Warning,
-    Info
+    Info,
+    Smiley,
+    Heart,
+    Fire,
+    Lightning,
+    HandsClapping,
+    Star,
+    Crosshair,
+    Users,
+    Scan
 } from '@phosphor-icons/react';
-import PanicButton from './safety/PanicButton';
-import ReportModal from './safety/ReportModal';
 import Chat from './Chat';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
-import PermissionError from './PermissionError';
 
-// Connection quality indicator component
+// Connection quality indicator
 const ConnectionQuality = ({ stats }) => {
     const getQuality = () => {
         if (!stats || stats.rtt === 0) return { icon: WifiSlash, color: 'text-red-400', label: 'Disconnected' };
-        if (stats.rtt < 50) return { icon: WifiHigh, color: 'text-green-400', label: 'Excellent' };
-        if (stats.rtt < 100) return { icon: WifiHigh, color: 'text-cyan-400', label: 'Good' };
+        if (stats.rtt < 50) return { icon: WifiHigh, color: 'text-cyan-400', label: 'Excellent' };
+        if (stats.rtt < 100) return { icon: WifiHigh, color: 'text-green-400', label: 'Good' };
         if (stats.rtt < 200) return { icon: WifiMedium, color: 'text-yellow-400', label: 'Fair' };
         return { icon: WifiLow, color: 'text-orange-400', label: 'Poor' };
     };
@@ -56,34 +51,61 @@ const ConnectionQuality = ({ stats }) => {
     const Icon = quality.icon;
 
     return (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/10">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-white/10">
             <Icon weight="fill" className={`w-4 h-4 ${quality.color}`} />
-            <span className="text-xs text-white/70">{quality.label}</span>
+            <span className="text-xs text-white/60 uppercase tracking-wider">{quality.label}</span>
             {stats?.rtt > 0 && (
-                <span className="text-xs text-white/40">{stats.rtt}ms</span>
+                <span className="text-xs text-white/30 font-mono">{stats.rtt}ms</span>
             )}
         </div>
     );
 };
 
-// Premium reaction component
-const ReactionButton = ({ icon: Icon, color, onClick }) => (
-    <motion.button
-        whileHover={{ scale: 1.2 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={onClick}
-        className={`p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-${color}-500/50 transition-all`}
-    >
-        <Icon weight="fill" className={`w-6 h-6 text-${color}-400`} />
-    </motion.button>
-);
+// Neon button component
+const ControlButton = ({ onClick, active, activeIcon, inactiveIcon, color = 'cyan', label }) => {
+    const colors = {
+        cyan: 'border-cyan-400 text-cyan-400 bg-cyan-400/10 shadow-[0_0_15px_rgba(0,243,255,0.3)]',
+        red: 'border-red-400 text-red-400 bg-red-400/10 shadow-[0_0_15px_rgba(239,68,68,0.3)]',
+        purple: 'border-purple-400 text-purple-400 bg-purple-400/10 shadow-[0_0_15px_rgba(168,85,247,0.3)]',
+        white: 'border-white/30 text-white hover:border-white/60'
+    };
 
-// Floating reaction animation
+    return (
+        <motion.button
+            onClick={onClick}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`
+                p-4 border transition-all duration-300 relative overflow-hidden group
+                ${active ? colors[color] : colors.white}
+            `}
+            style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+        >
+            {active && color !== 'white' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+            )}
+            {React.cloneElement(active ? activeIcon : inactiveIcon, { 
+                weight: 'fill',
+                className: 'w-6 h-6 relative z-10' 
+            })}
+        </motion.button>
+    );
+};
+
+// Floating reaction
 const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
     useEffect(() => {
         const timer = setTimeout(onComplete, 2000);
         return () => clearTimeout(timer);
     }, [onComplete]);
+
+    const colorClasses = {
+        red: 'text-red-400',
+        cyan: 'text-cyan-400',
+        yellow: 'text-yellow-400',
+        orange: 'text-orange-400',
+        purple: 'text-purple-400'
+    };
 
     return (
         <motion.div
@@ -93,7 +115,7 @@ const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
             transition={{ duration: 2, ease: 'easeOut' }}
             className="absolute bottom-32 left-1/2 pointer-events-none z-40"
         >
-            <Icon weight="fill" className={`w-16 h-16 text-${color}-400`} />
+            <Icon weight="fill" className={`w-16 h-16 ${colorClasses[color]}`} />
         </motion.div>
     );
 };
@@ -119,259 +141,87 @@ const Room = () => {
         addIceCandidateForPeer,
         removePeerConnection,
         closeConnection,
-        resetPeerConnection,
         cleanup,
         peerConnection,
         peerConnections,
-        startScreenShare,
-        stopScreenShare,
         toggleScreenShare,
         toggleVideo,
         toggleAudio,
-        switchCamera,
         isScreenSharing,
         connectionStats,
-        connectionState
     } = useWebRTC();
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
-    const remoteVideoRefs = useRef(new Map());
     const initiatorHandledRef = useRef(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
-    const [remoteVideoOff, setRemoteVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
-    const [isReportOpen, setIsReportOpen] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
-    const [isSearching, setIsSearching] = useState(false);
-    const [permissionError, setPermissionError] = useState(null);
-    
-    // Group call state
-    const [isGroupCall, setIsGroupCall] = useState(false);
-    const [groupPeers, setGroupPeers] = useState([]);
-    const [fullscreenPeer, setFullscreenPeer] = useState(null);
-    
-    // Reactions state
-    const [showReactions, setShowReactions] = useState(false);
-    const [floatingReactions, setFloatingReactions] = useState([]);
-    const [remoteReaction, setRemoteReaction] = useState(null);
-    
-    // User name state
+    const [isReconnecting, setIsReconnecting] = useState(false);
     const [userName, setUserName] = useState(() => localStorage.getItem('echoroom_username') || '');
     const [showNameModal, setShowNameModal] = useState(false);
     const [tempName, setTempName] = useState('');
+    const [isGroupCall, setIsGroupCall] = useState(false);
+    const [groupPeers, setGroupPeers] = useState([]);
     
-    // Reconnection state
-    const [isReconnecting, setIsReconnecting] = useState(false);
-    const [reconnectAttempts, setReconnectAttempts] = useState(0);
-    const maxReconnectAttempts = 5;
-    const reconnectTimeoutRef = useRef(null);
-    
-    // Local stream ready state and ref for reliable access
-    const [localStreamReady, setLocalStreamReady] = useState(false);
-    const localStreamRef = useRef(null);
-    const pendingInitiatorRef = useRef(null);
-    const streamWaitTimeoutRef = useRef(null);
+    // Reactions
+    const [showReactions, setShowReactions] = useState(false);
+    const [floatingReactions, setFloatingReactions] = useState([]);
+    const [remoteReaction, setRemoteReaction] = useState(null);
 
     const preferences = location.state || {};
 
-    // Check if group room
+    const reactions = [
+        { icon: Heart, color: 'red', name: 'heart' },
+        { icon: Lightning, color: 'cyan', name: 'lightning' },
+        { icon: Star, color: 'yellow', name: 'star' },
+        { icon: Fire, color: 'orange', name: 'fire' },
+        { icon: HandsClapping, color: 'purple', name: 'clap' },
+    ];
+
     useEffect(() => {
         if (roomId && roomId.startsWith('group-')) {
             setIsGroupCall(true);
-        } else {
-            setIsGroupCall(false);
         }
         initiatorHandledRef.current = false;
-        
-        return () => {
-            initiatorHandledRef.current = false;
-        };
     }, [roomId]);
 
-    // Initialize local media stream
     useEffect(() => {
-        let mounted = true;
-        
         const initMedia = async () => {
             try {
-                console.log('[Room] Initializing local media...');
-                const stream = await startLocalStream();
-                
-                if (!mounted) return;
-                
-                localStreamRef.current = stream;
-                setLocalStreamReady(true);
-                setPermissionError(null);
-                console.log('[Room] Local media initialized successfully');
+                await startLocalStream();
             } catch (err) {
-                if (!mounted) return;
-                
-                console.error('[Room] Failed to start local stream:', err);
-                if (err.type === 'permission') {
-                    setPermissionError(err);
-                } else {
-                    toast.error(err.message || 'Failed to access camera/microphone');
-                }
+                console.error('Failed to start local stream:', err);
+                toast.error('Camera access required');
             }
         };
         initMedia();
-
-        return () => {
-            mounted = false;
-            console.log('[Room] Cleaning up on unmount...');
-            localStreamRef.current = null;
-            setLocalStreamReady(false);
-            pendingInitiatorRef.current = null;
-            if (streamWaitTimeoutRef.current) {
-                clearTimeout(streamWaitTimeoutRef.current);
-            }
-            cleanup();
-        };
+        return () => cleanup();
     }, []);
 
-    // Attach local stream to video element
     useEffect(() => {
         if (localVideoRef.current && localStream) {
-            console.log('[Room] Attaching local stream to video element');
             localVideoRef.current.srcObject = localStream;
         }
     }, [localStream]);
 
-    // Process pending initiator when local stream becomes ready
-    useEffect(() => {
-        if (localStreamReady && pendingInitiatorRef.current !== null && socket && roomId) {
-            console.log('[Room] Stream ready, processing pending initiator');
-            
-            const processPending = async () => {
-                const isInitiator = pendingInitiatorRef.current;
-                if (isInitiator === null || !localStreamRef.current) return;
-                
-                console.log('[Room] Processing initiator:', isInitiator);
-                pendingInitiatorRef.current = null;
-                
-                if (streamWaitTimeoutRef.current) {
-                    clearTimeout(streamWaitTimeoutRef.current);
-                    streamWaitTimeoutRef.current = null;
-                }
-                
-                initiatorHandledRef.current = true;
-                
-                const handleIceCandidate = (candidate) => {
-                    socket.emit('ice-candidate', { roomId, candidate });
-                };
-
-                createPeerConnection(handleIceCandidate);
-
-                if (isInitiator) {
-                    try {
-                        console.log('[Room] Creating offer as initiator');
-                        const offer = await createOffer();
-                        socket.emit('offer', { roomId, offer });
-                    } catch (err) {
-                        console.error('[Room] Error creating offer:', err);
-                        initiatorHandledRef.current = false;
-                        toast.error('Connection failed. Please try again.');
-                    }
-                }
-            };
-            
-            processPending();
-        }
-    }, [localStreamReady, socket, roomId, createPeerConnection, createOffer]);
-
-    // Attach remote stream to video element
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
-            console.log('[Room] Attaching remote stream:', remoteStream.getTracks().map(t => `${t.kind}:${t.enabled}`));
             remoteVideoRef.current.srcObject = remoteStream;
-            remoteVideoRef.current.play().catch(err => {
-                console.error('[Room] Error playing remote video:', err);
-            });
         }
     }, [remoteStream]);
 
-    // Save username
-    const saveUserName = useCallback((name) => {
-        const trimmedName = name.trim();
-        if (trimmedName) {
-            setUserName(trimmedName);
-            localStorage.setItem('echoroom_username', trimmedName);
-            setShowNameModal(false);
-            toast.success(`Name set to "${trimmedName}"`);
-            
-            if (socket && roomId) {
-                socket.emit('user-name-update', { roomId, userName: trimmedName });
-            }
-        }
-    }, [socket, roomId]);
-
-    // Reconnection logic
-    const attemptReconnect = useCallback(async () => {
-        if (reconnectAttempts >= maxReconnectAttempts) {
-            toast.error('Failed to reconnect after multiple attempts');
-            setIsReconnecting(false);
-            return;
-        }
-
-        setIsReconnecting(true);
-        setReconnectAttempts(prev => prev + 1);
-        
-        try {
-            console.log(`[Room] Reconnect attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}`);
-            
-            initiatorHandledRef.current = false;
-            cleanup();
-            await startLocalStream();
-            
-            if (socket && roomId) {
-                socket.emit('join-room', { roomId, userName });
-                toast.success('Reconnected successfully!');
-                setIsReconnecting(false);
-                setReconnectAttempts(0);
-            }
-        } catch (err) {
-            console.error('[Room] Reconnect failed:', err);
-            toast.error(`Reconnect attempt ${reconnectAttempts + 1} failed`);
-            
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
-            reconnectTimeoutRef.current = setTimeout(attemptReconnect, delay);
-        }
-    }, [reconnectAttempts, cleanup, startLocalStream, socket, roomId, userName]);
-
-    useEffect(() => {
-        return () => {
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-            }
-        };
-    }, []);
-
-    // Socket event handlers
     useEffect(() => {
         if (!socket || !roomId) return;
 
-        console.log('[Room] Setting up socket listeners for room:', roomId);
-
-        const handleMatchFound = ({ roomId: newRoomId, isGroup }) => {
-            console.log('[Room] Match found! Room:', newRoomId, 'isGroup:', isGroup);
-            if (isGroup) setIsGroupCall(true);
-            navigate(`/room/${newRoomId}`, { state: preferences, replace: true });
-        };
-
-        // Join room
         socket.emit('join-room', { roomId, userName });
 
-        // Group call handlers
         const handleExistingPeers = async ({ peers }) => {
-            console.log('[Room] Existing peers:', peers);
-            if (!localStreamRef.current) {
-                console.log('[Room] Waiting for local stream before connecting to peers...');
-                setTimeout(() => handleExistingPeers({ peers }), 200);
+            if (!localStream) {
+                setTimeout(() => handleExistingPeers({ peers }), 100);
                 return;
             }
-            
             for (const peerId of peers) {
                 const onIceCandidate = (candidate, targetPeerId) => {
                     socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
@@ -385,150 +235,86 @@ const Room = () => {
                         return [...prev, { peerId: pid, stream }];
                     });
                 };
-                
                 createPeerConnectionForPeer(peerId, onIceCandidate, onRemoteStream);
-                
                 try {
                     const offer = await createOfferForPeer(peerId);
                     socket.emit('offer', { roomId, offer, targetPeerId: peerId });
                 } catch (err) {
-                    console.error('[Room] Error creating offer for peer:', peerId, err);
+                    console.error('Error creating offer:', err);
                 }
             }
         };
 
         const handlePeerJoined = async ({ peerId }) => {
-            console.log('[Room] New peer joined:', peerId);
-            toast.success('A new person joined!');
+            toast.success('New node connected');
             playJoinSound();
-
             const onIceCandidate = (candidate, targetPeerId) => {
                 socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
             };
             const onRemoteStream = (stream, pid) => {
                 setGroupPeers(prev => {
                     const existing = prev.find(p => p.peerId === pid);
-                    if (existing) {
-                        return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
-                    }
+                    if (existing) return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
                     return [...prev, { peerId: pid, stream }];
                 });
             };
-
             createPeerConnectionForPeer(peerId, onIceCandidate, onRemoteStream);
         };
 
         const handlePeerLeft = ({ peerId }) => {
-            console.log('[Room] Peer left:', peerId);
-            toast('Someone left the room', { icon: <HandWaving weight="fill" className="w-5 h-5" /> });
+            toast('Node disconnected', { icon: <Info weight="fill" className="w-5 h-5" /> });
             playLeaveSound();
             removePeerConnection(peerId);
             setGroupPeers(prev => prev.filter(p => p.peerId !== peerId));
         };
 
-        // 1-on-1 handlers
         const handleIsInitiator = async (isInitiator) => {
-            if (isGroupCall) {
-                console.log('[Room] Skipping initiator for group call');
-                return;
-            }
+            if (isGroupCall) return;
+            if (initiatorHandledRef.current) return;
             
-            console.log('[Room] Is initiator:', isInitiator, 'handled:', initiatorHandledRef.current);
-
-            if (initiatorHandledRef.current) {
-                console.log('[Room] Initiator already handled, skipping');
+            if (!localStream) {
+                setTimeout(() => handleIsInitiator(isInitiator), 200);
                 return;
             }
 
-            setIsSearching(false);
-
-            if (peerConnection.current) {
-                const state = peerConnection.current.connectionState;
-                const iceState = peerConnection.current.iceConnectionState;
-                
-                if (state === 'connected' || state === 'connecting') {
-                    console.log('[Room] Connection already active');
-                    initiatorHandledRef.current = true;
-                    return;
-                }
-                
-                if (state === 'failed' || state === 'closed' || iceState === 'failed') {
-                    console.log('[Room] Closing stale connection');
-                    closeConnection();
-                }
-            }
-
-            // Check if local stream is ready using ref (more reliable than state)
-            if (!localStreamRef.current) {
-                console.log('[Room] Local stream not ready, queuing initiator request');
-                pendingInitiatorRef.current = isInitiator;
-                
-                // Set a timeout to prevent infinite waiting
-                if (streamWaitTimeoutRef.current) {
-                    clearTimeout(streamWaitTimeoutRef.current);
-                }
-                streamWaitTimeoutRef.current = setTimeout(() => {
-                    if (!localStreamRef.current && pendingInitiatorRef.current !== null) {
-                        console.error('[Room] Timeout waiting for local stream');
-                        toast.error('Failed to access camera. Please refresh and try again.');
-                        pendingInitiatorRef.current = null;
-                    }
-                }, 15000); // 15 second timeout
-                return;
-            }
-
-            // Stream is ready, proceed immediately
             initiatorHandledRef.current = true;
-
             const handleIceCandidate = (candidate) => {
                 socket.emit('ice-candidate', { roomId, candidate });
             };
-
             createPeerConnection(handleIceCandidate);
 
             if (isInitiator) {
                 try {
-                    console.log('[Room] Creating offer as initiator');
                     const offer = await createOffer();
                     socket.emit('offer', { roomId, offer });
                 } catch (err) {
-                    console.error('[Room] Error creating offer:', err);
-                    initiatorHandledRef.current = false;
-                    toast.error('Connection failed. Please try reconnecting.');
+                    console.error('Error creating offer:', err);
                 }
             }
         };
 
-        // WebRTC signaling handlers
         const handleOfferReceived = async ({ offer, sender }) => {
-            console.log('[Room] Received offer from:', sender);
-
             if (isGroupCall) {
                 if (!localStream) {
                     setTimeout(() => handleOfferReceived({ offer, sender }), 100);
                     return;
                 }
-                
                 const onIceCandidate = (candidate, targetPeerId) => {
                     socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
                 };
                 const onRemoteStream = (stream, pid) => {
                     setGroupPeers(prev => {
                         const existing = prev.find(p => p.peerId === pid);
-                        if (existing) {
-                            return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
-                        }
+                        if (existing) return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
                         return [...prev, { peerId: pid, stream }];
                     });
                 };
-                
                 createPeerConnectionForPeer(sender, onIceCandidate, onRemoteStream);
-                
                 try {
                     const answer = await handleOfferFromPeer(offer, sender);
                     socket.emit('answer', { roomId, answer, targetPeerId: sender });
                 } catch (err) {
-                    console.error('[Room] Error handling offer:', err);
+                    console.error('Error handling offer:', err);
                 }
             } else {
                 if (!peerConnection.current) {
@@ -537,61 +323,32 @@ const Room = () => {
                     };
                     createPeerConnection(handleIceCandidate);
                 }
-
                 try {
                     const answer = await handleOffer(offer);
                     socket.emit('answer', { roomId, answer });
                     initiatorHandledRef.current = true;
                 } catch (err) {
-                    console.error('[Room] Error handling offer:', err);
-                    toast.error('Failed to connect. Please try reconnecting.');
+                    console.error('Error handling offer:', err);
                 }
             }
         };
 
         const handleAnswerReceived = async ({ answer, sender }) => {
-            console.log('[Room] Received answer from:', sender);
-
             if (isGroupCall) {
-                try {
-                    await handleAnswerFromPeer(answer, sender);
-                } catch (err) {
-                    console.error('[Room] Error handling answer:', err);
-                }
+                try { await handleAnswerFromPeer(answer, sender); } catch (err) {}
             } else {
                 if (!peerConnection.current) return;
-                try {
-                    await handleAnswer(answer);
-                } catch (err) {
-                    console.error('[Room] Error handling answer:', err);
-                }
+                try { await handleAnswer(answer); } catch (err) {}
             }
         };
 
         const handleIceCandidateReceived = async ({ candidate, sender }) => {
             if (isGroupCall) {
-                try {
-                    await addIceCandidateForPeer(candidate, sender);
-                } catch (err) {
-                    console.error('[Room] Error adding ICE candidate:', err);
-                }
+                try { await addIceCandidateForPeer(candidate, sender); } catch (err) {}
             } else {
                 if (!peerConnection.current) return;
-                try {
-                    await addIceCandidate(candidate);
-                } catch (err) {
-                    console.error('[Room] Error adding ICE candidate:', err);
-                }
+                try { await addIceCandidate(candidate); } catch (err) {}
             }
-        };
-
-        const handlePeerDisconnected = () => {
-            console.log('[Room] Peer disconnected');
-            playLeaveSound();
-            toast('Partner disconnected. Click Next to find a new match.', {
-                icon: <Info weight="fill" className="w-5 h-5" />,
-                duration: 5000
-            });
         };
 
         const handleReaction = ({ reaction }) => {
@@ -599,12 +356,6 @@ const Room = () => {
             setTimeout(() => setRemoteReaction(null), 2000);
         };
 
-        const handleRemoteVideoToggle = ({ isVideoOff }) => {
-            setRemoteVideoOff(isVideoOff);
-        };
-
-        // Register listeners
-        socket.on('match-found', handleMatchFound);
         socket.on('existing-peers', handleExistingPeers);
         socket.on('peer-joined', handlePeerJoined);
         socket.on('peer-left', handlePeerLeft);
@@ -612,14 +363,11 @@ const Room = () => {
         socket.on('offer', handleOfferReceived);
         socket.on('answer', handleAnswerReceived);
         socket.on('ice-candidate', handleIceCandidateReceived);
-        socket.on('peer-disconnected', handlePeerDisconnected);
         socket.on('receive-reaction', handleReaction);
-        socket.on('toggle-video', handleRemoteVideoToggle);
 
         playJoinSound();
 
         return () => {
-            socket.off('match-found', handleMatchFound);
             socket.off('existing-peers', handleExistingPeers);
             socket.off('peer-joined', handlePeerJoined);
             socket.off('peer-left', handlePeerLeft);
@@ -627,28 +375,19 @@ const Room = () => {
             socket.off('offer', handleOfferReceived);
             socket.off('answer', handleAnswerReceived);
             socket.off('ice-candidate', handleIceCandidateReceived);
-            socket.off('peer-disconnected', handlePeerDisconnected);
             socket.off('receive-reaction', handleReaction);
-            socket.off('toggle-video', handleRemoteVideoToggle);
         };
-    }, [socket, roomId, createPeerConnection, navigate, preferences, peerConnection, closeConnection, isGroupCall, localStream, userName, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection]);
+    }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection]);
 
-    // Control handlers
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
         setIsMuted(!isEnabled);
-        toast.success(isEnabled ? 'Microphone On' : 'Microphone Off', {
-            icon: isEnabled ? <Microphone weight="fill" className="w-5 h-5" /> : <MicrophoneSlash weight="fill" className="w-5 h-5" />
-        });
     }, [toggleAudio]);
 
     const handleToggleVideo = useCallback(() => {
         const isEnabled = toggleVideo();
         setIsVideoOff(!isEnabled);
         socket.emit('toggle-video', { roomId, isVideoOff: !isEnabled });
-        toast.success(isEnabled ? 'Camera On' : 'Camera Off', {
-            icon: isEnabled ? <VideoCamera weight="fill" className="w-5 h-5" /> : <VideoCameraSlash weight="fill" className="w-5 h-5" />
-        });
     }, [toggleVideo, socket, roomId]);
 
     const handleLeaveRoom = useCallback(() => {
@@ -656,21 +395,6 @@ const Room = () => {
         socket.emit('leave-room', roomId);
         navigate('/post-chat');
     }, [cleanup, socket, roomId, navigate]);
-
-    const handleReportSubmit = useCallback((data) => {
-        socket.emit('report', { roomId, reason: data.reason, details: data.details || '' });
-        setIsReportOpen(false);
-        toast.success('Report submitted. Thank you for keeping EchoRoom safe.');
-    }, [socket, roomId]);
-
-    // Reactions
-    const reactions = [
-        { icon: Heart, color: 'red', name: 'heart' },
-        { icon: ThumbsUp, color: 'cyan', name: 'thumbsup' },
-        { icon: Smiley, color: 'yellow', name: 'smile' },
-        { icon: Fire, color: 'orange', name: 'fire' },
-        { icon: HandsClapping, color: 'purple', name: 'clap' },
-    ];
 
     const sendReaction = useCallback((reaction) => {
         const id = Date.now();
@@ -681,72 +405,45 @@ const Room = () => {
 
     const handleShareRoom = useCallback(() => {
         navigator.clipboard.writeText(window.location.href);
-        toast.success('Room link copied to clipboard!', {
-            icon: <CheckCircle weight="fill" className="w-5 h-5 text-green-400" />
-        });
+        toast.success('Link copied', { icon: <CheckCircle weight="fill" className="w-5 h-5 text-cyan-400" /> });
     }, []);
-
-    if (permissionError) {
-        return <PermissionError error={permissionError} />;
-    }
 
     return (
         <div className="relative flex flex-col h-screen w-screen bg-black text-white overflow-hidden">
-            {/* Background */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 -left-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-            </div>
+            {/* Background Grid */}
+            <div 
+                className="absolute inset-0 pointer-events-none opacity-10"
+                style={{
+                    backgroundImage: `linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px)`,
+                    backgroundSize: '60px 60px'
+                }}
+            />
 
             {/* Header */}
-            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-xl border-b border-white/10">
+            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-md border-b border-white/10">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
-                        <VideoCamera weight="fill" className="w-5 h-5 text-white" />
+                    <div className="w-10 h-10 flex items-center justify-center border border-cyan-400/50 bg-cyan-400/10">
+                        <Crosshair weight="fill" className="w-5 h-5 text-cyan-400" />
                     </div>
                     <div>
-                        <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                            EchoRoom
+                        <h1 className="text-lg font-black tracking-widest uppercase text-white">
+                            Echo<span className="text-cyan-400">Room</span>
                         </h1>
-                        <div className="flex items-center gap-2 text-xs text-white/50">
-                            {isGroupCall ? (
-                                <><Users weight="fill" className="w-3 h-3" /> Group Call</>
-                            ) : (
-                                <><VideoCamera weight="fill" className="w-3 h-3" /> 1-on-1</>
-                            )}
+                        <div className="flex items-center gap-2 text-xs text-white/40 uppercase tracking-wider">
+                            {isGroupCall ? <><Users weight="fill" className="w-3 h-3" /> Multi-Node</> : <><Scan weight="fill" className="w-3 h-3" /> Direct Link</>}
                         </div>
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <ConnectionQuality stats={connectionStats} />
-                    
-                    {isReconnecting ? (
-                        <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                            className="p-2"
-                        >
-                            <Spinner weight="bold" className="w-5 h-5 text-cyan-400" />
-                        </motion.div>
-                    ) : (
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={attemptReconnect}
-                            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                            title="Reconnect"
-                        >
-                            <ArrowClockwise weight="bold" className="w-5 h-5 text-cyan-400" />
-                        </motion.button>
-                    )}
                     
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleShareRoom}
-                        className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                        title="Share Room"
+                        className="p-2 border border-white/10 hover:border-purple-400/50 hover:bg-purple-400/10 transition-all"
+                        style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
                     >
                         <ShareNetwork weight="fill" className="w-5 h-5 text-purple-400" />
                     </motion.button>
@@ -755,27 +452,25 @@ const Room = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setShowExitConfirm(true)}
-                        className="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium transition-colors flex items-center gap-2"
+                        className="px-4 py-2 border border-red-400/50 bg-red-400/10 text-red-400 font-bold text-xs uppercase tracking-wider hover:bg-red-400/20 transition-all"
+                        style={{ clipPath: 'polygon(10% 0, 100% 0, 90% 100%, 0% 100%)' }}
                     >
-                        <PhoneDisconnect weight="fill" className="w-5 h-5" />
-                        <span className="hidden sm:inline">Leave</span>
+                        Terminate
                     </motion.button>
                 </div>
             </header>
 
             {/* Main Video Area */}
             <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
-                {/* Local Video - Floating */}
+                {/* Local Video */}
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     drag
                     dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
                     dragElastic={0.1}
-                    className="absolute bottom-20 right-3 z-30 w-24 h-32 md:w-36 md:h-48 lg:w-44 lg:h-56
-                        bg-black/60 backdrop-blur-sm rounded-xl overflow-hidden border border-white/20
-                        shadow-2xl transition-all duration-300 hover:border-cyan-500/50 hover:shadow-cyan-500/20
-                        cursor-move"
+                    className="absolute bottom-24 right-4 z-30 w-32 h-40 md:w-40 md:h-52 bg-black border border-white/20 overflow-hidden"
+                    style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px))' }}
                 >
                     <video
                         ref={localVideoRef}
@@ -785,34 +480,28 @@ const Room = () => {
                         className="w-full h-full object-cover"
                         style={{ transform: 'scaleX(-1)' }}
                     />
-                    
-                    {/* Name Badge */}
                     <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-white truncate max-w-[60%]">
+                            <span className="text-xs font-mono text-white/80 uppercase">
                                 {userName || 'You'}
                             </span>
-                            <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
+                            <button 
                                 onClick={() => { setTempName(userName); setShowNameModal(true); }}
-                                className="p-1 rounded bg-white/20 hover:bg-white/30 transition-colors"
+                                className="p-1 hover:bg-white/20 transition-colors"
                             >
-                                <UserPlus weight="bold" className="w-3 h-3" />
-                            </motion.button>
+                                <UserPlus weight="fill" className="w-3 h-3" />
+                            </button>
                         </div>
                     </div>
-
-                    {/* Status Indicators */}
                     <div className="absolute top-2 left-2 flex gap-1">
                         {isMuted && (
-                            <div className="p-1 rounded bg-red-500/80">
-                                <MicrophoneSlash weight="fill" className="w-3 h-3" />
+                            <div className="p-1 bg-red-400/80">
+                                <MicrophoneSlash weight="fill" className="w-3 h-3 text-black" />
                             </div>
                         )}
                         {isVideoOff && (
-                            <div className="p-1 rounded bg-red-500/80">
-                                <VideoCameraSlash weight="fill" className="w-3 h-3" />
+                            <div className="p-1 bg-red-400/80">
+                                <VideoCameraSlash weight="fill" className="w-3 h-3 text-black" />
                             </div>
                         )}
                     </div>
@@ -821,54 +510,40 @@ const Room = () => {
                 {/* Remote Videos */}
                 <div className="flex-1 h-full">
                     {isGroupCall ? (
-                        <div className={`
-                            h-full grid gap-2 md:gap-3
-                            ${groupPeers.length <= 1 
-                                ? 'grid-cols-1' 
-                                : groupPeers.length <= 4 
-                                    ? 'grid-cols-1 md:grid-cols-2' 
-                                    : 'grid-cols-2 md:grid-cols-3'
-                            }
-                        `}>
+                        <div className={`h-full grid gap-3 ${groupPeers.length <= 1 ? 'grid-cols-1' : groupPeers.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                             {groupPeers.length > 0 ? (
-                                groupPeers.map(({ peerId, stream, peerName }) => (
+                                groupPeers.map(({ peerId, stream }) => (
                                     <motion.div 
                                         key={peerId}
                                         initial={{ opacity: 0, scale: 0.9 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.9 }}
-                                        className="relative rounded-xl md:rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 cursor-pointer hover:border-cyan-500/50 transition-all"
-                                        onClick={() => setFullscreenPeer(peerId)}
+                                        className="relative bg-neutral-900/50 border border-white/10 overflow-hidden"
+                                        style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))' }}
                                     >
                                         <video
-                                            ref={el => {
-                                                if (el && stream) {
-                                                    el.srcObject = stream;
-                                                    el.play().catch(() => {});
-                                                }
-                                            }}
+                                            ref={el => { if (el && stream) { el.srcObject = stream; el.play().catch(() => {}); }}}
                                             autoPlay
                                             playsInline
-                                            className="w-full h-full object-cover min-h-[150px] md:min-h-[200px]"
+                                            className="w-full h-full object-cover"
                                         />
                                         <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                                            <span className="text-xs md:text-sm font-medium text-white">
-                                                {peerName || `User ${peerId.slice(0, 6)}`}
-                                            </span>
+                                            <span className="text-xs font-mono text-white/80">Node {peerId.slice(0, 6)}</span>
                                         </div>
                                     </motion.div>
                                 ))
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-white/40">
-                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4" />
-                                    <p className="text-lg font-medium">Waiting for others...</p>
-                                    <p className="text-sm mt-2">Share the room link to invite friends</p>
+                                <div className="flex flex-col items-center justify-center h-full text-white/30">
+                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-cyan-400" />
+                                    <p className="text-lg font-mono uppercase tracking-widest">Awaiting nodes...</p>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        /* 1-on-1 Remote Video */
-                        <div className="relative rounded-xl md:rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 h-full">
+                        <div 
+                            className="relative h-full bg-neutral-900/50 border border-white/10 overflow-hidden"
+                            style={{ clipPath: 'polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 30px 100%, 0 calc(100% - 30px))' }}
+                        >
                             {remoteStream ? (
                                 <>
                                     <video
@@ -894,10 +569,9 @@ const Room = () => {
                                     )}
                                 </>
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-white/40 min-h-[250px] md:min-h-[300px]">
-                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4" />
-                                    <p className="text-lg font-medium">Connecting...</p>
-                                    <p className="text-sm mt-2">Establishing secure connection</p>
+                                <div className="flex flex-col items-center justify-center h-full text-white/30">
+                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-cyan-400" />
+                                    <p className="text-lg font-mono uppercase tracking-widest">Establishing link...</p>
                                 </div>
                             )}
                         </div>
@@ -909,74 +583,49 @@ const Room = () => {
             <motion.div 
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="relative z-20 flex items-center justify-center gap-2 md:gap-4 p-3 md:p-4 bg-black/40 backdrop-blur-xl border-t border-white/10"
+                className="relative z-20 flex items-center justify-center gap-4 p-4 bg-black/80 backdrop-blur-md border-t border-white/10"
             >
-                {/* Mic */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                <ControlButton
                     onClick={handleToggleMute}
-                    className={`p-3 md:p-4 rounded-2xl transition-all ${
-                        isMuted 
-                            ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/50' 
-                            : 'bg-white/10 text-white hover:bg-white/20'
-                    }`}
-                >
-                    {isMuted ? <MicrophoneSlash weight="fill" className="w-6 h-6" /> : <Microphone weight="fill" className="w-6 h-6" />}
-                </motion.button>
+                    active={isMuted}
+                    activeIcon={<MicrophoneSlash />}
+                    inactiveIcon={<Microphone />}
+                    color={isMuted ? 'red' : 'white'}
+                />
 
-                {/* Video */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                <ControlButton
                     onClick={handleToggleVideo}
-                    className={`p-3 md:p-4 rounded-2xl transition-all ${
-                        isVideoOff 
-                            ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/50' 
-                            : 'bg-white/10 text-white hover:bg-white/20'
-                    }`}
-                >
-                    {isVideoOff ? <VideoCameraSlash weight="fill" className="w-6 h-6" /> : <VideoCamera weight="fill" className="w-6 h-6" />}
-                </motion.button>
+                    active={isVideoOff}
+                    activeIcon={<VideoCameraSlash />}
+                    inactiveIcon={<VideoCamera />}
+                    color={isVideoOff ? 'red' : 'white'}
+                />
 
-                {/* Screen Share */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                <ControlButton
                     onClick={toggleScreenShare}
-                    className={`p-3 md:p-4 rounded-2xl transition-all hidden md:flex ${
-                        isScreenSharing 
-                            ? 'bg-cyan-500/20 text-cyan-400 ring-2 ring-cyan-500/50' 
-                            : 'bg-white/10 text-white hover:bg-white/20'
-                    }`}
-                >
-                    <Monitor weight="fill" className="w-6 h-6" />
-                </motion.button>
+                    active={isScreenSharing}
+                    activeIcon={<Monitor />}
+                    inactiveIcon={<Monitor />}
+                    color={isScreenSharing ? 'cyan' : 'white'}
+                />
 
-                {/* Chat */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                <ControlButton
                     onClick={() => setIsChatOpen(!isChatOpen)}
-                    className={`p-3 md:p-4 rounded-2xl transition-all ${
-                        isChatOpen 
-                            ? 'bg-purple-500/20 text-purple-400 ring-2 ring-purple-500/50' 
-                            : 'bg-white/10 text-white hover:bg-white/20'
-                    }`}
-                >
-                    <ChatCircle weight="fill" className="w-6 h-6" />
-                </motion.button>
+                    active={isChatOpen}
+                    activeIcon={<ChatCircle />}
+                    inactiveIcon={<ChatCircle />}
+                    color={isChatOpen ? 'purple' : 'white'}
+                />
 
                 {/* Reactions */}
                 <div className="relative">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                    <ControlButton
                         onClick={() => setShowReactions(!showReactions)}
-                        className="p-3 md:p-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all"
-                    >
-                        <Smiley weight="fill" className="w-6 h-6" />
-                    </motion.button>
+                        active={showReactions}
+                        activeIcon={<Smiley />}
+                        inactiveIcon={<Smiley />}
+                        color="white"
+                    />
                     
                     <AnimatePresence>
                         {showReactions && (
@@ -984,15 +633,19 @@ const Room = () => {
                                 initial={{ opacity: 0, y: 10, scale: 0.9 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 flex gap-2 p-3 bg-black/80 backdrop-blur-xl rounded-2xl border border-white/10"
+                                className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 flex gap-2 p-3 bg-black/90 border border-white/20"
                             >
                                 {reactions.map(reaction => (
-                                    <ReactionButton
+                                    <motion.button
                                         key={reaction.name}
-                                        icon={reaction.icon}
-                                        color={reaction.color}
+                                        whileHover={{ scale: 1.2 }}
+                                        whileTap={{ scale: 0.9 }}
                                         onClick={() => sendReaction(reaction)}
-                                    />
+                                        className="p-2 border border-white/10 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all"
+                                        style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                                    >
+                                        <reaction.icon weight="fill" className={`w-6 h-6 text-${reaction.color}-400`} />
+                                    </motion.button>
                                 ))}
                             </motion.div>
                         )}
@@ -1004,7 +657,8 @@ const Room = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowExitConfirm(true)}
-                    className="p-3 md:p-4 rounded-2xl bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/30"
+                    className="p-4 border-2 border-red-400 bg-red-400/10 text-red-400 hover:bg-red-400 hover:text-black transition-all"
+                    style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
                 >
                     <PhoneDisconnect weight="fill" className="w-6 h-6" />
                 </motion.button>
@@ -1017,42 +671,40 @@ const Room = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl p-4"
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
                     >
                         <motion.div
-                            initial={{ scale: 0.8, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.8, opacity: 0, y: 20 }}
-                            className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full border border-white/10"
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            className="bg-black border border-white/20 p-6 max-w-sm w-full"
+                            style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))' }}
                         >
-                            <h3 className="text-xl font-bold text-white mb-4">Set Your Display Name</h3>
+                            <h3 className="text-xl font-black text-white mb-4 uppercase tracking-widest">Set Identifier</h3>
                             <input
                                 type="text"
                                 value={tempName}
                                 onChange={(e) => setTempName(e.target.value)}
-                                placeholder="Enter your name..."
+                                placeholder="Enter callsign..."
                                 maxLength={20}
-                                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-500 mb-4"
+                                className="w-full bg-white/5 border border-white/20 px-4 py-3 text-white uppercase tracking-wider text-sm placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50 mb-4"
+                                style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
                                 autoFocus
-                                onKeyDown={(e) => { if (e.key === 'Enter') saveUserName(tempName); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { setUserName(tempName); localStorage.setItem('echoroom_username', tempName); setShowNameModal(false); }}}
                             />
                             <div className="flex gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                <button
                                     onClick={() => setShowNameModal(false)}
-                                    className="flex-1 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors font-medium border border-white/10"
+                                    className="flex-1 py-3 border border-white/20 text-white hover:bg-white/5 transition-all uppercase text-xs font-bold tracking-widest"
                                 >
                                     Cancel
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => saveUserName(tempName)}
-                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold transition-all shadow-lg shadow-cyan-500/30"
+                                </button>
+                                <button
+                                    onClick={() => { setUserName(tempName); localStorage.setItem('echoroom_username', tempName); setShowNameModal(false); }}
+                                    className="flex-1 py-3 border-2 border-cyan-400 bg-cyan-400/10 text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all uppercase text-xs font-bold tracking-widest"
                                 >
                                     Save
-                                </motion.button>
+                                </button>
                             </div>
                         </motion.div>
                     </motion.div>
@@ -1066,33 +718,30 @@ const Room = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl p-4"
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
                     >
                         <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.8, opacity: 0 }}
-                            className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full border border-white/10"
+                            className="bg-black border border-white/20 p-6 max-w-sm w-full"
+                            style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))' }}
                         >
-                            <h3 className="text-xl font-bold text-white mb-2">Leave Room?</h3>
-                            <p className="text-white/60 mb-6">Are you sure you want to leave? You&apos;ll be disconnected from the call.</p>
+                            <h3 className="text-xl font-black text-white mb-2 uppercase tracking-widest">Terminate Connection?</h3>
+                            <p className="text-white/40 text-sm mb-6 uppercase tracking-wider">This will end the current session</p>
                             <div className="flex gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                <button
                                     onClick={() => setShowExitConfirm(false)}
-                                    className="flex-1 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors font-medium border border-white/10"
+                                    className="flex-1 py-3 border border-white/20 text-white hover:bg-white/5 transition-all uppercase text-xs font-bold tracking-widest"
                                 >
                                     Stay
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                </button>
+                                <button
                                     onClick={handleLeaveRoom}
-                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white font-bold transition-all shadow-lg shadow-red-500/30"
+                                    className="flex-1 py-3 border-2 border-red-400 bg-red-400/10 text-red-400 hover:bg-red-400 hover:text-black transition-all uppercase text-xs font-bold tracking-widest"
                                 >
-                                    Leave
-                                </motion.button>
+                                    Terminate
+                                </button>
                             </div>
                         </motion.div>
                     </motion.div>
@@ -1100,12 +749,7 @@ const Room = () => {
             </AnimatePresence>
 
             {/* Chat Panel */}
-            <Chat 
-                roomId={roomId} 
-                isOpen={isChatOpen}
-                userName={userName}
-                onClose={() => setIsChatOpen(false)} 
-            />
+            <Chat roomId={roomId} isOpen={isChatOpen} userName={userName} onClose={() => setIsChatOpen(false)} />
 
             {/* Floating Reactions */}
             <AnimatePresence>
@@ -1124,10 +768,11 @@ const Room = () => {
                 position="top-center"
                 toastOptions={{
                     style: {
-                        background: 'rgba(0, 0, 0, 0.8)',
+                        background: 'rgba(0, 0, 0, 0.9)',
                         backdropFilter: 'blur(10px)',
                         color: '#fff',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        border: '1px solid rgba(0, 243, 255, 0.3)',
+                        borderRadius: '0',
                     },
                 }}
             />
