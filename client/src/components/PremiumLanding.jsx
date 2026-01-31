@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { 
     VideoCamera, 
     Users, 
@@ -11,17 +11,224 @@ import {
     Globe,
     Lock,
     Star,
-    Cursor
+    Cursor,
+    Check,
+    X,
+    Envelope,
+    FileText,
+    Shield,
+    GithubLogo
 } from '@phosphor-icons/react';
-import gsap from 'gsap';
 import StarField from './StarField';
 import Footer from './Footer';
+
+// Modal Component for pages
+const PageModal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+    
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                onClick={onClose}
+            >
+                <motion.div
+                    initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                    onClick={e => e.stopPropagation()}
+                    className="relative w-full max-w-3xl max-h-[80vh] bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden flex flex-col"
+                >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                        <h2 className="text-xl font-bold text-white">{title}</h2>
+                        <button
+                            onClick={onClose}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                        >
+                            <X weight="bold" className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-6">
+                        {children}
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
+
+// Privacy Policy Content
+const PrivacyContent = () => (
+    <div className="space-y-6 text-white/70">
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">Our Privacy Promise</h3>
+            <p className="leading-relaxed">
+                At echo, we believe privacy is a fundamental right. We built our platform with privacy-first principles, 
+                ensuring your conversations remain truly private and secure.
+            </p>
+        </section>
+        
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">What We Don't Do</h3>
+            <ul className="space-y-2">
+                {[
+                    'We do not store your video or audio conversations',
+                    'We do not log chat messages or file transfers',
+                    'We do not track your browsing behavior',
+                    'We do not sell your data to third parties',
+                    'We do not require personal information to use our service'
+                ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                        <Check weight="bold" className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <span>{item}</span>
+                    </li>
+                ))}
+            </ul>
+        </section>
+        
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">How It Works</h3>
+            <p className="leading-relaxed mb-3">
+                echo uses WebRTC technology to establish direct peer-to-peer connections between users. 
+                This means your video and audio data flows directly between you and the person you're chatting with, 
+                never passing through our servers.
+            </p>
+            <p className="leading-relaxed">
+                Our servers only handle the initial connection setup (signaling) and are not involved in the actual 
+                data transfer. Once the connection is established, it's completely private between the participants.
+            </p>
+        </section>
+        
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">Technical Security</h3>
+            <p className="leading-relaxed">
+                All connections use DTLS (Datagram Transport Layer Security) and SRTP (Secure Real-time Transport Protocol) 
+                for encryption. This ensures your conversations are protected with industry-standard encryption.
+            </p>
+        </section>
+    </div>
+);
+
+// Terms of Service Content
+const TermsContent = () => (
+    <div className="space-y-6 text-white/70">
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">Terms of Service</h3>
+            <p className="leading-relaxed">
+                By using echo, you agree to these terms. Please read them carefully.
+            </p>
+        </section>
+        
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">Acceptable Use</h3>
+            <p className="leading-relaxed mb-3">You agree not to use echo for:</p>
+            <ul className="space-y-2">
+                {[
+                    'Any illegal activities or content',
+                    'Harassment, bullying, or hate speech',
+                    'Sharing explicit or adult content without consent',
+                    'Impersonating others or spreading false information',
+                    'Automated data collection or scraping',
+                    'Attempting to breach security measures'
+                ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                        <X weight="bold" className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                        <span>{item}</span>
+                    </li>
+                ))}
+            </ul>
+        </section>
+        
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">Service Availability</h3>
+            <p className="leading-relaxed">
+                We strive to maintain high availability, but echo is provided "as is" without warranties. 
+                We reserve the right to modify or discontinue the service at any time.
+            </p>
+        </section>
+        
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">Liability</h3>
+            <p className="leading-relaxed">
+                echo is not liable for any damages arising from your use of the service. 
+                You use the service at your own risk and discretion.
+            </p>
+        </section>
+    </div>
+);
+
+// Contact Content
+const ContactContent = () => (
+    <div className="space-y-6 text-white/70">
+        <section>
+            <h3 className="text-lg font-semibold text-white mb-3">Get in Touch</h3>
+            <p className="leading-relaxed mb-6">
+                Have questions, feedback, or need support? We'd love to hear from you.
+            </p>
+        </section>
+        
+        <div className="grid gap-4">
+            <a 
+                href="mailto:hello@echoroom.app" 
+                className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors group"
+            >
+                <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <Envelope weight="bold" className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                    <div className="font-semibold text-white">Email Us</div>
+                    <div className="text-sm text-white/50 group-hover:text-white/70 transition-colors">hello@echoroom.app</div>
+                </div>
+            </a>
+            
+            <a 
+                href="https://github.com/echoroom" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors group"
+            >
+                <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                    <GithubLogo weight="bold" className="w-6 h-6 text-violet-400" />
+                </div>
+                <div>
+                    <div className="font-semibold text-white">GitHub</div>
+                    <div className="text-sm text-white/50 group-hover:text-white/70 transition-colors">Open source on GitHub</div>
+                </div>
+            </a>
+            
+            <a 
+                href="#" 
+                className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors group"
+            >
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                    <Shield weight="bold" className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div>
+                    <div className="font-semibold text-white">Security</div>
+                    <div className="text-sm text-white/50 group-hover:text-white/70 transition-colors">Report security issues</div>
+                </div>
+            </a>
+        </div>
+        
+        <section className="pt-4">
+            <p className="text-sm text-white/40">
+                We typically respond within 24-48 hours. For security issues, please use responsible disclosure practices.
+            </p>
+        </section>
+    </div>
+);
 
 const PremiumLanding = () => {
     const navigate = useNavigate();
     const heroRef = useRef(null);
-    const statsRef = useRef(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    const [activeModal, setActiveModal] = useState(null);
 
     const { scrollYProgress } = useScroll();
     const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
@@ -78,6 +285,14 @@ const PremiumLanding = () => {
         navigate(`/room/${roomId}`, { state: { mode: 'video', isHost: true } });
     };
 
+    const openModal = (modal) => {
+        setActiveModal(modal);
+    };
+
+    const closeModal = () => {
+        setActiveModal(null);
+    };
+
     return (
         <div className="relative min-h-screen bg-slate-950 text-white overflow-x-hidden">
             {/* Mouse following spotlight */}
@@ -97,20 +312,18 @@ const PremiumLanding = () => {
             >
                 <div className="max-w-7xl mx-auto">
                     <div className="flex items-center justify-between px-6 py-3 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-blue-500 blur-lg opacity-50 animate-pulse" />
-                                <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
-                                    <span className="text-xl font-bold">E</span>
-                                </div>
-                            </div>
-                            <span className="text-xl font-bold tracking-tight">EchoRoom</span>
+                        {/* Logo: echo in white, room in blue gradient */}
+                        <div className="flex items-center">
+                            <span className="text-2xl font-bold tracking-tight text-white">echo</span>
+                            <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">room</span>
                         </div>
                         
                         <div className="hidden md:flex items-center gap-8">
                             <a href="#features" className="text-white/60 hover:text-white transition-colors text-sm">Features</a>
                             <a href="#how-it-works" className="text-white/60 hover:text-white transition-colors text-sm">How it Works</a>
                             <a href="#security" className="text-white/60 hover:text-white transition-colors text-sm">Security</a>
+                            <button onClick={() => openModal('privacy')} className="text-white/60 hover:text-white transition-colors text-sm">Privacy</button>
+                            <button onClick={() => openModal('contact')} className="text-white/60 hover:text-white transition-colors text-sm">Contact</button>
                         </div>
 
                         <motion.button
@@ -249,7 +462,7 @@ const PremiumLanding = () => {
             </motion.section>
 
             {/* Stats Section */}
-            <section ref={statsRef} className="relative py-24 border-y border-white/5">
+            <section className="relative py-24 border-y border-white/5">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                         {stats.map((stat, index) => (
@@ -452,7 +665,7 @@ const PremiumLanding = () => {
                     >
                         <h2 className="text-4xl sm:text-5xl font-bold mb-6">Ready to connect?</h2>
                         <p className="text-lg text-white/50 mb-10 max-w-2xl mx-auto">
-                            Join thousands of people who trust EchoRoom for their private conversations.
+                            Join thousands of people who trust echo for their private conversations.
                         </p>
                         
                         <motion.button
@@ -472,7 +685,32 @@ const PremiumLanding = () => {
             </section>
 
             {/* Footer */}
-            <Footer />
+            <Footer onOpenModal={openModal} />
+
+            {/* Modals */}
+            <PageModal 
+                isOpen={activeModal === 'privacy'} 
+                onClose={closeModal} 
+                title="Privacy Policy"
+            >
+                <PrivacyContent />
+            </PageModal>
+
+            <PageModal 
+                isOpen={activeModal === 'terms'} 
+                onClose={closeModal} 
+                title="Terms of Service"
+            >
+                <TermsContent />
+            </PageModal>
+
+            <PageModal 
+                isOpen={activeModal === 'contact'} 
+                onClose={closeModal} 
+                title="Contact Us"
+            >
+                <ContactContent />
+            </PageModal>
         </div>
     );
 };

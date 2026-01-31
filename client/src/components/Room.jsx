@@ -408,7 +408,7 @@ const Room = () => {
                         <ArrowLeft weight="bold" className="w-5 h-5" />
                     </button>
                     <div>
-                        <h1 className="text-lg font-bold">EchoRoom</h1>
+                        <h1 className="text-lg font-bold"><span className="text-white">echo</span><span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">room</span></h1>
                         <div className="flex items-center gap-2 text-xs text-white/40">
                             {isGroupCall ? <><Users weight="fill" className="w-3 h-3" /> Group</> : 'Private Room'}
                         </div>

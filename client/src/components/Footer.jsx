@@ -7,29 +7,12 @@ import {
     Envelope,
     Heart,
     Shield,
-    Lock
+    Lock,
+    FileText
 } from '@phosphor-icons/react';
 
-const Footer = () => {
+const Footer = ({ onOpenModal }) => {
     const currentYear = new Date().getFullYear();
-
-    const links = {
-        product: [
-            { name: 'Features', href: '#features' },
-            { name: 'Privacy', href: '#privacy' },
-            { name: 'Security', href: '#security' },
-        ],
-        company: [
-            { name: 'About', href: '#' },
-            { name: 'Blog', href: '#' },
-            { name: 'Contact', href: '#' },
-        ],
-        legal: [
-            { name: 'Terms', href: '#' },
-            { name: 'Privacy', href: '#' },
-            { name: 'Cookies', href: '#' },
-        ]
-    };
 
     const socialLinks = [
         { icon: GithubLogo, href: 'https://github.com', label: 'GitHub' },
@@ -47,22 +30,18 @@ const Footer = () => {
 
             <div className="relative max-w-7xl mx-auto px-6 py-16">
                 {/* Main footer content */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
                     {/* Brand section */}
-                    <div className="lg:col-span-2">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-blue-500 blur-lg opacity-50" />
-                                <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
-                                    <span className="text-xl font-bold text-white">E</span>
-                                </div>
-                            </div>
-                            <span className="text-2xl font-bold text-white">EchoRoom</span>
+                    <div className="lg:col-span-1">
+                        {/* Logo: echo in white, room in blue gradient */}
+                        <div className="flex items-center mb-4">
+                            <span className="text-2xl font-bold tracking-tight text-white">echo</span>
+                            <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">room</span>
                         </div>
-                        <p className="text-white/50 mb-6 max-w-sm">
+                        <p className="text-white/50 mb-6 text-sm">
                             Secure, private video chat. Connect with anyone, anywhere, without compromising your privacy.
                         </p>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             {socialLinks.map((social) => (
                                 <motion.a
                                     key={social.label}
@@ -71,7 +50,7 @@ const Footer = () => {
                                     rel="noopener noreferrer"
                                     whileHover={{ scale: 1.1, y: -2 }}
                                     whileTap={{ scale: 0.9 }}
-                                    className="p-3 rounded-xl bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                                    className="p-2.5 rounded-xl bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                                     aria-label={social.label}
                                 >
                                     <social.icon weight="fill" className="w-5 h-5" />
@@ -80,52 +59,78 @@ const Footer = () => {
                         </div>
                     </div>
 
-                    {/* Links sections */}
+                    {/* Product Links */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Product</h4>
+                        <h4 className="text-white font-semibold mb-4 text-sm">Product</h4>
                         <ul className="space-y-3">
-                            {links.product.map((link) => (
-                                <li key={link.name}>
-                                    <a 
-                                        href={link.href}
-                                        className="text-white/50 hover:text-white transition-colors"
-                                    >
-                                        {link.name}
-                                    </a>
-                                </li>
-                            ))}
+                            <li>
+                                <a href="#features" className="text-white/50 hover:text-white transition-colors text-sm">
+                                    Features
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#how-it-works" className="text-white/50 hover:text-white transition-colors text-sm">
+                                    How it Works
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#security" className="text-white/50 hover:text-white transition-colors text-sm">
+                                    Security
+                                </a>
+                            </li>
                         </ul>
                     </div>
 
+                    {/* Legal Links */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Company</h4>
+                        <h4 className="text-white font-semibold mb-4 text-sm">Legal</h4>
                         <ul className="space-y-3">
-                            {links.company.map((link) => (
-                                <li key={link.name}>
-                                    <a 
-                                        href={link.href}
-                                        className="text-white/50 hover:text-white transition-colors"
-                                    >
-                                        {link.name}
-                                    </a>
-                                </li>
-                            ))}
+                            <li>
+                                <button 
+                                    onClick={() => onOpenModal?.('privacy')}
+                                    className="text-white/50 hover:text-white transition-colors text-sm"
+                                >
+                                    Privacy Policy
+                                </button>
+                            </li>
+                            <li>
+                                <button 
+                                    onClick={() => onOpenModal?.('terms')}
+                                    className="text-white/50 hover:text-white transition-colors text-sm"
+                                >
+                                    Terms of Service
+                                </button>
+                            </li>
+                            <li>
+                                <button 
+                                    onClick={() => onOpenModal?.('contact')}
+                                    className="text-white/50 hover:text-white transition-colors text-sm"
+                                >
+                                    Contact Us
+                                </button>
+                            </li>
                         </ul>
                     </div>
 
+                    {/* Company */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Legal</h4>
+                        <h4 className="text-white font-semibold mb-4 text-sm">Company</h4>
                         <ul className="space-y-3">
-                            {links.legal.map((link) => (
-                                <li key={link.name}>
-                                    <a 
-                                        href={link.href}
-                                        className="text-white/50 hover:text-white transition-colors"
-                                    >
-                                        {link.name}
-                                    </a>
-                                </li>
-                            ))}
+                            <li>
+                                <a href="#" className="text-white/50 hover:text-white transition-colors text-sm">
+                                    About
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" className="text-white/50 hover:text-white transition-colors text-sm">
+                                    Blog
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors text-sm">
+                                    Open Source
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -148,7 +153,7 @@ const Footer = () => {
 
                 {/* Bottom bar */}
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-white/40">
-                    <p>© {currentYear} EchoRoom. All rights reserved.</p>
+                    <p>© {currentYear} echo. All rights reserved.</p>
                     <p className="flex items-center gap-1">
                         Made with <Heart weight="fill" className="w-4 h-4 text-red-400" /> for everyone
                     </p>

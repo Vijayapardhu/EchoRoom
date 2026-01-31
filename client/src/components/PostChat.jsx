@@ -96,7 +96,7 @@ const PostChat = () => {
                             transition={{ delay: 0.4 }}
                             className="text-white/50"
                         >
-                            Thanks for using EchoRoom. Your conversation was private and secure.
+                            Thanks for using echo. Your conversation was private and secure.
                         </motion.p>
                     </div>
 

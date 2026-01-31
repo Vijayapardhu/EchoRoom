@@ -83,7 +83,7 @@ const NotFound = () => {
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
                         <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
                         <span className="text-sm text-white/60">
-                            Redirecting home in <span className="text-blue-400 font-mono font-bold">{countdown}</span>s
+                            Redirecting to echo in <span className="text-blue-400 font-mono font-bold">{countdown}</span>s
                         </span>
                     </div>
                 </div>
