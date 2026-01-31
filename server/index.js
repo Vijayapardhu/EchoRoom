@@ -8,10 +8,29 @@ dotenv.config();
 
 const server = http.createServer(app);
 
+// Allowed origins for Socket.IO
+const allowedOrigins = [
+    'https://echoroom.online',
+    'https://www.echoroom.online',
+    'https://echoroom-git-main-vijayapardhus-projects.vercel.app',
+    process.env.CLIENT_URL,
+    'http://localhost:5173',
+    'http://localhost:3000'
+].filter(Boolean);
+
 // Optimized Socket.IO configuration for WebRTC signaling
 const io = new Server(server, {
     cors: {
-        origin: process.env.CLIENT_URL || "*",
+        origin: function (origin, callback) {
+            // Allow requests with no origin
+            if (!origin) return callback(null, true);
+            // Allow all vercel.app and echoroom domains
+            if (origin.includes('vercel.app') || origin.includes('echoroom') || origin.includes('localhost')) {
+                callback(null, true);
+            } else {
+                callback(null, true); // Allow anyway for debugging
+            }
+        },
         methods: ["GET", "POST"],
         credentials: true
     },

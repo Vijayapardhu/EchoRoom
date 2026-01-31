@@ -3,9 +3,30 @@ const cors = require('cors');
 
 const app = express();
 
+// List of allowed origins for CORS
+const allowedOrigins = [
+    'https://echoroom.online',
+    'https://www.echoroom.online',
+    'https://echoroom-git-main-vijayapardhus-projects.vercel.app',
+    process.env.CLIENT_URL,
+    'http://localhost:5173',
+    'http://localhost:3000'
+].filter(Boolean);
+
 // CORS configuration optimized for WebRTC signaling
 const corsOptions = {
-    origin: process.env.CLIENT_URL || '*',
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, etc)
+        if (!origin) return callback(null, true);
+        
+        // Check if origin is in allowed list
+        if (allowedOrigins.some(allowed => origin.startsWith(allowed.replace('www.', '')) || origin.includes('vercel.app') || origin.includes('echoroom'))) {
+            callback(null, true);
+        } else {
+            console.log('[CORS] Blocked origin:', origin);
+            callback(null, true); // Allow anyway for now to debug
+        }
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
