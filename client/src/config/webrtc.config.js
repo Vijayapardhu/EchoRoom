@@ -17,32 +17,32 @@ export const ICE_SERVERS = [
     // Twilio's STUN server
     { urls: 'stun:global.stun.twilio.com:3478' },
     
-    // Metered.ca TURN servers (Free tier - REPLACE WITH YOUR OWN CREDENTIALS!)
+    // Metered.ca TURN servers (Free tier - Your credentials)
     // Sign up at: https://www.metered.ca/tools/openrelay/
     {
         urls: 'turn:a.relay.metered.ca:80',
-        username: 'e8dd65c92eb0fb1e27f3b6c4',
-        credential: 'u/LHJ+nC+RxSWmup'
+        username: 'c34da8d58759d2073a974734',
+        credential: '0r6th55vCqs8FMNI'
     },
     {
         urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-        username: 'e8dd65c92eb0fb1e27f3b6c4',
-        credential: 'u/LHJ+nC+RxSWmup'
+        username: 'c34da8d58759d2073a974734',
+        credential: '0r6th55vCqs8FMNI'
     },
     {
         urls: 'turn:a.relay.metered.ca:443',
-        username: 'e8dd65c92eb0fb1e27f3b6c4',
-        credential: 'u/LHJ+nC+RxSWmup'
+        username: 'c34da8d58759d2073a974734',
+        credential: '0r6th55vCqs8FMNI'
     },
     {
         urls: 'turn:a.relay.metered.ca:443?transport=tcp',
-        username: 'e8dd65c92eb0fb1e27f3b6c4',
-        credential: 'u/LHJ+nC+RxSWmup'
+        username: 'c34da8d58759d2073a974734',
+        credential: '0r6th55vCqs8FMNI'
     },
     {
         urls: 'turns:a.relay.metered.ca:443',
-        username: 'e8dd65c92eb0fb1e27f3b6c4',
-        credential: 'u/LHJ+nC+RxSWmup'
+        username: 'c34da8d58759d2073a974734',
+        credential: '0r6th55vCqs8FMNI'
     }
 ];
 
