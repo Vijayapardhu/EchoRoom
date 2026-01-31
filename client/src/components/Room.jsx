@@ -706,17 +706,119 @@ const Room = () => {
                 </div>
             </header>
 
-            {/* Video Area - Zoom Style Gallery */}
-            <GalleryView 
-                localStream={localStream}
-                remoteStream={remoteStream}
-                localUser={userName || 'You'}
-                remoteUser={remotePeerInfo?.name || 'Stranger'}
-                localPeerInfo={localPeerInfo}
-                remotePeerInfo={remotePeerInfo}
-                isScreenSharing={isScreenSharing}
-                connectionStats={connectionStats}
-            />
+            {/* Video Area - Old UI for 1-on-1, Zoom Gallery for Groups */}
+            {isGroupCall ? (
+                /* Zoom-style Gallery for Group Calls */
+                <GalleryView 
+                    localStream={localStream}
+                    remoteStream={remoteStream}
+                    localUser={userName || 'You'}
+                    remoteUser={remotePeerInfo?.name || 'Stranger'}
+                    localPeerInfo={localPeerInfo}
+                    remotePeerInfo={remotePeerInfo}
+                    isScreenSharing={isScreenSharing}
+                    connectionStats={connectionStats}
+                />
+            ) : (
+                /* Old UI for 1-on-1 Calls */
+                <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
+                    {/* Local Video - Floating */}
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        drag
+                        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                        dragElastic={0.1}
+                        className="absolute bottom-24 right-4 z-30 w-36 h-48 md:w-44 md:h-56 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move"
+                    >
+                        {!localStream ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
+                                <Spinner weight="bold" className="w-8 h-8 animate-spin text-blue-400 mb-2" />
+                                <span className="text-xs text-white/50">Camera...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <video
+                                    ref={localVideoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    className="w-full h-full object-cover"
+                                    style={{ transform: 'scaleX(-1)' }}
+                                />
+                                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                    <span className="text-xs font-medium text-white">{userName || 'You'}</span>
+                                </div>
+                            </>
+                        )}
+                        <div className="absolute top-2 left-2 flex gap-1">
+                            {isMuted && (
+                                <div className="p-1 rounded-lg bg-red-500/80">
+                                    <MicrophoneSlash weight="fill" className="w-3 h-3 text-white" />
+                                </div>
+                            )}
+                            {isVideoOff && (
+                                <div className="p-1 rounded-lg bg-red-500/80">
+                                    <VideoCameraSlash weight="fill" className="w-3 h-3 text-white" />
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+
+                    {/* Remote Video - Full Screen */}
+                    <div className="flex-1 h-full">
+                        <div className="relative rounded-2xl overflow-hidden bg-neutral-900/50 border border-white/10 h-full">
+                            {remoteStream ? (
+                                <>
+                                    <video
+                                        ref={remoteVideoRef}
+                                        autoPlay
+                                        playsInline
+                                        className="w-full h-full object-cover"
+                                    />
+                                    {/* Peer Info Overlay */}
+                                    {remotePeerInfo && (
+                                        <div className="absolute top-4 left-4 flex items-center gap-2">
+                                            {remotePeerInfo.gender && (
+                                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${remotePeerInfo.gender === 'male' ? 'bg-blue-500/20 text-blue-400' : 'bg-pink-500/20 text-pink-400'} text-xs font-medium`}>
+                                                    {remotePeerInfo.gender === 'male' ? <GenderMale weight="fill" className="w-3.5 h-3.5" /> : <GenderFemale weight="fill" className="w-3.5 h-3.5" />}
+                                                    {remotePeerInfo.gender}
+                                                </div>
+                                            )}
+                                            {remotePeerInfo.interests?.slice(0, 2).map((interest, i) => (
+                                                <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium">
+                                                    <Tag weight="fill" className="w-3.5 h-3.5" />
+                                                    {interest}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {remoteReaction && (
+                                        <motion.div
+                                            initial={{ scale: 0, opacity: 0 }}
+                                            animate={{ scale: 2, opacity: 1 }}
+                                            exit={{ scale: 0, opacity: 0 }}
+                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                                        >
+                                            {reactions.find(r => r.name === remoteReaction)?.icon && 
+                                                React.createElement(reactions.find(r => r.name === remoteReaction).icon, {
+                                                    weight: 'fill',
+                                                    className: `w-20 h-20`
+                                                })
+                                            }
+                                        </motion.div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-white/30">
+                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-blue-400" />
+                                    <p className="text-lg">Connecting...</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Controls */}
             <motion.div 
