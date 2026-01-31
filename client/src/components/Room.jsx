@@ -203,12 +203,8 @@ const Room = () => {
                 return;
             }
 
-            // Check if remote description is set before adding candidate
-            if (!peerConnection.current.remoteDescription) {
-                console.log("Remote description not set yet, skipping ICE candidate");
-                return;
-            }
-
+            // DO NOT filter by remoteDescription here. 
+            // The WebRTCManager handles queuing if remoteDescription is missing.
             try {
                 await addIceCandidate(candidate);
             } catch (err) {

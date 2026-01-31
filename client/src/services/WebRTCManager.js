@@ -28,6 +28,7 @@ class WebRTCManager {
         this.reconnectDelay = 1000; // Start with 1 second
         this.reconnectTimer = null;
         this.iceConnectionCheckTimer = null;
+        this.candidateQueue = []; // Queue for early ICE candidates
 
         // Event listeners
         this.listeners = {
@@ -261,6 +262,25 @@ class WebRTCManager {
     }
 
     /**
+     * Process queued ICE candidates
+     */
+    async processCandidateQueue() {
+        if (!this.peerConnection || !this.candidateQueue.length) return;
+
+        console.log(`[WebRTCManager] Processing ${this.candidateQueue.length} queued candidates`);
+        
+        while (this.candidateQueue.length > 0) {
+            const candidate = this.candidateQueue.shift();
+            try {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('[WebRTCManager] Queued ICE candidate added');
+            } catch (error) {
+                console.error('[WebRTCManager] Failed to add queued ICE candidate:', error);
+            }
+        }
+    }
+
+    /**
      * Handle received offer
      */
     async handleOffer(offer) {
@@ -271,6 +291,10 @@ class WebRTCManager {
         try {
             this.setState(ConnectionState.CONNECTING);
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            
+            // Process any queued candidates now that we have a remote description
+            this.processCandidateQueue();
+            
             const answer = await this.peerConnection.createAnswer();
             await this.peerConnection.setLocalDescription(answer);
             console.log('[WebRTCManager] Answer created');
@@ -292,6 +316,10 @@ class WebRTCManager {
 
         try {
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            
+            // Process any queued candidates
+            this.processCandidateQueue();
+            
             console.log('[WebRTCManager] Answer set successfully');
         } catch (error) {
             console.error('[WebRTCManager] Failed to handle answer:', error);
@@ -310,7 +338,7 @@ class WebRTCManager {
 
         if (!this.peerConnection.remoteDescription) {
             console.warn('[WebRTCManager] No remote description set, queuing ICE candidate');
-            // Could implement candidate queuing here
+            this.candidateQueue.push(candidate);
             return;
         }
 
