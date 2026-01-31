@@ -1,5 +1,5 @@
 # EchoRoom Robots.txt
-# https://echoroom.vercel.app
+# https://echoroom.online
 
 User-agent: *
 Allow: /
@@ -11,7 +11,7 @@ Disallow: /*.json$
 Crawl-delay: 1
 
 # Sitemap location
-Sitemap: https://echoroom.vercel.app/sitemap.xml
+Sitemap: https://echoroom.online/sitemap.xml
 
 # Google
 User-agent: Googlebot
