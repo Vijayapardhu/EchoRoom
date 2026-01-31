@@ -196,10 +196,16 @@ const socketService = (io) => {
             }
         });
 
+        // Store peer info
+        const peerInfoMap = new Map(); // socketId -> { gender, interests, name }
+
         // Handle joining a specific room (Handshake trigger)
-        socket.on('join-room', ({ roomId }) => {
-            console.log(`User ${socket.id} joining room ${roomId}`);
+        socket.on('join-room', ({ roomId, userName, peerInfo }) => {
+            console.log(`User ${socket.id} joining room ${roomId}`, peerInfo);
             socket.join(roomId);
+            
+            // Store peer info
+            peerInfoMap.set(socket.id, { ...peerInfo, name: userName, socketId: socket.id });
 
             const room = io.sockets.adapter.rooms.get(roomId);
             console.log(`[Room ${roomId}] Current size: ${room?.size || 0}`);
@@ -216,14 +222,26 @@ const socketService = (io) => {
                     // Notify existing peers about the new joiner
                     for (const peerId of existingPeers) {
                         io.to(peerId).emit('peer-joined', { peerId: socket.id });
+                        // Send peer info to new joiner
+                        if (peerInfoMap.has(peerId)) {
+                            socket.emit('peer-info', { peerId, info: peerInfoMap.get(peerId) });
+                        }
                     }
                 }
             } else {
                 // 1-on-1 room logic
                 if (room && room.size === 2) {
+                    const clients = Array.from(room);
+                    const otherPeerId = clients.find(id => id !== socket.id);
+                    
+                    // Exchange peer info between the two peers
+                    if (otherPeerId && peerInfoMap.has(otherPeerId)) {
+                        socket.emit('peer-info', { peerId: otherPeerId, info: peerInfoMap.get(otherPeerId) });
+                        io.to(otherPeerId).emit('peer-info', { peerId: socket.id, info: peerInfoMap.get(socket.id) });
+                    }
+                    
                     // Only emit is-initiator if not already done for this room
                     if (!roomsWithInitiator.has(roomId)) {
-                        const clients = Array.from(room);
                         console.log(`[WebRTC] Room ${roomId} ready with 2 peers. Assigning roles...`);
 
                         // Sort to deterministically pick initiator (alphabetically)
@@ -432,6 +450,12 @@ const socketService = (io) => {
         // Reaction Events
         socket.on('send-reaction', ({ roomId, reaction }) => {
             socket.to(roomId).emit('receive-reaction', { reaction, sender: socket.id });
+        });
+
+        // Peer Info Update
+        socket.on('update-peer-info', ({ roomId, info }) => {
+            peerInfoMap.set(socket.id, { ...info, socketId: socket.id });
+            socket.to(roomId).emit('peer-info', { peerId: socket.id, info });
         });
 
         // Media State Events
