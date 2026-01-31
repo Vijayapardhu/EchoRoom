@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { SocketProvider } from './context/SocketContext';
 import { WebRTCProvider } from './context/WebRTCContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import LandingPage from './components/LandingPage';
+import PremiumLanding from './components/PremiumLanding';
 import Onboarding from './components/Onboarding';
 import Matching from './components/Matching';
 import Room from './components/Room';
@@ -17,7 +17,7 @@ function App() {
         <WebRTCProvider>
           <Router>
             <Routes>
-              <Route path="/" element={<LandingPage />} />
+              <Route path="/" element={<PremiumLanding />} />
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/room/matching" element={<Matching />} />
               <Route path="/room/:roomId" element={<Room />} />

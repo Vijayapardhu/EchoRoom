@@ -1,21 +1,64 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { Send, X, MessageSquare, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playMessageSound } from '../utils/soundEffects';
+import { 
+    PaperPlaneRight, 
+    X, 
+    ChatCircle, 
+    ArrowLeft,
+    Smiley,
+    Gift,
+    Paperclip,
+    Image as ImageIcon,
+    Ghost,
+    Alien,
+    Robot,
+    Crown,
+    Lightning,
+    Heart,
+    Star,
+    Fire,
+    Skull,
+    GameController,
+    Pizza,
+    Hamburger,
+    Planet,
+    Rocket,
+    Sparkle,
+    Camera
+} from '@phosphor-icons/react';
 
 const Chat = ({ roomId, isOpen, onClose, userName }) => {
     const socket = useSocket();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
-    const [showPicker, setShowPicker] = useState(null); // 'emoji' | 'sticker' | null
+    const [showPicker, setShowPicker] = useState(null);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    const emojis = ['😀', '😂', '😍', '🔥', '👍', '🎉', '❤️', '😎', '🤔', '😭', '😡', '👋', '✨', '💯', '🚀', '👀'];
-    const stickers = ['👻', '👽', '🤖', '💩', '🦄', '🦖', '🍕', '🍔']; // Using large emojis as stickers for MVP
+    // Reaction icons instead of emojis
+    const quickReactions = [
+        { icon: Heart, color: 'text-red-400', bg: 'bg-red-500/10', name: 'love' },
+        { icon: Fire, color: 'text-orange-400', bg: 'bg-orange-500/10', name: 'fire' },
+        { icon: Lightning, color: 'text-yellow-400', bg: 'bg-yellow-500/10', name: 'lightning' },
+        { icon: Star, color: 'text-purple-400', bg: 'bg-purple-500/10', name: 'star' },
+        { icon: Sparkle, color: 'text-cyan-400', bg: 'bg-cyan-500/10', name: 'sparkle' },
+        { icon: Crown, color: 'text-amber-400', bg: 'bg-amber-500/10', name: 'crown' },
+    ];
 
-    // Handle mobile back button
+    const stickers = [
+        { icon: Ghost, name: 'ghost' },
+        { icon: Alien, name: 'alien' },
+        { icon: Robot, name: 'robot' },
+        { icon: Skull, name: 'skull' },
+        { icon: GameController, name: 'game' },
+        { icon: Pizza, name: 'pizza' },
+        { icon: Hamburger, name: 'burger' },
+        { icon: Planet, name: 'planet' },
+        { icon: Rocket, name: 'rocket' },
+    ];
+
     useEffect(() => {
         if (!isOpen) return;
         
@@ -24,7 +67,6 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
             onClose();
         };
 
-        // Push a state to history so back button closes chat instead of navigating away
         window.history.pushState({ chatOpen: true }, '');
         window.addEventListener('popstate', handlePopState);
 
@@ -77,11 +119,22 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
         setShowPicker(null);
     };
 
+    const sendReaction = (reaction) => {
+        const messageData = {
+            type: 'reaction',
+            content: reaction,
+            timestamp: new Date().toISOString(),
+        };
+        socket.emit('send-message', { roomId, message: messageData });
+        setMessages((prev) => [...prev, { ...messageData, isLocal: true }]);
+        setShowPicker(null);
+    };
+
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 1024 * 1024) { // 1MB limit
+        if (file.size > 1024 * 1024) {
             alert("File too large! Max 1MB.");
             return;
         }
@@ -111,9 +164,21 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                     />
                 );
             case 'sticker':
-                return <div className="text-6xl animate-bounce">{msg.content}</div>;
+                const StickerIcon = msg.content.icon;
+                return (
+                    <div className="flex items-center justify-center p-2">
+                        <StickerIcon weight="fill" className="w-16 h-16 text-cyan-400 animate-bounce" />
+                    </div>
+                );
+            case 'reaction':
+                const ReactionIcon = msg.content.icon;
+                return (
+                    <div className="flex items-center gap-2">
+                        <ReactionIcon weight="fill" className={`w-8 h-8 ${msg.content.color}`} />
+                        <span className="text-xs text-white/50 capitalize">{msg.content.name}</span>
+                    </div>
+                );
             default:
-                // Handle legacy text messages (if any) or standard text
                 return msg.content || msg.text;
         }
     };
@@ -131,14 +196,13 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                 >
                     {/* Header */}
                     <div className="p-3 md:p-4 border-b border-white/10 flex justify-between items-center bg-black/50 safe-area-top">
-                        {/* Back button for mobile */}
                         <motion.button
                             onClick={onClose}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             className="md:hidden p-2 -ml-1 rounded-xl hover:bg-white/10 text-white transition-colors flex items-center gap-2"
                         >
-                            <ArrowLeft className="w-5 h-5" />
+                            <ArrowLeft weight="bold" className="w-5 h-5" />
                             <span className="text-sm font-medium">Back</span>
                         </motion.button>
                         
@@ -148,7 +212,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
                             >
-                                <MessageSquare className="w-5 h-5" />
+                                <ChatCircle weight="fill" className="w-5 h-5" />
                             </motion.div>
                             <div>
                                 <h3 className="font-medium tracking-wide text-white">Live Chat</h3>
@@ -156,17 +220,15 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                             </div>
                         </div>
                         
-                        {/* Close button for desktop */}
                         <motion.button
                             onClick={onClose}
                             whileHover={{ scale: 1.1, rotate: 90 }}
                             whileTap={{ scale: 0.9 }}
                             className="hidden md:flex p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
                         >
-                            <X className="w-5 h-5" />
+                            <X weight="bold" className="w-5 h-5" />
                         </motion.button>
                         
-                        {/* Spacer for mobile to center title */}
                         <div className="md:hidden w-16"></div>
                     </div>
 
@@ -182,13 +244,13 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                     animate={{ y: [0, -10, 0] }}
                                     transition={{ duration: 2, repeat: Infinity }}
                                 >
-                                    <MessageSquare className="w-12 h-12 opacity-20" />
+                                    <ChatCircle weight="thin" className="w-12 h-12 opacity-20" />
                                 </motion.div>
                                 <p className="text-sm">No messages yet. Say hello!</p>
-                                <div className="typing-indicator flex gap-1 mt-2">
-                                    <span></span>
-                                    <span></span>
-                                    <span></span>
+                                <div className="flex gap-1 mt-2">
+                                    <span className="w-2 h-2 rounded-full bg-cyan-500/30 animate-pulse" />
+                                    <span className="w-2 h-2 rounded-full bg-cyan-500/30 animate-pulse delay-75" />
+                                    <span className="w-2 h-2 rounded-full bg-cyan-500/30 animate-pulse delay-150" />
                                 </div>
                             </motion.div>
                         )}
@@ -223,32 +285,42 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                 exit={{ height: 0, opacity: 0 }}
                                 className="bg-black/50 border-t border-white/10 overflow-hidden"
                             >
-                                <div className="p-4 grid grid-cols-8 gap-2">
-                                    {showPicker === 'emoji' ? emojis.map((e, i) => (
-                                        <motion.button 
-                                            key={e} 
-                                            onClick={() => setNewMessage(prev => prev + e)} 
-                                            initial={{ opacity: 0, scale: 0 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            transition={{ delay: i * 0.02 }}
-                                            whileHover={{ scale: 1.3 }}
-                                            className="text-2xl hover:bg-white/10 rounded-lg p-1 transition-colors"
-                                        >
-                                            {e}
-                                        </motion.button>
-                                    )) : stickers.map((s, i) => (
-                                        <motion.button 
-                                            key={s} 
-                                            onClick={() => sendSticker(s)} 
-                                            initial={{ opacity: 0, scale: 0 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            transition={{ delay: i * 0.02 }}
-                                            whileHover={{ scale: 1.3 }}
-                                            className="text-4xl hover:bg-white/10 rounded-lg p-2 transition-colors"
-                                        >
-                                            {s}
-                                        </motion.button>
-                                    ))}
+                                <div className="p-4">
+                                    {showPicker === 'emoji' ? (
+                                        <div className="grid grid-cols-6 gap-3">
+                                            {quickReactions.map((reaction, i) => (
+                                                <motion.button 
+                                                    key={reaction.name}
+                                                    onClick={() => sendReaction(reaction)} 
+                                                    initial={{ opacity: 0, scale: 0 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    transition={{ delay: i * 0.03 }}
+                                                    whileHover={{ scale: 1.2 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    className={`p-3 rounded-xl ${reaction.bg} hover:bg-white/10 transition-colors flex items-center justify-center`}
+                                                >
+                                                    <reaction.icon weight="fill" className={`w-8 h-8 ${reaction.color}`} />
+                                                </motion.button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-5 gap-3">
+                                            {stickers.map((sticker, i) => (
+                                                <motion.button 
+                                                    key={sticker.name}
+                                                    onClick={() => sendSticker(sticker)} 
+                                                    initial={{ opacity: 0, scale: 0 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    transition={{ delay: i * 0.03 }}
+                                                    whileHover={{ scale: 1.2, rotate: 5 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    className="p-3 rounded-xl bg-white/5 hover:bg-cyan-500/20 transition-colors flex items-center justify-center"
+                                                >
+                                                    <sticker.icon weight="fill" className="w-10 h-10 text-cyan-400" />
+                                                </motion.button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </motion.div>
                         )}
@@ -264,7 +336,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                 whileTap={{ scale: 0.9 }}
                                 className={`p-2 rounded-full transition-colors ${showPicker === 'emoji' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
                             >
-                                <span className="text-xl">😊</span>
+                                <Smiley weight="fill" className="w-6 h-6" />
                             </motion.button>
                             <motion.button
                                 type="button"
@@ -273,7 +345,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                 whileTap={{ scale: 0.9 }}
                                 className={`p-2 rounded-full transition-colors ${showPicker === 'sticker' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
                             >
-                                <span className="text-xl">🎁</span>
+                                <Gift weight="fill" className="w-6 h-6" />
                             </motion.button>
                             <motion.button
                                 type="button"
@@ -282,7 +354,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                 whileTap={{ scale: 0.9 }}
                                 className="p-2 rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
                             >
-                                <span className="text-xl">📎</span>
+                                <Paperclip weight="bold" className="w-6 h-6" />
                             </motion.button>
                             <input
                                 type="file"
@@ -304,9 +376,9 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                 disabled={!newMessage.trim()}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                className="absolute right-2 p-2 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-black hover:from-cyan-400 hover:to-cyan-300 disabled:opacity-50 disabled:hover:from-cyan-500 transition-all shadow-lg shadow-cyan-500/30"
+                                className="absolute right-2 p-2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white disabled:opacity-50 disabled:hover:from-cyan-500 transition-all shadow-lg shadow-cyan-500/30"
                             >
-                                <Send className="w-4 h-4" />
+                                <PaperPlaneRight weight="fill" className="w-4 h-4" />
                             </motion.button>
                         </div>
                     </form>

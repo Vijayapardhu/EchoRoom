@@ -16,12 +16,14 @@ export const WebRTCProvider = ({ children }) => {
     const [remoteStream, setRemoteStream] = useState(null);
     const [connectionState, setConnectionState] = useState(ConnectionState.IDLE);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
-    const [connectionStats, setConnectionStats] = useState({ rtt: 0, packetsLost: 0 });
+    const [connectionStats, setConnectionStats] = useState({ rtt: 0, packetsLost: 0, bitrate: 0 });
+    const [connectionQuality, setConnectionQuality] = useState('unknown');
 
     const webrtcManagerRef = useRef(null);
     const peerConnection = useRef(null);
     const peerConnections = useRef(new Map()); // For group calls: peerId -> RTCPeerConnection
-    const candidateQueues = useRef(new Map()); // For group calls: peerId -> candidate[]
+    const candidateQueues = useRef(new Map());
+    const remoteStreams = useRef(new Map()); // peerId -> MediaStream
     const managerInitialized = useRef(false);
 
     // Initialize WebRTC Manager - only once
@@ -49,6 +51,10 @@ export const WebRTCProvider = ({ children }) => {
 
         webrtcManagerRef.current.on('stats', (stats) => {
             setConnectionStats(stats);
+        });
+
+        webrtcManagerRef.current.on('connectionQuality', ({ quality }) => {
+            setConnectionQuality(quality);
         });
 
         return () => {
@@ -87,7 +93,7 @@ export const WebRTCProvider = ({ children }) => {
             
             const stream = await webrtcManagerRef.current.initializeMedia(constraints);
             setLocalStream(stream);
-            console.log('[WebRTCContext] Local stream started with tracks:', stream.getTracks().map(t => t.kind));
+            console.log('[WebRTCContext] Local stream started with', stream.getTracks().length, 'tracks');
             return stream;
         } catch (error) {
             console.error('[WebRTCContext] Failed to start local stream:', error);
@@ -96,7 +102,7 @@ export const WebRTCProvider = ({ children }) => {
     }, [localStream]);
 
     /**
-     * Create peer connection
+     * Create peer connection for 1-on-1 call
      */
     const createPeerConnection = useCallback((onIceCandidate) => {
         console.log('[WebRTCContext] Creating peer connection...');
@@ -119,6 +125,13 @@ export const WebRTCProvider = ({ children }) => {
     const createPeerConnectionForPeer = useCallback((peerId, onIceCandidate, onRemoteStream) => {
         console.log('[WebRTCContext] Creating peer connection for peer:', peerId);
 
+        // Close existing connection if any
+        if (peerConnections.current.has(peerId)) {
+            const existingPc = peerConnections.current.get(peerId);
+            existingPc.close();
+            peerConnections.current.delete(peerId);
+        }
+
         const config = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -126,7 +139,7 @@ export const WebRTCProvider = ({ children }) => {
                 { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:stun3.l.google.com:19302' },
                 { urls: 'stun:stun4.l.google.com:19302' },
-                // Free TURN servers for NAT traversal
+                { urls: 'stun:global.stun.twilio.com:3478' },
                 {
                     urls: 'turn:openrelay.metered.ca:80',
                     username: 'openrelayproject',
@@ -138,7 +151,7 @@ export const WebRTCProvider = ({ children }) => {
                     credential: 'openrelayproject'
                 }
             ],
-            iceCandidatePoolSize: 5,
+            iceCandidatePoolSize: 10,
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require'
         };
@@ -149,6 +162,7 @@ export const WebRTCProvider = ({ children }) => {
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 pc.addTrack(track, localStream);
+                console.log('[WebRTCContext] Added track to peer connection:', track.kind);
             });
         }
 
@@ -159,11 +173,32 @@ export const WebRTCProvider = ({ children }) => {
             }
         };
 
-        // Handle remote stream
+        // Handle connection state changes
+        pc.onconnectionstatechange = () => {
+            console.log(`[WebRTCContext] Peer ${peerId} connection state:`, pc.connectionState);
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            console.log(`[WebRTCContext] Peer ${peerId} ICE state:`, pc.iceConnectionState);
+        };
+
+        // Handle remote stream with proper track management
         pc.ontrack = (event) => {
-            console.log('[WebRTCContext] Remote track received from peer:', peerId);
-            if (onRemoteStream) {
-                onRemoteStream(event.streams[0], peerId);
+            console.log('[WebRTCContext] Remote track received from peer:', peerId, event.track.kind);
+            
+            if (event.streams && event.streams[0]) {
+                const stream = event.streams[0];
+                
+                // Ensure all tracks are enabled
+                stream.getTracks().forEach(track => {
+                    track.enabled = true;
+                });
+                
+                remoteStreams.current.set(peerId, stream);
+                
+                if (onRemoteStream) {
+                    onRemoteStream(stream, peerId);
+                }
             }
         };
 
@@ -178,7 +213,10 @@ export const WebRTCProvider = ({ children }) => {
         const pc = peerConnections.current.get(peerId);
         if (!pc) throw new Error('No peer connection for ' + peerId);
 
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+        });
         await pc.setLocalDescription(offer);
         return offer;
     }, []);
@@ -191,11 +229,12 @@ export const WebRTCProvider = ({ children }) => {
         if (!pc) throw new Error('No peer connection for ' + peerId);
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        
-        // Process queued candidates after setting remote description
         await processQueuedCandidatesForPeer(peerId);
-        
-        const answer = await pc.createAnswer();
+
+        const answer = await pc.createAnswer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+        });
         await pc.setLocalDescription(answer);
         return answer;
     }, []);
@@ -208,8 +247,6 @@ export const WebRTCProvider = ({ children }) => {
         if (!pc) throw new Error('No peer connection for ' + peerId);
 
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        
-        // Process queued candidates after setting remote description
         await processQueuedCandidatesForPeer(peerId);
     }, []);
 
@@ -267,7 +304,8 @@ export const WebRTCProvider = ({ children }) => {
         if (pc) {
             pc.close();
             peerConnections.current.delete(peerId);
-            candidateQueues.current.delete(peerId); // Also clear candidate queue
+            candidateQueues.current.delete(peerId);
+            remoteStreams.current.delete(peerId);
             console.log('[WebRTCContext] Removed peer connection for:', peerId);
         }
     }, []);
@@ -305,12 +343,10 @@ export const WebRTCProvider = ({ children }) => {
 
     /**
      * Toggle video
-     * @param {boolean|undefined} enabled - If provided, sets to this value. Otherwise toggles.
      */
     const toggleVideo = useCallback((enabled) => {
         if (!webrtcManagerRef.current) return false;
         
-        // Get current state if no explicit value provided
         let newEnabled = enabled;
         if (enabled === undefined && localStream) {
             const videoTrack = localStream.getVideoTracks()[0];
@@ -321,7 +357,7 @@ export const WebRTCProvider = ({ children }) => {
         
         const result = webrtcManagerRef.current.getMediaManager().toggleVideo(newEnabled);
 
-        // Update peer connection if exists
+        // Update peer connection
         if (peerConnection.current && localStream) {
             const videoTrack = localStream.getVideoTracks()[0];
             if (videoTrack) {
@@ -332,17 +368,26 @@ export const WebRTCProvider = ({ children }) => {
             }
         }
 
+        // Update all group peer connections
+        peerConnections.current.forEach((pc) => {
+            const videoTrack = localStream?.getVideoTracks()[0];
+            if (videoTrack) {
+                const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+                if (sender && sender.track) {
+                    sender.track.enabled = result;
+                }
+            }
+        });
+
         return result;
     }, [localStream]);
 
     /**
      * Toggle audio
-     * @param {boolean|undefined} enabled - If provided, sets to this value. Otherwise toggles.
      */
     const toggleAudio = useCallback((enabled) => {
         if (!webrtcManagerRef.current) return false;
         
-        // Get current state if no explicit value provided
         let newEnabled = enabled;
         if (enabled === undefined && localStream) {
             const audioTrack = localStream.getAudioTracks()[0];
@@ -353,7 +398,7 @@ export const WebRTCProvider = ({ children }) => {
         
         const result = webrtcManagerRef.current.getMediaManager().toggleAudio(newEnabled);
 
-        // Update peer connection if exists
+        // Update peer connection
         if (peerConnection.current && localStream) {
             const audioTrack = localStream.getAudioTracks()[0];
             if (audioTrack) {
@@ -363,6 +408,17 @@ export const WebRTCProvider = ({ children }) => {
                 }
             }
         }
+
+        // Update all group peer connections
+        peerConnections.current.forEach((pc) => {
+            const audioTrack = localStream?.getAudioTracks()[0];
+            if (audioTrack) {
+                const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
+                if (sender && sender.track) {
+                    sender.track.enabled = result;
+                }
+            }
+        });
 
         return result;
     }, [localStream]);
@@ -376,15 +432,20 @@ export const WebRTCProvider = ({ children }) => {
         try {
             const newTrack = await webrtcManagerRef.current.getMediaManager().switchCamera();
 
-            // Update peer connection with new track
-            if (peerConnection.current && localStream) {
-                const oldTrack = localStream.getVideoTracks()[0];
-                const sender = peerConnection.current.getSenders().find(s => s.track === oldTrack);
-
+            // Update all connections with new track
+            const replaceTrackInConnection = async (pc) => {
+                if (!pc) return;
+                const oldTrack = localStream?.getVideoTracks()[0];
+                const sender = pc.getSenders().find(s => s.track === oldTrack || s.track?.kind === 'video');
                 if (sender) {
                     await sender.replaceTrack(newTrack);
-                    console.log('[WebRTCContext] Camera switched and track replaced');
                 }
+            };
+
+            await replaceTrackInConnection(peerConnection.current);
+            
+            for (const [peerId, pc] of peerConnections.current) {
+                await replaceTrackInConnection(pc);
             }
 
             return newTrack;
@@ -399,24 +460,37 @@ export const WebRTCProvider = ({ children }) => {
      */
     const startScreenShare = useCallback(async () => {
         try {
-            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+                video: { 
+                    cursor: 'always',
+                    displaySurface: 'monitor'
+                },
+                audio: false
+            });
             const screenTrack = screenStream.getVideoTracks()[0];
 
-            if (peerConnection.current && localStream) {
-                const videoTrack = localStream.getVideoTracks()[0];
-                const sender = peerConnection.current.getSenders().find(s => s.track === videoTrack);
+            const replaceTrack = async (pc) => {
+                if (!pc) return;
+                const videoTrack = localStream?.getVideoTracks()[0];
+                const sender = pc.getSenders().find(s => s.track === videoTrack || s.track?.kind === 'video');
 
                 if (sender) {
                     await sender.replaceTrack(screenTrack);
-                    setIsScreenSharing(true);
-                    console.log('[WebRTCContext] Screen sharing started');
-
-                    // Handle screen share stop
-                    screenTrack.onended = async () => {
-                        await stopScreenShare();
-                    };
                 }
+            };
+
+            await replaceTrack(peerConnection.current);
+            
+            for (const [peerId, pc] of peerConnections.current) {
+                await replaceTrack(pc);
             }
+
+            setIsScreenSharing(true);
+            console.log('[WebRTCContext] Screen sharing started');
+
+            screenTrack.onended = async () => {
+                await stopScreenShare();
+            };
 
             return screenStream;
         } catch (error) {
@@ -429,16 +503,25 @@ export const WebRTCProvider = ({ children }) => {
      * Stop screen share
      */
     const stopScreenShare = useCallback(async () => {
-        if (peerConnection.current && localStream) {
-            const videoTrack = localStream.getVideoTracks()[0];
-            const sender = peerConnection.current.getSenders().find(s => s.track && s.track.kind === 'video');
+        const videoTrack = localStream?.getVideoTracks()[0];
+        if (!videoTrack) return;
 
-            if (sender && videoTrack) {
+        const replaceTrack = async (pc) => {
+            if (!pc) return;
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) {
                 await sender.replaceTrack(videoTrack);
-                setIsScreenSharing(false);
-                console.log('[WebRTCContext] Screen sharing stopped');
             }
+        };
+
+        await replaceTrack(peerConnection.current);
+        
+        for (const [peerId, pc] of peerConnections.current) {
+            await replaceTrack(pc);
         }
+
+        setIsScreenSharing(false);
+        console.log('[WebRTCContext] Screen sharing stopped');
     }, [localStream]);
 
     /**
@@ -471,8 +554,8 @@ export const WebRTCProvider = ({ children }) => {
     const resetPeerConnection = useCallback(() => {
         console.log('[WebRTCContext] Resetting peer connection...');
         closeConnection();
-        // Clear all candidate queues
         candidateQueues.current.clear();
+        remoteStreams.current.clear();
     }, [closeConnection]);
 
     /**
@@ -484,11 +567,10 @@ export const WebRTCProvider = ({ children }) => {
             webrtcManagerRef.current.cleanup();
         }
         
-        // Clean up all group peer connections
-        peerConnections.current.forEach((pc) => {
-            pc.close();
-        });
+        peerConnections.current.forEach((pc) => pc.close());
         peerConnections.current.clear();
+        candidateQueues.current.clear();
+        remoteStreams.current.clear();
         
         setLocalStream(null);
         setRemoteStream(null);
@@ -503,8 +585,10 @@ export const WebRTCProvider = ({ children }) => {
         remoteStream,
         connectionState,
         isScreenSharing,
+        connectionStats,
+        connectionQuality,
         peerConnection,
-        peerConnections, // For group calls
+        peerConnections,
 
         // Methods
         startLocalStream,
@@ -528,7 +612,6 @@ export const WebRTCProvider = ({ children }) => {
         closeConnection,
         resetPeerConnection,
         cleanup,
-        connectionStats,
 
         // Manager access
         webrtcManager: webrtcManagerRef.current

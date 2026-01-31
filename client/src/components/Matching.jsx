@@ -2,40 +2,48 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Users, Sparkles, Radio, Waves, Zap } from 'lucide-react';
+import { 
+    Spinner, 
+    Users, 
+    Sparkle, 
+    Broadcast, 
+    Waveform,
+    Lightning,
+    CheckCircle,
+    Planet,
+    ChatCircle,
+    VideoCamera,
+    ArrowLeft
+} from '@phosphor-icons/react';
 import toast, { Toaster } from 'react-hot-toast';
 
-// Orbit ring component
 const OrbitRing = ({ size, duration, delay, children }) => (
     <motion.div
         className="absolute rounded-full border border-cyan-500/20"
         style={{ width: size, height: size }}
         animate={{ rotate: 360 }}
-        transition={{ duration, repeat: Infinity, ease: "linear", delay }}
+        transition={{ duration, repeat: Infinity, ease: 'linear', delay }}
     >
         {children}
     </motion.div>
 );
 
-// Scanning line effect
 const ScanLine = ({ delay }) => (
     <motion.div
         className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"
         initial={{ top: '0%', opacity: 0 }}
         animate={{ top: '100%', opacity: [0, 1, 1, 0] }}
-        transition={{ duration: 2, repeat: Infinity, delay, ease: "linear" }}
+        transition={{ duration: 2, repeat: Infinity, delay, ease: 'linear' }}
     />
 );
 
-// Fun facts for waiting
 const waitingFacts = [
-    "💡 Fun fact: The first video call was made in 1927!",
-    "🌍 People from 190+ countries use video chat daily",
-    "🎭 Anonymous connections can lead to more genuine conversations",
-    "🔒 Your connection is end-to-end encrypted",
-    "⚡ WebRTC allows peer-to-peer connection for lower latency",
-    "🎯 Most matches happen within 30 seconds",
-    "💬 A smile is understood in every language",
+    { icon: VideoCamera, text: "The first video call was made in 1927!" },
+    { icon: Planet, text: "People from 190+ countries use video chat daily" },
+    { icon: ChatCircle, text: "Anonymous connections lead to more genuine conversations" },
+    { icon: CheckCircle, text: "Your connection is end-to-end encrypted" },
+    { icon: Lightning, text: "WebRTC allows peer-to-peer connection for lower latency" },
+    { icon: Users, text: "Most matches happen within 30 seconds" },
 ];
 
 const Matching = () => {
@@ -49,7 +57,6 @@ const Matching = () => {
 
     const preferences = location.state || {};
 
-    // Rotate through fun facts
     useEffect(() => {
         const factInterval = setInterval(() => {
             setCurrentFact(prev => (prev + 1) % waitingFacts.length);
@@ -58,17 +65,14 @@ const Matching = () => {
     }, []);
 
     useEffect(() => {
-        // Animated dots
         const dotsInterval = setInterval(() => {
             setDots(prev => prev.length >= 3 ? '' : prev + '.');
         }, 500);
 
-        // Wait time counter
         const timeInterval = setInterval(() => {
             setWaitTime(prev => prev + 1);
         }, 1000);
 
-        // Pulse intensity effect - increases with wait time
         const pulseInterval = setInterval(() => {
             setPulseIntensity(prev => Math.min(prev + 0.1, 1));
         }, 2000);
@@ -83,14 +87,14 @@ const Matching = () => {
     useEffect(() => {
         if (!socket) return;
 
-        // Join the matching queue
-        console.log("Joining queue with preferences:", preferences);
+        console.log('Joining queue with preferences:', preferences);
         socket.emit('join-queue', preferences);
 
-        // Handle match found
         const handleMatchFound = ({ roomId }) => {
-            console.log("Match found! Navigating to room:", roomId);
-            toast.success("Match found! Connecting...", { icon: '🎉' });
+            console.log('Match found! Navigating to room:', roomId);
+            toast.success('Match found! Connecting...', { 
+                icon: <CheckCircle weight="fill" className="w-5 h-5 text-green-400" /> 
+            });
             navigate(`/room/${roomId}`, { state: preferences, replace: true });
         };
 
@@ -108,13 +112,14 @@ const Matching = () => {
         navigate('/');
     };
 
-    // Generate orbit dots
     const orbitDots = useMemo(() => 
         Array.from({ length: 6 }, (_, i) => ({
             id: i,
             angle: (i * 60) * (Math.PI / 180),
         })), []
     );
+
+    const FactIcon = waitingFacts[currentFact].icon;
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
@@ -126,14 +131,8 @@ const Matching = () => {
                     border: '1px solid rgba(6, 182, 212, 0.3)',
                     backdropFilter: 'blur(10px)',
                 },
-                success: {
-                    style: {
-                        border: '1px solid rgba(34, 197, 94, 0.3)',
-                    },
-                },
             }} />
 
-            {/* Animated Background */}
             <div className="absolute inset-0">
                 <motion.div 
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px]"
@@ -141,7 +140,7 @@ const Matching = () => {
                         scale: [1, 1.2, 1],
                         opacity: [0.1, 0.2 + pulseIntensity * 0.1, 0.1],
                     }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <motion.div 
                     className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px]"
@@ -149,7 +148,7 @@ const Matching = () => {
                         scale: [1, 1.3, 1],
                         x: [0, 30, 0],
                     }}
-                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
                 />
                 <motion.div 
                     className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-pink-500/10 rounded-full blur-[80px]"
@@ -157,28 +156,24 @@ const Matching = () => {
                         scale: [1, 1.2, 1],
                         y: [0, -20, 0],
                     }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 />
             </div>
 
-            {/* Scanning Lines */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
                 <ScanLine delay={0} />
                 <ScanLine delay={0.7} />
                 <ScanLine delay={1.4} />
             </div>
 
-            {/* Main Content */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="relative z-10 max-w-md w-full"
             >
-                <div className="glass-panel rounded-3xl p-8 shadow-2xl">
-                    {/* Animated Radar/Search Icon */}
+                <div className="glass-panel rounded-3xl p-8 shadow-2xl border border-white/10 bg-black/40 backdrop-blur-xl">
                     <div className="flex justify-center mb-8">
                         <div className="relative w-40 h-40 flex items-center justify-center">
-                            {/* Orbit rings */}
                             <OrbitRing size={160} duration={8} delay={0}>
                                 {orbitDots.map((dot) => (
                                     <motion.div
@@ -197,33 +192,30 @@ const Matching = () => {
                             <OrbitRing size={120} duration={6} delay={0.5} />
                             <OrbitRing size={80} duration={4} delay={1} />
 
-                            {/* Center icon */}
                             <motion.div
                                 animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                                 className="relative z-10"
                             >
                                 <div className="absolute inset-0 bg-cyan-500/30 rounded-full blur-xl" />
                                 <div className="relative bg-gradient-to-br from-cyan-500 to-purple-500 p-5 rounded-full shadow-lg shadow-cyan-500/30">
-                                    <Radio className="w-10 h-10 text-white" />
+                                    <Broadcast weight="fill" className="w-10 h-10 text-white" />
                                 </div>
                             </motion.div>
 
-                            {/* Pulse waves */}
                             <motion.div
                                 className="absolute inset-0 border-2 border-cyan-500/30 rounded-full"
                                 animate={{ scale: [1, 2], opacity: [0.5, 0] }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                                transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
                             />
                             <motion.div
                                 className="absolute inset-0 border-2 border-cyan-500/30 rounded-full"
                                 animate={{ scale: [1, 2], opacity: [0.5, 0] }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                                transition={{ duration: 2, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
                             />
                         </div>
                     </div>
 
-                    {/* Status Text */}
                     <div className="text-center space-y-4 mb-8">
                         <motion.h2 
                             className="text-3xl font-bold text-white"
@@ -236,25 +228,23 @@ const Matching = () => {
                             Scanning the frequencies for someone special
                         </p>
 
-                        {/* Wait Time */}
                         <motion.div 
                             className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/5 border border-white/10"
                             animate={{ boxShadow: pulseIntensity > 0.5 ? '0 0 20px rgba(6, 182, 212, 0.2)' : 'none' }}
                         >
                             <motion.div
                                 animate={{ rotate: 360 }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                             >
-                                <Loader2 className="w-4 h-4 text-cyan-400" />
+                                <Spinner weight="bold" className="w-4 h-4 text-cyan-400" />
                             </motion.div>
                             <span className="text-sm font-mono text-neutral-300">
                                 {Math.floor(waitTime / 60).toString().padStart(2, '0')}:{(waitTime % 60).toString().padStart(2, '0')}
                             </span>
-                            <Waves className="w-4 h-4 text-purple-400 animate-pulse" />
+                            <Waveform weight="fill" className="w-4 h-4 text-purple-400 animate-pulse" />
                         </motion.div>
                     </div>
 
-                    {/* Preferences Display */}
                     <AnimatePresence>
                         {preferences && Object.keys(preferences).length > 0 && (
                             <motion.div 
@@ -264,7 +254,7 @@ const Matching = () => {
                                 exit={{ opacity: 0 }}
                             >
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Sparkles className="w-4 h-4 text-purple-400" />
+                                    <Sparkle weight="fill" className="w-4 h-4 text-purple-400" />
                                     <span className="text-sm font-medium text-white">Your Preferences</span>
                                 </div>
                                 <div className="space-y-2 text-sm text-neutral-400">
@@ -279,7 +269,7 @@ const Matching = () => {
                                     )}
                                     {preferences.mode && (
                                         <div className="flex items-center gap-2">
-                                            <Zap className="w-3 h-3 text-purple-400" />
+                                            <Lightning weight="fill" className="w-3 h-3 text-purple-400" />
                                             <span className="text-purple-400 capitalize">{preferences.mode} mode</span>
                                         </div>
                                     )}
@@ -288,7 +278,6 @@ const Matching = () => {
                         )}
                     </AnimatePresence>
 
-                    {/* Fun Fact */}
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentFact}
@@ -298,19 +287,22 @@ const Matching = () => {
                             exit={{ opacity: 0, x: -20 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <p className="text-center text-sm text-neutral-400">
-                                {waitingFacts[currentFact]}
-                            </p>
+                            <div className="flex items-center gap-3">
+                                <FactIcon weight="fill" className="w-5 h-5 text-cyan-400 shrink-0" />
+                                <p className="text-sm text-neutral-400">
+                                    {waitingFacts[currentFact].text}
+                                </p>
+                            </div>
                         </motion.div>
                     </AnimatePresence>
 
-                    {/* Cancel Button */}
                     <motion.button
                         onClick={handleCancel}
-                        className="w-full py-4 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 rounded-xl text-white font-medium transition-all duration-300"
+                        className="w-full py-4 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 rounded-xl text-white font-medium transition-all duration-300 flex items-center justify-center gap-2"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                     >
+                        <ArrowLeft weight="bold" className="w-5 h-5" />
                         Cancel Search
                     </motion.button>
                 </div>

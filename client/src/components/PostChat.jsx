@@ -1,22 +1,30 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ThumbsUp, ThumbsDown, Home, RefreshCw, MessageSquare, UserPlus, Heart, Star, Share2, Copy, Smile, Laugh, HelpCircle, Hand, Sparkles } from 'lucide-react';
+import { 
+    ThumbsUp, 
+    ThumbsDown, 
+    House, 
+    ArrowClockwise, 
+    ChatCircle, 
+    UserPlus, 
+    Heart, 
+    Star, 
+    Copy,
+    Smiley,
+    Question,
+    HandWaving,
+    Sparkle,
+    CheckCircle,
+    Lightning
+} from '@phosphor-icons/react';
 import toast, { Toaster } from 'react-hot-toast';
 
-// Custom styled emoji components
-const StyledEmoji = ({ children, gradient, icon: Icon }) => (
-    <div className={`w-full h-full rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-        <Icon className="w-5 h-5 text-white drop-shadow-lg" />
-    </div>
-);
-
 const emojiReactions = [
-    { id: 'happy', icon: Smile, gradient: 'from-yellow-400 to-orange-500', label: 'Happy' },
-    { id: 'laugh', icon: Laugh, gradient: 'from-amber-400 to-yellow-500', label: 'Funny' },
-    { id: 'thinking', icon: HelpCircle, gradient: 'from-blue-400 to-cyan-500', label: 'Interesting' },
-    { id: 'wave', icon: Hand, gradient: 'from-pink-400 to-rose-500', label: 'Goodbye' },
-    { id: 'love', icon: Heart, gradient: 'from-red-400 to-pink-500', label: 'Loved it' },
+    { id: 'happy', icon: Smiley, color: 'text-yellow-400', bg: 'from-yellow-400 to-orange-500', label: 'Happy' },
+    { id: 'thinking', icon: Question, color: 'text-cyan-400', bg: 'from-blue-400 to-cyan-500', label: 'Interesting' },
+    { id: 'wave', icon: HandWaving, color: 'text-pink-400', bg: 'from-pink-400 to-rose-500', label: 'Goodbye' },
+    { id: 'love', icon: Heart, color: 'text-red-400', bg: 'from-red-400 to-pink-500', label: 'Loved it' },
 ];
 
 const PostChat = () => {
@@ -27,19 +35,18 @@ const PostChat = () => {
     const [showAddFriend, setShowAddFriend] = useState(false);
     const [friendCode, setFriendCode] = useState('');
 
-    // Get partner info from location state if available
     const partnerInfo = location.state?.partner || null;
 
     const handleSubmit = () => {
-        // In a real app, send this to backend
         console.log({ rating, feedback });
-        toast.success('Thanks for your feedback!');
+        toast.success('Thanks for your feedback!', {
+            icon: <CheckCircle weight="fill" className="w-5 h-5 text-green-400" />
+        });
         setRating(null);
         setFeedback('');
     };
 
     const generateFriendCode = () => {
-        // Generate a unique friend code
         const code = Math.random().toString(36).substring(2, 8).toUpperCase();
         setFriendCode(code);
         setShowAddFriend(true);
@@ -47,7 +54,9 @@ const PostChat = () => {
 
     const copyFriendCode = () => {
         navigator.clipboard.writeText(friendCode);
-        toast.success('Friend code copied!');
+        toast.success('Friend code copied!', {
+            icon: <CheckCircle weight="fill" className="w-5 h-5 text-green-400" />
+        });
     };
 
     return (
@@ -62,24 +71,23 @@ const PostChat = () => {
                 },
             }} />
             
-            {/* Background Effects */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50" />
             <motion.div 
                 className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[100px] pointer-events-none"
                 animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
             />
             <motion.div 
                 className="absolute top-1/4 left-0 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"
                 animate={{ scale: [1, 1.3, 1], x: [0, 30, 0] }}
-                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
             />
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="max-w-md w-full glass-panel rounded-3xl p-8 shadow-2xl"
+                className="max-w-md w-full glass-panel rounded-3xl p-8 shadow-2xl border border-white/10 bg-black/40 backdrop-blur-xl"
             >
                 <motion.div 
                     className="text-center mb-8"
@@ -92,13 +100,12 @@ const PostChat = () => {
                         animate={{ rotate: [0, 5, -5, 0] }}
                         transition={{ duration: 4, repeat: Infinity }}
                     >
-                        <MessageSquare className="w-10 h-10 text-white" />
+                        <ChatCircle weight="fill" className="w-10 h-10 text-white" />
                     </motion.div>
                     <h2 className="text-3xl font-bold text-white mb-2">Chat Ended</h2>
                     <p className="text-neutral-400">How was your conversation?</p>
                 </motion.div>
 
-                {/* Rating */}
                 <motion.div 
                     className="flex justify-center gap-4 mb-6"
                     initial={{ opacity: 0, y: 10 }}
@@ -111,7 +118,7 @@ const PostChat = () => {
                         onClick={() => setRating('good')}
                         className={`p-5 rounded-2xl border-2 transition-all ${rating === 'good' ? 'bg-green-500/20 border-green-500 text-green-400 shadow-lg shadow-green-500/30' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}
                     >
-                        <ThumbsUp className="w-8 h-8" />
+                        <ThumbsUp weight="fill" className="w-8 h-8" />
                     </motion.button>
                     <motion.button
                         whileHover={{ scale: 1.1, y: -5 }}
@@ -119,11 +126,10 @@ const PostChat = () => {
                         onClick={() => setRating('bad')}
                         className={`p-5 rounded-2xl border-2 transition-all ${rating === 'bad' ? 'bg-red-500/20 border-red-500 text-red-400 shadow-lg shadow-red-500/30' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}
                     >
-                        <ThumbsDown className="w-8 h-8" />
+                        <ThumbsDown weight="fill" className="w-8 h-8" />
                     </motion.button>
                 </motion.div>
 
-                {/* Quick Reactions */}
                 <motion.div 
                     className="flex justify-center gap-3 mb-6"
                     initial={{ opacity: 0 }}
@@ -140,9 +146,7 @@ const PostChat = () => {
                             whileTap={{ scale: 0.9 }}
                             onClick={() => toast(
                                 <div className="flex items-center gap-2">
-                                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${emoji.gradient} flex items-center justify-center`}>
-                                        <emoji.icon className="w-3.5 h-3.5 text-white" />
-                                    </div>
+                                    <emoji.icon weight="fill" className={`w-5 h-5 ${emoji.color}`} />
                                     <span>{emoji.label}</span>
                                 </div>,
                                 { duration: 1500 }
@@ -150,15 +154,13 @@ const PostChat = () => {
                             className="group relative"
                             title={emoji.label}
                         >
-                            <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${emoji.gradient} flex items-center justify-center shadow-lg transition-shadow group-hover:shadow-xl`}>
-                                <emoji.icon className="w-5 h-5 text-white drop-shadow-md" />
+                            <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${emoji.bg} flex items-center justify-center shadow-lg transition-shadow group-hover:shadow-xl`}>
+                                <emoji.icon weight="fill" className="w-5 h-5 text-white drop-shadow-md" />
                             </div>
-                            <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${emoji.gradient} opacity-0 group-hover:opacity-40 blur-md transition-opacity`} />
                         </motion.button>
                     ))}
                 </motion.div>
 
-                {/* Feedback Text */}
                 <motion.div 
                     className="mb-6"
                     initial={{ opacity: 0 }}
@@ -185,7 +187,6 @@ const PostChat = () => {
                     )}
                 </motion.div>
 
-                {/* Add Friend Section */}
                 {!showAddFriend ? (
                     <motion.button
                         initial={{ opacity: 0 }}
@@ -196,7 +197,7 @@ const PostChat = () => {
                         onClick={generateFriendCode}
                         className="w-full py-3 mb-4 bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/30 text-pink-400 font-medium rounded-xl flex items-center justify-center gap-2 hover:from-pink-500/30 hover:to-purple-500/30 transition-all shadow-[0_0_20px_rgba(236,72,153,0.1)]"
                     >
-                        <UserPlus className="w-5 h-5" />
+                        <UserPlus weight="fill" className="w-5 h-5" />
                         Want to reconnect? Get Friend Code
                     </motion.button>
                 ) : (
@@ -216,13 +217,12 @@ const PostChat = () => {
                                 onClick={copyFriendCode}
                                 className="p-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-400 hover:to-purple-400 rounded-lg transition-colors shadow-lg shadow-pink-500/30"
                             >
-                                <Copy className="w-5 h-5 text-white" />
+                                <Copy weight="fill" className="w-5 h-5 text-white" />
                             </motion.button>
                         </div>
                     </motion.div>
                 )}
 
-                {/* Actions */}
                 <motion.div 
                     className="space-y-3"
                     initial={{ opacity: 0 }}
@@ -233,9 +233,9 @@ const PostChat = () => {
                         whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(6, 182, 212, 0.4)' }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => navigate('/room/matching')}
-                        className="w-full py-4 bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:from-cyan-400 hover:to-cyan-300 transition-all shadow-lg shadow-cyan-500/30 group"
+                        className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/30 group"
                     >
-                        <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                        <ArrowClockwise weight="bold" className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
                         Find New Match
                     </motion.button>
                     <motion.button
@@ -244,7 +244,7 @@ const PostChat = () => {
                         onClick={() => navigate('/')}
                         className="w-full py-4 bg-white/5 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/10"
                     >
-                        <Home className="w-5 h-5" />
+                        <House weight="fill" className="w-5 h-5" />
                         Return Home
                     </motion.button>
                 </motion.div>

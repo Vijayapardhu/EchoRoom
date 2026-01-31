@@ -2,7 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Sparkles, Zap, Activity, X, Video, MessageCircle, Users, User, Check } from 'lucide-react';
+import { 
+    ArrowRight, 
+    Sparkle, 
+    Lightning, 
+    X, 
+    VideoCamera, 
+    ChatCircle, 
+    Users, 
+    User,
+    Check,
+    Fire,
+    Planet,
+    GenderMale,
+    GenderFemale,
+    GenderNeuter,
+    UsersThree
+} from '@phosphor-icons/react';
 
 const Onboarding = () => {
     const navigate = useNavigate();
@@ -10,15 +26,13 @@ const Onboarding = () => {
     const [step, setStep] = useState(1);
     const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
 
-    // State
     const [interests, setInterests] = useState([]);
     const [customInterest, setCustomInterest] = useState('');
     const [gender, setGender] = useState('');
     const [partnerGender, setPartnerGender] = useState('any');
-    const [mode, setMode] = useState('video'); // video | text
-    const [groupMode, setGroupMode] = useState('double'); // double | group
+    const [mode, setMode] = useState('video');
+    const [groupMode, setGroupMode] = useState('double');
 
-    // Mouse tracking for spotlight
     useEffect(() => {
         const handleMouseMove = (e) => {
             setMousePosition({
@@ -31,7 +45,7 @@ const Onboarding = () => {
     }, []);
 
     const availableInterests = ['Tech', 'Music', 'Gaming', 'Art', 'Movies', 'Travel', 'Food', 'Science'];
-    const trendingInterests = ['Gaming', 'Music', 'Tech']; // 🔥 Trending topics
+    const trendingInterests = ['Gaming', 'Music', 'Tech'];
 
     const toggleInterest = (interest) => {
         if (interests.includes(interest)) {
@@ -73,7 +87,6 @@ const Onboarding = () => {
                 '--mouse-y': `${mousePosition.y}%`,
             }}
         >
-            {/* Dynamic Spotlight */}
             <div 
                 className="absolute inset-0 pointer-events-none transition-opacity duration-300"
                 style={{
@@ -81,7 +94,6 @@ const Onboarding = () => {
                 }}
             />
 
-            {/* Background Effects - Enhanced */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50" />
             <motion.div 
                 className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"
@@ -89,7 +101,7 @@ const Onboarding = () => {
                     scale: [1, 1.2, 1],
                     x: [0, 30, 0],
                 }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
             />
             <motion.div 
                 className="absolute top-0 left-0 w-[600px] h-[600px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"
@@ -97,17 +109,9 @@ const Onboarding = () => {
                     scale: [1, 1.3, 1],
                     y: [0, 30, 0],
                 }}
-                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div 
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-green-500/5 rounded-full blur-[100px] pointer-events-none"
-                animate={{
-                    opacity: step === 3 ? 0.15 : 0.05,
-                }}
-                transition={{ duration: 0.5 }}
+                transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
             />
 
-            {/* Grid Pattern */}
             <div 
                 className="absolute inset-0 opacity-[0.02] pointer-events-none"
                 style={{
@@ -121,7 +125,6 @@ const Onboarding = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 className="max-w-md w-full z-10"
             >
-                {/* Progress Bar - Enhanced */}
                 <div className="flex gap-2 mb-12">
                     {[1, 2, 3].map(i => (
                         <motion.div 
@@ -140,7 +143,6 @@ const Onboarding = () => {
                     ))}
                 </div>
 
-                {/* Step Indicator */}
                 <motion.div 
                     className="flex justify-center gap-4 mb-8"
                     initial={{ opacity: 0, y: -10 }}
@@ -157,14 +159,13 @@ const Onboarding = () => {
                                             : 'bg-white/5 text-white/30'
                                 }`}
                             >
-                                {step > i + 1 ? <Check className="w-4 h-4" /> : i + 1}
+                                {step > i + 1 ? <Check weight="bold" className="w-4 h-4" /> : i + 1}
                             </motion.div>
                             <span className={`text-xs hidden md:block ${step >= i + 1 ? 'text-white' : 'text-white/30'}`}>{label}</span>
                         </div>
                     ))}
                 </motion.div>
 
-                {/* Step 1: Interests */}
                 <AnimatePresence mode="wait">
                 {step === 1 && (
                     <motion.div 
@@ -180,7 +181,7 @@ const Onboarding = () => {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                             >
-                                Signal <span className="gradient-text">Calibration</span>
+                                Signal <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Calibration</span>
                             </motion.h2>
                             <motion.p 
                                 className="text-neutral-400 text-lg"
@@ -208,37 +209,28 @@ const Onboarding = () => {
                                         className={`p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group ${isSelected
                                                 ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.3)]'
                                                 : isTrending
-                                                    ? 'border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 text-white hover:border-yellow-500/50 hover:shadow-[0_0_15px_rgba(234,179,8,0.2)]'
+                                                    ? 'border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-red-500/10 text-white hover:border-orange-500/50 hover:shadow-[0_0_15px_rgba(234,179,8,0.2)]'
                                                     : 'border-white/10 bg-white/5 text-neutral-400 hover:border-white/20 hover:bg-white/10'
                                             }`}
                                     >
                                         <div className="flex items-center justify-between relative z-10">
                                             <span className="font-medium tracking-wide">{interest}</span>
                                             {isTrending && !isSelected && (
-                                                <span className="text-sm">🔥</span>
+                                                <Fire weight="fill" className="w-4 h-4 text-orange-400" />
                                             )}
                                         </div>
                                         {isTrending && !isSelected && (
                                             <div className="absolute top-1 right-1">
-                                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-black rounded-full shadow-lg">
+                                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-orange-500 to-red-500 text-black rounded-full shadow-lg">
                                                     HOT
                                                 </span>
                                             </div>
-                                        )}
-                                        {isSelected && (
-                                            <motion.div 
-                                                layoutId="activeGlow" 
-                                                className="absolute inset-0 bg-cyan-500/5"
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                            />
                                         )}
                                     </motion.button>
                                 );
                             })}
                         </div>
 
-                        {/* Custom Interest Input - Enhanced */}
                         <motion.div 
                             className="relative"
                             initial={{ opacity: 0 }}
@@ -264,7 +256,6 @@ const Onboarding = () => {
                             </motion.button>
                         </motion.div>
 
-                        {/* Selected Interests Tags - Enhanced */}
                         <AnimatePresence>
                             {interests.length > 0 && (
                                 <motion.div 
@@ -283,7 +274,9 @@ const Onboarding = () => {
                                             className="px-3 py-1.5 rounded-full bg-cyan-500/20 text-cyan-300 text-sm border border-cyan-500/30 flex items-center gap-2 shadow-[0_0_10px_rgba(6,182,212,0.2)]"
                                         >
                                             {interest}
-                                            <button onClick={() => toggleInterest(interest)} className="hover:text-white transition-colors"><X className="w-3 h-3" /></button>
+                                            <button onClick={() => toggleInterest(interest)} className="hover:text-white transition-colors">
+                                                <X weight="bold" className="w-3 h-3" />
+                                            </button>
                                         </motion.span>
                                     ))}
                                 </motion.div>
@@ -297,12 +290,11 @@ const Onboarding = () => {
                             whileTap={{ scale: 0.98 }}
                             className="w-full py-4 bg-white text-black font-bold text-lg tracking-wider uppercase hover:bg-cyan-400 transition-all disabled:opacity-50 disabled:hover:bg-white mt-8 flex items-center justify-center gap-2 group rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.1)]"
                         >
-                            Next Phase <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            Next Phase <ArrowRight weight="bold" className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </motion.button>
                     </motion.div>
                 )}
 
-                {/* Step 2: Identity */}
                 {step === 2 && (
                     <motion.div 
                         key="step2"
@@ -322,18 +314,23 @@ const Onboarding = () => {
                             <div className="space-y-3">
                                 <label className="text-sm font-medium text-neutral-500 uppercase tracking-wider">I am</label>
                                 <div className="grid grid-cols-3 gap-3">
-                                    {['Male', 'Female', 'Non-binary'].map((g, i) => (
+                                    {[
+                                        { label: 'Male', icon: GenderMale },
+                                        { label: 'Female', icon: GenderFemale },
+                                        { label: 'Non-binary', icon: GenderNeuter }
+                                    ].map((g, i) => (
                                         <motion.button
-                                            key={g}
-                                            onClick={() => setGender(g.toLowerCase())}
+                                            key={g.label}
+                                            onClick={() => setGender(g.label.toLowerCase())}
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: i * 0.1 }}
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
-                                            className={`p-3 rounded-xl border transition-all ${gender === g.toLowerCase() ? 'border-purple-500 bg-purple-500/20 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
+                                            className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 ${gender === g.label.toLowerCase() ? 'border-purple-500 bg-purple-500/20 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
                                         >
-                                            {g}
+                                            <g.icon weight="fill" className="w-6 h-6" />
+                                            <span className="text-sm font-medium">{g.label}</span>
                                         </motion.button>
                                     ))}
                                 </div>
@@ -342,18 +339,23 @@ const Onboarding = () => {
                             <div className="space-y-3">
                                 <label className="text-sm font-medium text-neutral-500 uppercase tracking-wider">Looking for</label>
                                 <div className="grid grid-cols-3 gap-3">
-                                    {['Male', 'Female', 'Any'].map((g, i) => (
+                                    {[
+                                        { label: 'Male', icon: GenderMale },
+                                        { label: 'Female', icon: GenderFemale },
+                                        { label: 'Any', icon: Users }
+                                    ].map((g, i) => (
                                         <motion.button
-                                            key={g}
-                                            onClick={() => setPartnerGender(g.toLowerCase())}
+                                            key={g.label}
+                                            onClick={() => setPartnerGender(g.label.toLowerCase())}
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: 0.3 + i * 0.1 }}
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
-                                            className={`p-3 rounded-xl border transition-all ${partnerGender === g.toLowerCase() ? 'border-purple-500 bg-purple-500/20 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
+                                            className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 ${partnerGender === g.label.toLowerCase() ? 'border-purple-500 bg-purple-500/20 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
                                         >
-                                            {g}
+                                            <g.icon weight="fill" className="w-6 h-6" />
+                                            <span className="text-sm font-medium">{g.label}</span>
                                         </motion.button>
                                     ))}
                                 </div>
@@ -382,7 +384,6 @@ const Onboarding = () => {
                     </motion.div>
                 )}
 
-                {/* Step 3: Mode */}
                 {step === 3 && (
                     <motion.div 
                         key="step3"
@@ -412,7 +413,7 @@ const Onboarding = () => {
                                         animate={mode === 'video' ? { scale: [1, 1.1, 1] } : {}}
                                         transition={{ duration: 1.5, repeat: Infinity }}
                                     >
-                                        <Video className="w-8 h-8" />
+                                        <VideoCamera weight="fill" className="w-8 h-8" />
                                     </motion.div>
                                     <span className="font-bold">Video</span>
                                     <span className="text-xs opacity-60">Face-to-face chat</span>
@@ -425,7 +426,7 @@ const Onboarding = () => {
                                     whileTap={{ scale: 0.98 }}
                                     className={`p-6 rounded-2xl border flex flex-col items-center gap-3 transition-all ${mode === 'text' ? 'border-green-500 bg-green-500/10 text-green-400 shadow-[0_0_25px_rgba(34,197,94,0.3)]' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
                                 >
-                                    <MessageCircle className="w-8 h-8" />
+                                    <ChatCircle weight="fill" className="w-8 h-8" />
                                     <span className="font-bold">Text Only</span>
                                     <span className="text-xs opacity-60">Anonymous messaging</span>
                                 </motion.button>
@@ -443,7 +444,7 @@ const Onboarding = () => {
                                         whileTap={{ scale: 0.98 }}
                                         className={`p-4 rounded-xl border text-left transition-all flex items-center gap-3 ${groupMode === 'double' ? 'border-green-500 bg-green-500/10 text-green-400 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
                                     >
-                                        <User className="w-6 h-6" />
+                                        <User weight="fill" className="w-6 h-6" />
                                         <div>
                                             <div className="font-bold">1v1</div>
                                             <div className="text-xs opacity-70">Classic pairing</div>
@@ -458,7 +459,7 @@ const Onboarding = () => {
                                         whileTap={{ scale: 0.98 }}
                                         className={`p-4 rounded-xl border text-left transition-all flex items-center gap-3 ${groupMode === 'group' ? 'border-green-500 bg-green-500/10 text-green-400 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'}`}
                                     >
-                                        <Users className="w-6 h-6" />
+                                        <UsersThree weight="fill" className="w-6 h-6" />
                                         <div>
                                             <div className="font-bold">Group</div>
                                             <div className="text-xs opacity-70">Multi-user chat</div>
@@ -483,7 +484,7 @@ const Onboarding = () => {
                                 whileTap={{ scale: 0.98 }}
                                 className="flex-1 py-4 bg-gradient-to-r from-cyan-500 to-green-500 text-black font-bold text-lg tracking-wider uppercase rounded-xl shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all flex items-center justify-center gap-2"
                             >
-                                <Zap className="w-5 h-5" />
+                                <Lightning weight="fill" className="w-5 h-5" />
                                 Initialize Link
                             </motion.button>
                         </div>

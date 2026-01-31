@@ -1,16 +1,102 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { useWebRTC } from '../context/WebRTCContext';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Flag, MessageSquare, Monitor, MonitorOff, SkipForward, Loader2, RefreshCcw, Maximize2, Minimize2, Heart, ThumbsUp, Laugh, Sparkles, Share2, Copy, UserPlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
+import { 
+    Microphone, 
+    MicrophoneSlash, 
+    VideoCamera, 
+    VideoCameraSlash, 
+    PhoneDisconnect, 
+    Flag,
+    ChatCircle,
+    Monitor,
+    SkipForward,
+    ArrowClockwise,
+    Spinner,
+    ArrowsOutSimple,
+    ArrowsInSimple,
+    Heart,
+    ThumbsUp,
+    Smiley,
+    Fire,
+    HandsClapping,
+    ShareNetwork,
+    Copy,
+    UserPlus,
+    X,
+    Gear,
+    WifiHigh,
+    WifiMedium,
+    WifiLow,
+    WifiSlash,
+    CheckCircle,
+    Warning,
+    Info
+} from '@phosphor-icons/react';
 import PanicButton from './safety/PanicButton';
 import ReportModal from './safety/ReportModal';
 import Chat from './Chat';
-import ConnectionIndicator from './ConnectionIndicator';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
 import PermissionError from './PermissionError';
+
+// Connection quality indicator component
+const ConnectionQuality = ({ stats }) => {
+    const getQuality = () => {
+        if (!stats || stats.rtt === 0) return { icon: WifiSlash, color: 'text-red-400', label: 'Disconnected' };
+        if (stats.rtt < 50) return { icon: WifiHigh, color: 'text-green-400', label: 'Excellent' };
+        if (stats.rtt < 100) return { icon: WifiHigh, color: 'text-cyan-400', label: 'Good' };
+        if (stats.rtt < 200) return { icon: WifiMedium, color: 'text-yellow-400', label: 'Fair' };
+        return { icon: WifiLow, color: 'text-orange-400', label: 'Poor' };
+    };
+
+    const quality = getQuality();
+    const Icon = quality.icon;
+
+    return (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/10">
+            <Icon weight="fill" className={`w-4 h-4 ${quality.color}`} />
+            <span className="text-xs text-white/70">{quality.label}</span>
+            {stats?.rtt > 0 && (
+                <span className="text-xs text-white/40">{stats.rtt}ms</span>
+            )}
+        </div>
+    );
+};
+
+// Premium reaction component
+const ReactionButton = ({ icon: Icon, color, onClick }) => (
+    <motion.button
+        whileHover={{ scale: 1.2 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={onClick}
+        className={`p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-${color}-500/50 transition-all`}
+    >
+        <Icon weight="fill" className={`w-6 h-6 text-${color}-400`} />
+    </motion.button>
+);
+
+// Floating reaction animation
+const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
+    useEffect(() => {
+        const timer = setTimeout(onComplete, 2000);
+        return () => clearTimeout(timer);
+    }, [onComplete]);
+
+    return (
+        <motion.div
+            initial={{ opacity: 1, y: 0, scale: 0.5 }}
+            animate={{ opacity: 0, y: -200, scale: 1.5 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 2, ease: 'easeOut' }}
+            className="absolute bottom-32 left-1/2 pointer-events-none z-40"
+        >
+            <Icon weight="fill" className={`w-16 h-16 text-${color}-400`} />
+        </motion.div>
+    );
+};
 
 const Room = () => {
     const { roomId } = useParams();
@@ -43,43 +129,36 @@ const Room = () => {
         toggleVideo,
         toggleAudio,
         switchCamera,
-        isScreenSharing
+        isScreenSharing,
+        connectionStats,
+        connectionState
     } = useWebRTC();
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
-    const remoteVideoRefs = useRef(new Map()); // For group calls
+    const remoteVideoRefs = useRef(new Map());
     const initiatorHandledRef = useRef(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [remoteVideoOff, setRemoteVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isReportOpen, setIsReportOpen] = useState(false);
-    const [showControls, setShowControls] = useState(true);
-    const [showNextConfirm, setShowNextConfirm] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [permissionError, setPermissionError] = useState(null);
-    const [isNextDisabled, setIsNextDisabled] = useState(false);
     
     // Group call state
     const [isGroupCall, setIsGroupCall] = useState(false);
-    const [groupPeers, setGroupPeers] = useState([]); // Array of { peerId, stream }
-    const [fullscreenPeer, setFullscreenPeer] = useState(null); // peerId for fullscreen view
+    const [groupPeers, setGroupPeers] = useState([]);
+    const [fullscreenPeer, setFullscreenPeer] = useState(null);
     
-    // Video aspect ratio control
-    const [videoFit, setVideoFit] = useState('cover'); // 'cover' | 'contain'
-    
-    // Social features state
+    // Reactions state
     const [showReactions, setShowReactions] = useState(false);
     const [floatingReactions, setFloatingReactions] = useState([]);
-    const [showShareModal, setShowShareModal] = useState(false);
     const [remoteReaction, setRemoteReaction] = useState(null);
     
     // User name state
-    const [userName, setUserName] = useState(() => {
-        return localStorage.getItem('echoroom_username') || '';
-    });
+    const [userName, setUserName] = useState(() => localStorage.getItem('echoroom_username') || '');
     const [showNameModal, setShowNameModal] = useState(false);
     const [tempName, setTempName] = useState('');
     
@@ -91,20 +170,16 @@ const Room = () => {
 
     const preferences = location.state || {};
 
-    // Check if this is a group room and reset connection state on roomId change
+    // Check if group room
     useEffect(() => {
         if (roomId && roomId.startsWith('group-')) {
             setIsGroupCall(true);
         } else {
             setIsGroupCall(false);
         }
-        
-        // Reset initiator flag for new room connections
         initiatorHandledRef.current = false;
-        console.log('[Room] Room changed, reset initiatorHandledRef');
         
         return () => {
-            // Cleanup on room change
             initiatorHandledRef.current = false;
         };
     }, [roomId]);
@@ -113,30 +188,31 @@ const Room = () => {
     useEffect(() => {
         const initMedia = async () => {
             try {
+                console.log('[Room] Initializing local media...');
                 await startLocalStream();
                 setPermissionError(null);
+                console.log('[Room] Local media initialized successfully');
             } catch (err) {
-                console.error("Failed to start local stream:", err);
-
+                console.error('[Room] Failed to start local stream:', err);
                 if (err.type === 'permission') {
                     setPermissionError(err);
                 } else {
-                    toast.error(err.message || "Failed to access camera/microphone");
+                    toast.error(err.message || 'Failed to access camera/microphone');
                 }
             }
         };
         initMedia();
 
         return () => {
-             // Ensure tracks are stopped when leaving the room page
-             console.log("Room unmounting, cleaning up...");
-             cleanup(); 
+            console.log('[Room] Cleaning up on unmount...');
+            cleanup();
         };
-    }, []); // Empty dependency array: run once on mount, cleanup on unmount
+    }, []);
 
     // Attach local stream to video element
     useEffect(() => {
         if (localVideoRef.current && localStream) {
+            console.log('[Room] Attaching local stream to video element');
             localVideoRef.current.srcObject = localStream;
         }
     }, [localStream]);
@@ -144,20 +220,16 @@ const Room = () => {
     // Attach remote stream to video element
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
-            console.log("Attaching remote stream to video element:", remoteStream.getTracks().map(t => t.kind));
+            console.log('[Room] Attaching remote stream:', remoteStream.getTracks().map(t => `${t.kind}:${t.enabled}`));
             remoteVideoRef.current.srcObject = remoteStream;
-
-            // Programmatically play the video to bypass autoplay restrictions
             remoteVideoRef.current.play().catch(err => {
-                console.error("Error playing remote video:", err);
-                // If autoplay fails, user interaction is required
-                toast.error("Click anywhere to enable video/audio");
+                console.error('[Room] Error playing remote video:', err);
             });
         }
     }, [remoteStream]);
 
-    // Save username to localStorage
-    const saveUserName = (name) => {
+    // Save username
+    const saveUserName = useCallback((name) => {
         const trimmedName = name.trim();
         if (trimmedName) {
             setUserName(trimmedName);
@@ -165,17 +237,16 @@ const Room = () => {
             setShowNameModal(false);
             toast.success(`Name set to "${trimmedName}"`);
             
-            // Broadcast name to peers
             if (socket && roomId) {
                 socket.emit('user-name-update', { roomId, userName: trimmedName });
             }
         }
-    };
+    }, [socket, roomId]);
 
     // Reconnection logic
-    const attemptReconnect = async () => {
+    const attemptReconnect = useCallback(async () => {
         if (reconnectAttempts >= maxReconnectAttempts) {
-            toast.error("Failed to reconnect after multiple attempts");
+            toast.error('Failed to reconnect after multiple attempts');
             setIsReconnecting(false);
             return;
         }
@@ -186,20 +257,13 @@ const Room = () => {
         try {
             console.log(`[Room] Reconnect attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}`);
             
-            // Reset initiator flag to allow new connection
             initiatorHandledRef.current = false;
-            
-            // Clean up existing connections
             cleanup();
-            
-            // Reinitialize media stream
             await startLocalStream();
             
-            // Rejoin the room
             if (socket && roomId) {
-                console.log('[Room] Rejoining room:', roomId);
                 socket.emit('join-room', { roomId, userName });
-                toast.success("Reconnected successfully!");
+                toast.success('Reconnected successfully!');
                 setIsReconnecting(false);
                 setReconnectAttempts(0);
             }
@@ -207,13 +271,11 @@ const Room = () => {
             console.error('[Room] Reconnect failed:', err);
             toast.error(`Reconnect attempt ${reconnectAttempts + 1} failed`);
             
-            // Schedule next attempt with exponential backoff
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
             reconnectTimeoutRef.current = setTimeout(attemptReconnect, delay);
         }
-    };
+    }, [reconnectAttempts, cleanup, startLocalStream, socket, roomId, userName]);
 
-    // Cleanup reconnect timeout on unmount
     useEffect(() => {
         return () => {
             if (reconnectTimeoutRef.current) {
@@ -222,47 +284,40 @@ const Room = () => {
         };
     }, []);
 
-    // Socket event listeners for WebRTC signaling and room management
+    // Socket event handlers
     useEffect(() => {
         if (!socket || !roomId) return;
 
-        // Handle match found (from queue)
+        console.log('[Room] Setting up socket listeners for room:', roomId);
+
         const handleMatchFound = ({ roomId: newRoomId, isGroup }) => {
-            console.log("Match found! Room:", newRoomId, "isGroup:", isGroup);
-            if (isGroup) {
-                setIsGroupCall(true);
-            }
+            console.log('[Room] Match found! Room:', newRoomId, 'isGroup:', isGroup);
+            if (isGroup) setIsGroupCall(true);
             navigate(`/room/${newRoomId}`, { state: preferences, replace: true });
         };
 
-        // Join room and signal readiness
-        socket.emit('join-room', { roomId });
+        // Join room
+        socket.emit('join-room', { roomId, userName });
 
-        // ==================== GROUP CALL HANDLERS ====================
-        
-        // Handle list of existing peers when joining a group room
+        // Group call handlers
         const handleExistingPeers = async ({ peers }) => {
-            console.log("Existing peers in room:", peers);
+            console.log('[Room] Existing peers:', peers);
             if (!localStream) {
                 setTimeout(() => handleExistingPeers({ peers }), 100);
                 return;
             }
             
             for (const peerId of peers) {
-                // Create a connection for each existing peer and send offer
                 const onIceCandidate = (candidate, targetPeerId) => {
                     socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
                 };
-                const onRemoteStream = (stream, peerId) => {
+                const onRemoteStream = (stream, pid) => {
                     setGroupPeers(prev => {
-                        console.log("Updating groupPeers state. Current peers:", prev);
-                        const existing = prev.find(p => p.peerId === peerId);
+                        const existing = prev.find(p => p.peerId === pid);
                         if (existing) {
-                            console.log("Updating stream for peer:", peerId);
-                            return prev.map(p => p.peerId === peerId ? { ...p, stream } : p);
+                            return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
                         }
-                        console.log("Adding new peer to groupPeers:", peerId);
-                        return [...prev, { peerId, stream }];
+                        return [...prev, { peerId: pid, stream }];
                     });
                 };
                 
@@ -272,52 +327,44 @@ const Room = () => {
                     const offer = await createOfferForPeer(peerId);
                     socket.emit('offer', { roomId, offer, targetPeerId: peerId });
                 } catch (err) {
-                    console.error("Error creating offer for peer:", peerId, err);
+                    console.error('[Room] Error creating offer for peer:', peerId, err);
                 }
             }
         };
-        
-        // Handle new peer joining the group
+
         const handlePeerJoined = async ({ peerId }) => {
-            console.log("New peer joined:", peerId);
-            toast.success("A new person joined!");
+            console.log('[Room] New peer joined:', peerId);
+            toast.success('A new person joined!');
             playJoinSound();
 
-            // Create a connection for the new peer
             const onIceCandidate = (candidate, targetPeerId) => {
                 socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
             };
-            const onRemoteStream = (stream, peerId) => {
+            const onRemoteStream = (stream, pid) => {
                 setGroupPeers(prev => {
-                    const existing = prev.find(p => p.peerId === peerId);
+                    const existing = prev.find(p => p.peerId === pid);
                     if (existing) {
-                        return prev.map(p => p.peerId === peerId ? { ...p, stream } : p);
+                        return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
                     }
-                    return [...prev, { peerId, stream }];
+                    return [...prev, { peerId: pid, stream }];
                 });
             };
 
             createPeerConnectionForPeer(peerId, onIceCandidate, onRemoteStream);
         };
 
-        socket.on('peer-joined', handlePeerJoined);
-        
-        // Handle peer leaving the group
         const handlePeerLeft = ({ peerId }) => {
-            console.log("Peer left:", peerId);
-            toast("Someone left the room", { icon: '👋' });
+            console.log('[Room] Peer left:', peerId);
+            toast('Someone left the room', { icon: <HandWaving weight="fill" className="w-5 h-5" /> });
             playLeaveSound();
-            
             removePeerConnection(peerId);
             setGroupPeers(prev => prev.filter(p => p.peerId !== peerId));
         };
 
-        // ==================== 1-ON-1 CALL HANDLERS ====================
-
-        // Handle WebRTC initiator role (1-on-1 only)
+        // 1-on-1 handlers
         const handleIsInitiator = async (isInitiator) => {
             if (isGroupCall) {
-                console.log('[Room] Skipping is-initiator for group call');
+                console.log('[Room] Skipping initiator for group call');
                 return;
             }
             
@@ -330,33 +377,30 @@ const Room = () => {
 
             setIsSearching(false);
 
-            // Check if peer connection already exists and is active
             if (peerConnection.current) {
                 const state = peerConnection.current.connectionState;
                 const iceState = peerConnection.current.iceConnectionState;
-                console.log('[Room] Existing connection state:', state, 'ICE state:', iceState);
                 
                 if (state === 'connected' || state === 'connecting') {
-                    console.log('[Room] Peer connection already active, skipping creation');
+                    console.log('[Room] Connection already active');
                     initiatorHandledRef.current = true;
                     return;
                 }
                 
-                // Close stale connection
                 if (state === 'failed' || state === 'closed' || iceState === 'failed') {
-                    console.log('[Room] Closing stale peer connection');
+                    console.log('[Room] Closing stale connection');
                     closeConnection();
                 }
             }
 
             if (!localStream) {
-                console.log('[Room] Waiting for local stream before creating peer connection...');
-                const retryTimeout = setTimeout(() => handleIsInitiator(isInitiator), 200);
-                return () => clearTimeout(retryTimeout);
+                console.log('[Room] Waiting for local stream...');
+                setTimeout(() => handleIsInitiator(isInitiator), 200);
+                return;
             }
 
             initiatorHandledRef.current = true;
-            console.log('[Room] Local stream ready, proceeding with peer connection');
+            console.log('[Room] Creating peer connection');
 
             const handleIceCandidate = (candidate) => {
                 socket.emit('ice-candidate', { roomId, candidate });
@@ -366,29 +410,23 @@ const Room = () => {
 
             if (isInitiator) {
                 try {
-                    console.log('[Room] Creating offer as initiator...');
+                    console.log('[Room] Creating offer as initiator');
                     const offer = await createOffer();
-                    console.log('[Room] Offer created, emitting to room:', roomId);
                     socket.emit('offer', { roomId, offer });
                 } catch (err) {
                     console.error('[Room] Error creating offer:', err);
-                    initiatorHandledRef.current = false; // Allow retry
+                    initiatorHandledRef.current = false;
                     toast.error('Connection failed. Retrying...');
                     setTimeout(() => handleIsInitiator(isInitiator), 1000);
                 }
-            } else {
-                console.log('[Room] Waiting for offer as receiver...');
             }
         };
 
-        // ==================== SHARED SIGNALING HANDLERS ====================
-
-        // Handle receiving WebRTC offer
+        // WebRTC signaling handlers
         const handleOfferReceived = async ({ offer, sender }) => {
-            console.log("Received offer from:", sender);
+            console.log('[Room] Received offer from:', sender);
 
             if (isGroupCall) {
-                // Group call - create peer connection for this specific peer
                 if (!localStream) {
                     setTimeout(() => handleOfferReceived({ offer, sender }), 100);
                     return;
@@ -397,13 +435,13 @@ const Room = () => {
                 const onIceCandidate = (candidate, targetPeerId) => {
                     socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
                 };
-                const onRemoteStream = (stream, peerId) => {
+                const onRemoteStream = (stream, pid) => {
                     setGroupPeers(prev => {
-                        const existing = prev.find(p => p.peerId === peerId);
+                        const existing = prev.find(p => p.peerId === pid);
                         if (existing) {
-                            return prev.map(p => p.peerId === peerId ? { ...p, stream } : p);
+                            return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
                         }
-                        return [...prev, { peerId, stream }];
+                        return [...prev, { peerId: pid, stream }];
                     });
                 };
                 
@@ -413,14 +451,10 @@ const Room = () => {
                     const answer = await handleOfferFromPeer(offer, sender);
                     socket.emit('answer', { roomId, answer, targetPeerId: sender });
                 } catch (err) {
-                    console.error("Error handling offer from peer:", sender, err);
+                    console.error('[Room] Error handling offer:', err);
                 }
             } else {
-                // 1-on-1 call
-                console.log('[Room] Handling offer for 1-on-1 call');
-                
                 if (!peerConnection.current) {
-                    console.log('[Room] Creating peer connection for received offer');
                     const handleIceCandidate = (candidate) => {
                         socket.emit('ice-candidate', { roomId, candidate });
                     };
@@ -428,11 +462,9 @@ const Room = () => {
                 }
 
                 try {
-                    console.log('[Room] Creating answer...');
                     const answer = await handleOffer(offer);
-                    console.log('[Room] Answer created, sending to peer');
                     socket.emit('answer', { roomId, answer });
-                    initiatorHandledRef.current = true; // Mark as handled
+                    initiatorHandledRef.current = true;
                 } catch (err) {
                     console.error('[Room] Error handling offer:', err);
                     toast.error('Failed to connect. Please try reconnecting.');
@@ -440,83 +472,61 @@ const Room = () => {
             }
         };
 
-        // Handle receiving WebRTC answer
         const handleAnswerReceived = async ({ answer, sender }) => {
-            console.log("Received answer from:", sender);
+            console.log('[Room] Received answer from:', sender);
 
             if (isGroupCall) {
-                // Group call - handle answer for specific peer
                 try {
                     await handleAnswerFromPeer(answer, sender);
-                    console.log("Answer handled for peer:", sender);
                 } catch (err) {
-                    console.error("Error handling answer from peer:", sender, err);
+                    console.error('[Room] Error handling answer:', err);
                 }
             } else {
-                // 1-on-1 call
-                if (!peerConnection.current) {
-                    console.warn("No peer connection for answer");
-                    return;
-                }
-
+                if (!peerConnection.current) return;
                 try {
                     await handleAnswer(answer);
-                    console.log("Answer handled successfully");
                 } catch (err) {
-                    console.error("Error handling answer:", err);
+                    console.error('[Room] Error handling answer:', err);
                 }
             }
         };
 
-        // Handle receiving ICE candidates
         const handleIceCandidateReceived = async ({ candidate, sender }) => {
             if (isGroupCall) {
-                // Group call - add ICE candidate for specific peer
                 try {
                     await addIceCandidateForPeer(candidate, sender);
                 } catch (err) {
-                    console.error("Error adding ICE candidate for peer:", sender, err);
+                    console.error('[Room] Error adding ICE candidate:', err);
                 }
             } else {
-                // 1-on-1 call
-                if (!peerConnection.current) {
-                    console.warn("No peer connection for ICE candidate");
-                    return;
+                if (!peerConnection.current) return;
+                try {
+                    await addIceCandidate(candidate);
+                } catch (err) {
+                    console.error('[Room] Error adding ICE candidate:', err);
                 }
-
-            // DO NOT filter by remoteDescription here. 
-            // The WebRTCManager handles queuing if remoteDescription is missing.
-            try {
-                await addIceCandidate(candidate);
-            } catch (err) {
-                console.error("Error adding ICE candidate:", err);
-            }
             }
         };
 
-        // Handle peer disconnection
         const handlePeerDisconnected = () => {
-            console.log("Peer disconnected");
+            console.log('[Room] Peer disconnected');
             playLeaveSound();
-            toast("Partner disconnected. Click Next to find a new match.", {
-                icon: '👋',
+            toast('Partner disconnected. Click Next to find a new match.', {
+                icon: <Info weight="fill" className="w-5 h-5" />,
                 duration: 5000
             });
-            // Don't auto-navigate - let user decide
         };
 
-        // Handle connection events
-        const handleConnect = () => {
-            console.log("Socket reconnected");
-            socket.emit('join-room', { roomId });
+        const handleReaction = ({ reaction }) => {
+            setRemoteReaction(reaction);
+            setTimeout(() => setRemoteReaction(null), 2000);
         };
 
-        const handleConnectError = (err) => {
-            console.error("Socket connection error:", err);
-            toast.error("Connection error. Retrying...");
+        const handleRemoteVideoToggle = ({ isVideoOff }) => {
+            setRemoteVideoOff(isVideoOff);
         };
 
-        // Register all socket listeners
+        // Register listeners
         socket.on('match-found', handleMatchFound);
         socket.on('existing-peers', handleExistingPeers);
         socket.on('peer-joined', handlePeerJoined);
@@ -526,10 +536,9 @@ const Room = () => {
         socket.on('answer', handleAnswerReceived);
         socket.on('ice-candidate', handleIceCandidateReceived);
         socket.on('peer-disconnected', handlePeerDisconnected);
-        socket.on('connect', handleConnect);
-        socket.on('connect_error', handleConnectError);
+        socket.on('receive-reaction', handleReaction);
+        socket.on('toggle-video', handleRemoteVideoToggle);
 
-        // Play join sound when connected
         playJoinSound();
 
         return () => {
@@ -542,166 +551,106 @@ const Room = () => {
             socket.off('answer', handleAnswerReceived);
             socket.off('ice-candidate', handleIceCandidateReceived);
             socket.off('peer-disconnected', handlePeerDisconnected);
-            socket.off('connect', handleConnect);
-            socket.off('connect_error', handleConnectError);
-        };
-    }, [socket, roomId, createPeerConnection, navigate, preferences, peerConnection, closeConnection, isGroupCall, localStream]);
-
-    // Handle video toggle from peer
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleRemoteVideoToggle = ({ isVideoOff }) => {
-            setRemoteVideoOff(isVideoOff);
-        };
-
-        socket.on('toggle-video', handleRemoteVideoToggle);
-
-        return () => {
+            socket.off('receive-reaction', handleReaction);
             socket.off('toggle-video', handleRemoteVideoToggle);
         };
-    }, [socket]);
+    }, [socket, roomId, createPeerConnection, navigate, preferences, peerConnection, closeConnection, isGroupCall, localStream, userName, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection]);
 
-    const handleToggleMute = () => {
-        // Toggle audio - returns new enabled state (true = unmuted, false = muted)
+    // Control handlers
+    const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
         setIsMuted(!isEnabled);
-        toast.success(isEnabled ? 'Microphone On' : 'Microphone Off');
-    };
+        toast.success(isEnabled ? 'Microphone On' : 'Microphone Off', {
+            icon: isEnabled ? <Microphone weight="fill" className="w-5 h-5" /> : <MicrophoneSlash weight="fill" className="w-5 h-5" />
+        });
+    }, [toggleAudio]);
 
-    const handleToggleVideo = () => {
-        // Toggle video - returns new enabled state (true = on, false = off)
+    const handleToggleVideo = useCallback(() => {
         const isEnabled = toggleVideo();
         setIsVideoOff(!isEnabled);
         socket.emit('toggle-video', { roomId, isVideoOff: !isEnabled });
-        toast.success(isEnabled ? 'Camera On' : 'Camera Off');
-    };
+        toast.success(isEnabled ? 'Camera On' : 'Camera Off', {
+            icon: isEnabled ? <VideoCamera weight="fill" className="w-5 h-5" /> : <VideoCameraSlash weight="fill" className="w-5 h-5" />
+        });
+    }, [toggleVideo, socket, roomId]);
 
-    const [mode, setMode] = useState('video'); // 'video' | 'text'
-
-    const handleModeSwitch = () => {
-        if (mode === 'video') {
-            // Switch to Text
-            setMode('text');
-            toggleVideo(false); // Turn off camera
-            toggleAudio(false); // Turn off mic
-            setIsVideoOff(true);
-            setIsMuted(true);
-            setIsChatOpen(true);
-            toast('Switched to Text Mode', { icon: '💬' });
-        } else {
-            // Switch to Video
-            setMode('video');
-            toggleVideo(true); // Turn on camera
-            toggleAudio(true); // Turn on mic
-            setIsVideoOff(false);
-            setIsMuted(false);
-            toast('Switched to Video Mode', { icon: '📹' });
-        }
-    };
-
-    const handleNextMatchRequest = () => {
-        setShowNextConfirm(true);
-    };
-
-    const confirmNextMatch = () => {
-        closeConnection();
-        socket.emit('leave-room', roomId);
-        navigate('/room/matching', { state: preferences });
-    };
-
-    const handleLeaveRoomRequest = () => {
-        setShowExitConfirm(true);
-    };
-
-    const confirmLeaveRoom = () => {
-        closeConnection();
+    const handleLeaveRoom = useCallback(() => {
+        cleanup();
         socket.emit('leave-room', roomId);
         navigate('/post-chat');
-    };
+    }, [cleanup, socket, roomId, navigate]);
 
-    const handleReportSubmit = async (data) => {
-        socket.emit('report', {
-            roomId,
-            reason: data.reason,
-            details: data.details || ''
-        });
+    const handleReportSubmit = useCallback((data) => {
+        socket.emit('report', { roomId, reason: data.reason, details: data.details || '' });
         setIsReportOpen(false);
-        toast.success("Report submitted. Thank you for keeping EchoRoom safe.");
-    };
+        toast.success('Report submitted. Thank you for keeping EchoRoom safe.');
+    }, [socket, roomId]);
 
-    // Reaction emojis
+    // Reactions
     const reactions = [
-        { emoji: '❤️', name: 'heart' },
-        { emoji: '👍', name: 'thumbsup' },
-        { emoji: '😂', name: 'laugh' },
-        { emoji: '👏', name: 'clap' },
-        { emoji: '🔥', name: 'fire' },
-        { emoji: '✨', name: 'sparkle' },
+        { icon: Heart, color: 'red', name: 'heart' },
+        { icon: ThumbsUp, color: 'cyan', name: 'thumbsup' },
+        { icon: Smiley, color: 'yellow', name: 'smile' },
+        { icon: Fire, color: 'orange', name: 'fire' },
+        { icon: HandsClapping, color: 'purple', name: 'clap' },
     ];
 
-    const sendReaction = (reaction) => {
-        // Add floating reaction locally
+    const sendReaction = useCallback((reaction) => {
         const id = Date.now();
-        setFloatingReactions(prev => [...prev, { id, emoji: reaction.emoji }]);
-        setTimeout(() => {
-            setFloatingReactions(prev => prev.filter(r => r.id !== id));
-        }, 2000);
-
-        // Send to peer
-        socket.emit('send-reaction', { roomId, reaction: reaction.emoji });
+        setFloatingReactions(prev => [...prev, { id, ...reaction }]);
+        socket.emit('send-reaction', { roomId, reaction: reaction.name });
         setShowReactions(false);
-    };
+    }, [socket, roomId]);
 
-    // Handle share room
-    const handleShareRoom = () => {
-        const url = window.location.href;
-        navigator.clipboard.writeText(url);
-        toast.success('Room link copied to clipboard!');
-        setShowShareModal(false);
-    };
+    const handleShareRoom = useCallback(() => {
+        navigator.clipboard.writeText(window.location.href);
+        toast.success('Room link copied to clipboard!', {
+            icon: <CheckCircle weight="fill" className="w-5 h-5 text-green-400" />
+        });
+    }, []);
 
-    // Listen for reactions from peer
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleReaction = ({ reaction }) => {
-            setRemoteReaction(reaction);
-            setTimeout(() => setRemoteReaction(null), 2000);
-        };
-
-        socket.on('receive-reaction', handleReaction);
-        return () => socket.off('receive-reaction', handleReaction);
-    }, [socket]);
+    if (permissionError) {
+        return <PermissionError error={permissionError} />;
+    }
 
     return (
-        <div className="room-container relative flex flex-col h-screen w-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
-            {/* Animated Background */}
+        <div className="relative flex flex-col h-screen w-screen bg-black text-white overflow-hidden">
+            {/* Background */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-1/4 -left-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
                 <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
             </div>
 
             {/* Header */}
-            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/30 backdrop-blur-md border-b border-white/10">
+            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-xl border-b border-white/10">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-white" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                        <VideoCamera weight="fill" className="w-5 h-5 text-white" />
                     </div>
-                    <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                        EchoRoom
-                    </h1>
+                    <div>
+                        <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                            EchoRoom
+                        </h1>
+                        <div className="flex items-center gap-2 text-xs text-white/50">
+                            {isGroupCall ? (
+                                <><Users weight="fill" className="w-3 h-3" /> Group Call</>
+                            ) : (
+                                <><VideoCamera weight="fill" className="w-3 h-3" /> 1-on-1</>
+                            )}
+                        </div>
+                    </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    {/* Reconnect Button */}
+                    <ConnectionQuality stats={connectionStats} />
+                    
                     {isReconnecting ? (
                         <motion.div
                             animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                             className="p-2"
                         >
-                            <Loader2 className="w-5 h-5 text-cyan-400" />
+                            <Spinner weight="bold" className="w-5 h-5 text-cyan-400" />
                         </motion.div>
                     ) : (
                         <motion.button
@@ -711,11 +660,10 @@ const Room = () => {
                             className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
                             title="Reconnect"
                         >
-                            <RefreshCcw className="w-5 h-5 text-cyan-400" />
+                            <ArrowClockwise weight="bold" className="w-5 h-5 text-cyan-400" />
                         </motion.button>
                     )}
                     
-                    {/* Share Button */}
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -723,24 +671,24 @@ const Room = () => {
                         className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
                         title="Share Room"
                     >
-                        <Share2 className="w-5 h-5 text-purple-400" />
+                        <ShareNetwork weight="fill" className="w-5 h-5 text-purple-400" />
                     </motion.button>
 
-                    {/* Leave Button */}
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setShowExitConfirm(true)}
-                        className="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium transition-colors"
+                        className="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium transition-colors flex items-center gap-2"
                     >
-                        <PhoneOff className="w-5 h-5" />
+                        <PhoneDisconnect weight="fill" className="w-5 h-5" />
+                        <span className="hidden sm:inline">Leave</span>
                     </motion.button>
                 </div>
             </header>
 
-            {/* Main Video Section */}
+            {/* Main Video Area */}
             <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
-                {/* Self Preview - Always a small floating overlay */}
+                {/* Local Video - Floating */}
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -751,7 +699,6 @@ const Room = () => {
                         bg-black/60 backdrop-blur-sm rounded-xl overflow-hidden border border-white/20
                         shadow-2xl transition-all duration-300 hover:border-cyan-500/50 hover:shadow-cyan-500/20
                         cursor-move"
-                    style={{ aspectRatio: '3/4' }}
                 >
                     <video
                         ref={localVideoRef}
@@ -763,42 +710,38 @@ const Room = () => {
                     />
                     
                     {/* Name Badge */}
-                    <div className="absolute bottom-0 left-0 right-0 p-1.5 md:p-2 bg-gradient-to-t from-black/90 to-transparent">
+                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] md:text-xs font-medium text-white truncate max-w-[60%]">
+                            <span className="text-xs font-medium text-white truncate max-w-[60%]">
                                 {userName || 'You'}
                             </span>
                             <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                onClick={() => {
-                                    setTempName(userName);
-                                    setShowNameModal(true);
-                                }}
+                                onClick={() => { setTempName(userName); setShowNameModal(true); }}
                                 className="p-1 rounded bg-white/20 hover:bg-white/30 transition-colors"
-                                title="Edit name"
                             >
-                                <UserPlus className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                                <UserPlus weight="bold" className="w-3 h-3" />
                             </motion.button>
                         </div>
                     </div>
 
-                    {/* Video/Audio Status Indicators */}
-                    <div className="absolute top-1.5 left-1.5 flex gap-0.5">
+                    {/* Status Indicators */}
+                    <div className="absolute top-2 left-2 flex gap-1">
                         {isMuted && (
-                            <div className="p-0.5 md:p-1 rounded bg-red-500/80">
-                                <MicOff className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                            <div className="p-1 rounded bg-red-500/80">
+                                <MicrophoneSlash weight="fill" className="w-3 h-3" />
                             </div>
                         )}
                         {isVideoOff && (
-                            <div className="p-0.5 md:p-1 rounded bg-red-500/80">
-                                <VideoOff className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                            <div className="p-1 rounded bg-red-500/80">
+                                <VideoCameraSlash weight="fill" className="w-3 h-3" />
                             </div>
                         )}
                     </div>
                 </motion.div>
 
-                {/* Remote Videos Grid - Full width/height */}
+                {/* Remote Videos */}
                 <div className="flex-1 h-full">
                     {isGroupCall ? (
                         <div className={`
@@ -839,10 +782,10 @@ const Room = () => {
                                     </motion.div>
                                 ))
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-neutral-400">
-                                    <Loader2 className="w-10 h-10 md:w-12 md:h-12 animate-spin mb-4" />
-                                    <p className="text-base md:text-lg font-medium text-center">Waiting for others...</p>
-                                    <p className="text-xs md:text-sm mt-2 text-center px-4">Share the room link to invite friends</p>
+                                <div className="flex flex-col items-center justify-center h-full text-white/40">
+                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4" />
+                                    <p className="text-lg font-medium">Waiting for others...</p>
+                                    <p className="text-sm mt-2">Share the room link to invite friends</p>
                                 </div>
                             )}
                         </div>
@@ -860,18 +803,24 @@ const Room = () => {
                                     {remoteReaction && (
                                         <motion.div
                                             initial={{ scale: 0, opacity: 0 }}
-                                            animate={{ scale: 1.5, opacity: 1 }}
+                                            animate={{ scale: 2, opacity: 1 }}
                                             exit={{ scale: 0, opacity: 0 }}
-                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-5xl md:text-6xl"
+                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
                                         >
-                                            {remoteReaction}
+                                            {reactions.find(r => r.name === remoteReaction)?.icon && 
+                                                React.createElement(reactions.find(r => r.name === remoteReaction).icon, {
+                                                    weight: 'fill',
+                                                    className: `w-20 h-20 text-${reactions.find(r => r.name === remoteReaction).color}-400`
+                                                })
+                                            }
                                         </motion.div>
                                     )}
                                 </>
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-neutral-400 min-h-[250px] md:min-h-[300px]">
-                                    <Loader2 className="w-10 h-10 md:w-12 md:h-12 animate-spin mb-4" />
-                                    <p className="text-base md:text-lg font-medium">Connecting...</p>
+                                <div className="flex flex-col items-center justify-center h-full text-white/40 min-h-[250px] md:min-h-[300px]">
+                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4" />
+                                    <p className="text-lg font-medium">Connecting...</p>
+                                    <p className="text-sm mt-2">Establishing secure connection</p>
                                 </div>
                             )}
                         </div>
@@ -879,44 +828,38 @@ const Room = () => {
                 </div>
             </div>
 
-            {/* Floating Controls */}
+            {/* Controls */}
             <motion.div 
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="relative z-20 flex items-center justify-center gap-2 md:gap-4 p-3 md:p-4 bg-black/40 backdrop-blur-md border-t border-white/10"
+                className="relative z-20 flex items-center justify-center gap-2 md:gap-4 p-3 md:p-4 bg-black/40 backdrop-blur-xl border-t border-white/10"
             >
-                {/* Mic Toggle */}
+                {/* Mic */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                        toggleAudio();
-                        setIsMuted(!isMuted);
-                    }}
+                    onClick={handleToggleMute}
                     className={`p-3 md:p-4 rounded-2xl transition-all ${
                         isMuted 
                             ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/50' 
                             : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
                 >
-                    {isMuted ? <MicOff className="w-5 h-5 md:w-6 md:h-6" /> : <Mic className="w-5 h-5 md:w-6 md:h-6" />}
+                    {isMuted ? <MicrophoneSlash weight="fill" className="w-6 h-6" /> : <Microphone weight="fill" className="w-6 h-6" />}
                 </motion.button>
 
-                {/* Video Toggle */}
+                {/* Video */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                        toggleVideo();
-                        setIsVideoOff(!isVideoOff);
-                    }}
+                    onClick={handleToggleVideo}
                     className={`p-3 md:p-4 rounded-2xl transition-all ${
                         isVideoOff 
                             ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/50' 
                             : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
                 >
-                    {isVideoOff ? <VideoOff className="w-5 h-5 md:w-6 md:h-6" /> : <Video className="w-5 h-5 md:w-6 md:h-6" />}
+                    {isVideoOff ? <VideoCameraSlash weight="fill" className="w-6 h-6" /> : <VideoCamera weight="fill" className="w-6 h-6" />}
                 </motion.button>
 
                 {/* Screen Share */}
@@ -930,10 +873,10 @@ const Room = () => {
                             : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
                 >
-                    {isScreenSharing ? <MonitorOff className="w-5 h-5 md:w-6 md:h-6" /> : <Monitor className="w-5 h-5 md:w-6 md:h-6" />}
+                    <Monitor weight="fill" className="w-6 h-6" />
                 </motion.button>
 
-                {/* Chat Toggle */}
+                {/* Chat */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -944,7 +887,7 @@ const Room = () => {
                             : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
                 >
-                    <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
+                    <ChatCircle weight="fill" className="w-6 h-6" />
                 </motion.button>
 
                 {/* Reactions */}
@@ -955,7 +898,7 @@ const Room = () => {
                         onClick={() => setShowReactions(!showReactions)}
                         className="p-3 md:p-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all"
                     >
-                        <Heart className="w-5 h-5 md:w-6 md:h-6" />
+                        <Smiley weight="fill" className="w-6 h-6" />
                     </motion.button>
                     
                     <AnimatePresence>
@@ -964,24 +907,15 @@ const Room = () => {
                                 initial={{ opacity: 0, y: 10, scale: 0.9 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 flex gap-2 p-2 bg-black/80 backdrop-blur-md rounded-xl"
+                                className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 flex gap-2 p-3 bg-black/80 backdrop-blur-xl rounded-2xl border border-white/10"
                             >
-                                {[
-                                    { emoji: '❤️', name: 'heart' },
-                                    { emoji: '👍', name: 'thumbsup' },
-                                    { emoji: '😂', name: 'laugh' },
-                                    { emoji: '🔥', name: 'fire' },
-                                    { emoji: '👏', name: 'clap' }
-                                ].map(reaction => (
-                                    <motion.button
+                                {reactions.map(reaction => (
+                                    <ReactionButton
                                         key={reaction.name}
-                                        whileHover={{ scale: 1.2 }}
-                                        whileTap={{ scale: 0.9 }}
+                                        icon={reaction.icon}
+                                        color={reaction.color}
                                         onClick={() => sendReaction(reaction)}
-                                        className="text-2xl hover:bg-white/10 p-2 rounded-lg transition-colors"
-                                    >
-                                        {reaction.emoji}
-                                    </motion.button>
+                                    />
                                 ))}
                             </motion.div>
                         )}
@@ -995,24 +929,24 @@ const Room = () => {
                     onClick={() => setShowExitConfirm(true)}
                     className="p-3 md:p-4 rounded-2xl bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/30"
                 >
-                    <PhoneOff className="w-5 h-5 md:w-6 md:h-6" />
+                    <PhoneDisconnect weight="fill" className="w-6 h-6" />
                 </motion.button>
             </motion.div>
 
-            {/* Name Edit Modal */}
+            {/* Name Modal */}
             <AnimatePresence>
                 {showNameModal && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl p-4"
                     >
                         <motion.div
                             initial={{ scale: 0.8, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.8, opacity: 0, y: 20 }}
-                            className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full border border-white/10"
+                            className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full border border-white/10"
                         >
                             <h3 className="text-xl font-bold text-white mb-4">Set Your Display Name</h3>
                             <input
@@ -1021,13 +955,9 @@ const Room = () => {
                                 onChange={(e) => setTempName(e.target.value)}
                                 placeholder="Enter your name..."
                                 maxLength={20}
-                                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 mb-4"
+                                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-500 mb-4"
                                 autoFocus
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        saveUserName(tempName);
-                                    }
-                                }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveUserName(tempName); }}
                             />
                             <div className="flex gap-3">
                                 <motion.button
@@ -1042,7 +972,7 @@ const Room = () => {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => saveUserName(tempName)}
-                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold transition-all shadow-lg shadow-cyan-500/30"
+                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold transition-all shadow-lg shadow-cyan-500/30"
                                 >
                                     Save
                                 </motion.button>
@@ -1052,22 +982,47 @@ const Room = () => {
                 )}
             </AnimatePresence>
 
-            {/* Exit Confirmation Modal */}
-            <ConfirmationModal
-                isOpen={showExitConfirm}
-                title="Leave Room?"
-                message="Are you sure you want to leave this room? You'll be disconnected from the call."
-                confirmText="Leave"
-                cancelText="Stay"
-                onConfirm={() => {
-                    cleanup();
-                    navigate('/');
-                }}
-                onCancel={() => setShowExitConfirm(false)}
-                isDanger={true}
-            />
+            {/* Exit Confirmation */}
+            <AnimatePresence>
+                {showExitConfirm && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full border border-white/10"
+                        >
+                            <h3 className="text-xl font-bold text-white mb-2">Leave Room?</h3>
+                            <p className="text-white/60 mb-6">Are you sure you want to leave? You&apos;ll be disconnected from the call.</p>
+                            <div className="flex gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowExitConfirm(false)}
+                                    className="flex-1 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors font-medium border border-white/10"
+                                >
+                                    Stay
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={handleLeaveRoom}
+                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white font-bold transition-all shadow-lg shadow-red-500/30"
+                                >
+                                    Leave
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            {/* Chat Panel - Full screen overlay on mobile */}
+            {/* Chat Panel */}
             <Chat 
                 roomId={roomId} 
                 isOpen={isChatOpen}
@@ -1078,26 +1033,22 @@ const Room = () => {
             {/* Floating Reactions */}
             <AnimatePresence>
                 {floatingReactions.map(reaction => (
-                    <motion.div
+                    <FloatingReaction
                         key={reaction.id}
-                        initial={{ opacity: 1, y: 0, x: '-50%' }}
-                        animate={{ opacity: 0, y: -200 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 2 }}
-                        className="absolute bottom-32 left-1/2 text-4xl pointer-events-none z-40"
-                    >
-                        {reaction.emoji}
-                    </motion.div>
+                        icon={reaction.icon}
+                        color={reaction.color}
+                        onComplete={() => setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id))}
+                    />
                 ))}
             </AnimatePresence>
 
-            {/* Toast Notifications */}
+            {/* Toast */}
             <Toaster 
-                position="top-center" 
-                reverseOrder={false}
+                position="top-center"
                 toastOptions={{
                     style: {
-                        background: '#1f2937',
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        backdropFilter: 'blur(10px)',
                         color: '#fff',
                         border: '1px solid rgba(255,255,255,0.1)',
                     },
@@ -1106,92 +1057,5 @@ const Room = () => {
         </div>
     );
 };
-
-const ControlButton = ({ onClick, isActive, activeIcon, inactiveIcon }) => (
-    <motion.button
-        onClick={onClick}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className={`p-3 rounded-xl transition-all duration-300 relative overflow-hidden ${
-            isActive 
-                ? 'text-white hover:bg-white/10' 
-                : 'text-red-400 bg-red-500/20 hover:bg-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
-        }`}
-    >
-        {!isActive && (
-            <motion.div
-                className="absolute inset-0 bg-red-500/10"
-                animate={{ opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-            />
-        )}
-        {React.cloneElement(isActive ? activeIcon : inactiveIcon, { className: "w-5 h-5 relative z-10" })}
-    </motion.button>
-);
-
-const ConfirmationModal = ({ isOpen, title, message, confirmText, cancelText, onConfirm, onCancel, isDanger }) => (
-    <AnimatePresence>
-        {isOpen && (
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
-            >
-                <motion.div
-                    initial={{ scale: 0.8, opacity: 0, y: 20 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.8, opacity: 0, y: 20 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                    className="glass-panel rounded-2xl p-6 max-w-sm w-full"
-                    style={{ 
-                        boxShadow: isDanger 
-                            ? '0 0 60px rgba(239, 68, 68, 0.2)' 
-                            : '0 0 60px rgba(6, 182, 212, 0.2)' 
-                    }}
-                >
-                    <motion.h3 
-                        className="text-xl font-bold text-white mb-2"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 }}
-                    >
-                        {title}
-                    </motion.h3>
-                    <motion.p 
-                        className="text-neutral-400 mb-6"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.15 }}
-                    >
-                        {message}
-                    </motion.p>
-                    <div className="flex gap-3">
-                        <motion.button
-                            onClick={onCancel}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className="flex-1 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors font-medium border border-white/10"
-                        >
-                            {cancelText}
-                        </motion.button>
-                        <motion.button
-                            onClick={onConfirm}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
-                                isDanger 
-                                    ? 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-lg shadow-red-500/30' 
-                                    : 'bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-black shadow-lg shadow-cyan-500/30'
-                            }`}
-                        >
-                            {confirmText}
-                        </motion.button>
-                    </div>
-                </motion.div>
-            </motion.div>
-        )}
-    </AnimatePresence>
-);
 
 export default Room;
