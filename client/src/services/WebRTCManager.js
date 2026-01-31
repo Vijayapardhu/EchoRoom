@@ -4,6 +4,7 @@
  * - Adaptive bitrate control
  * - Improved connection reliability
  * - Better NAT traversal with multiple TURN servers
+ * - Optimized for high-load scenarios
  */
 
 import MediaManager from './MediaManager';
@@ -24,8 +25,8 @@ class WebRTCManager {
         this.mediaManager = new MediaManager();
         this.state = ConnectionState.IDLE;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 500;
+        this.maxReconnectAttempts = 3;
+        this.reconnectDelay = 300;
         this.reconnectTimer = null;
         this.iceConnectionCheckTimer = null;
         this.candidateQueue = [];
@@ -44,40 +45,40 @@ class WebRTCManager {
             connectionQuality: []
         };
 
-        // Optimized ICE servers configuration
+        // Optimized ICE servers configuration - prioritize faster options
         this.iceServers = iceServers || [
-            // Google's public STUN servers
+            // Google's public STUN servers (most reliable)
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            // Twilio's STUN servers
+            // Twilio's STUN server
             { urls: 'stun:global.stun.twilio.com:3478' },
             // Free TURN servers for NAT traversal
             {
-                urls: 'turn:openrelay.metered.ca:80',
+                urls: [
+                    'turn:openrelay.metered.ca:80',
+                    'turn:openrelay.metered.ca:443'
+                ],
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             },
             {
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:80?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                urls: [
+                    'turn:openrelay.metered.ca:80?transport=tcp',
+                    'turn:openrelay.metered.ca:443?transport=tcp'
+                ],
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             }
         ];
 
         console.log('[WebRTCManager] Initialized with enhanced ICE config');
+    }
+    
+    /**
+     * Get MediaManager instance
+     */
+    getMediaManager() {
+        return this.mediaManager;
     }
 
     /**
@@ -86,7 +87,7 @@ class WebRTCManager {
     getPeerConnectionConfig() {
         return {
             iceServers: this.iceServers,
-            iceCandidatePoolSize: 10,
+            iceCandidatePoolSize: 5, // Reduced for faster gathering
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
             iceTransportPolicy: 'all'
@@ -100,19 +101,17 @@ class WebRTCManager {
         try {
             console.log('[WebRTCManager] Initializing media with optimized constraints...');
             
-            // Default optimized constraints for video calls
+            // Optimized constraints for faster connection
             const defaultConstraints = {
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
-                    autoGainControl: true,
-                    sampleRate: 48000,
-                    channelCount: 2
+                    autoGainControl: true
                 },
                 video: {
                     width: { ideal: 1280, max: 1920 },
                     height: { ideal: 720, max: 1080 },
-                    frameRate: { ideal: 30, max: 60 },
+                    frameRate: { ideal: 30, max: 30 },
                     facingMode: 'user'
                 }
             };

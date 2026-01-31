@@ -5,10 +5,58 @@ const roomsWithInitiator = new Set();
 const groupRooms = new Map(); // Track group rooms: roomId -> { participants: Set, maxSize: 6, topic: string }
 const pendingMatches = new Map(); // Track users waiting for matches
 
+// Rate limiting and connection tracking for scalability
+const connectionRateLimit = new Map(); // IP -> { count, lastReset }
+const activeConnections = new Map(); // socketId -> { ip, connectedAt, roomId }
+const MAX_CONNECTIONS_PER_IP = 5;
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_PENDING_MATCHES = 10000;
+
+// Cleanup stale data periodically
+const cleanupInterval = 60000; // 1 minute
+
 const socketService = (io) => {
-    // Periodic matching check for waiting users
+    // Periodic cleanup of stale connections and data
+    setInterval(() => {
+        const now = Date.now();
+        
+        // Clean up old rate limit entries
+        for (const [ip, data] of connectionRateLimit.entries()) {
+            if (now - data.lastReset > RATE_LIMIT_WINDOW * 2) {
+                connectionRateLimit.delete(ip);
+            }
+        }
+        
+        // Clean up stale group rooms (older than 1 hour with no activity)
+        for (const [roomId, roomData] of groupRooms.entries()) {
+            if (roomData.participants.size === 0 || 
+                (now - roomData.createdAt > 3600000 && roomData.participants.size < 2)) {
+                groupRooms.delete(roomId);
+                roomsWithInitiator.delete(roomId);
+            }
+        }
+        
+        // Limit pending matches queue size
+        if (pendingMatches.size > MAX_PENDING_MATCHES) {
+            const entriesToRemove = pendingMatches.size - MAX_PENDING_MATCHES;
+            const iterator = pendingMatches.keys();
+            for (let i = 0; i < entriesToRemove; i++) {
+                const key = iterator.next().value;
+                pendingMatches.delete(key);
+            }
+            console.log(`[Cleanup] Trimmed pending matches queue by ${entriesToRemove}`);
+        }
+        
+        console.log(`[Stats] Active: ${activeConnections.size}, Pending: ${pendingMatches.size}, Groups: ${groupRooms.size}`);
+    }, cleanupInterval);
+
+    // Periodic matching check for waiting users (optimized for high load)
     setInterval(async () => {
-        for (const [socketId, prefs] of pendingMatches.entries()) {
+        // Process in batches to prevent blocking
+        const batchSize = 100;
+        const entries = Array.from(pendingMatches.entries()).slice(0, batchSize);
+        
+        for (const [socketId, prefs] of entries) {
             const socket = io.sockets.sockets.get(socketId);
             if (!socket) {
                 pendingMatches.delete(socketId);
@@ -34,8 +82,34 @@ const socketService = (io) => {
     }, 2000); // Check every 2 seconds
 
     io.on('connection', async (socket) => {
-        const clientIp = socket.handshake.address;
+        const clientIp = socket.handshake.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                         socket.handshake.address;
         console.log('User connected:', socket.id, 'IP:', clientIp);
+
+        // Rate limiting check
+        const now = Date.now();
+        let rateData = connectionRateLimit.get(clientIp);
+        
+        if (!rateData || now - rateData.lastReset > RATE_LIMIT_WINDOW) {
+            rateData = { count: 0, lastReset: now };
+        }
+        
+        rateData.count++;
+        connectionRateLimit.set(clientIp, rateData);
+        
+        // Check for too many connections from same IP
+        const connectionsFromIp = Array.from(activeConnections.values())
+            .filter(conn => conn.ip === clientIp).length;
+        
+        if (connectionsFromIp >= MAX_CONNECTIONS_PER_IP) {
+            console.log(`Rate limit exceeded for IP: ${clientIp} (${connectionsFromIp} connections)`);
+            socket.emit('error', { message: 'Too many connections from your IP. Please try again later.' });
+            socket.disconnect(true);
+            return;
+        }
+        
+        // Track this connection
+        activeConnections.set(socket.id, { ip: clientIp, connectedAt: now, roomId: null });
 
         // Active Users Tracking
         const updateActiveUsers = () => {
@@ -262,6 +336,9 @@ const socketService = (io) => {
             // Remove from pending matches
             pendingMatches.delete(socket.id);
             
+            // Remove from active connections
+            activeConnections.delete(socket.id);
+            
             // Cleanup group rooms
             for (const [roomId, roomData] of groupRooms.entries()) {
                 if (roomData.participants.has(socket.id)) {
@@ -272,6 +349,7 @@ const socketService = (io) => {
                     // Delete room if empty
                     if (roomData.participants.size === 0) {
                         groupRooms.delete(roomId);
+                        roomsWithInitiator.delete(roomId);
                     }
                 }
             }

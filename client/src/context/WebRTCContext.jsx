@@ -67,9 +67,12 @@ export const WebRTCProvider = ({ children }) => {
     }, []);
 
     /**
-     * Start local media stream
+     * Start local media stream with timeout and retry logic
      */
-    const startLocalStream = useCallback(async (constraints = null) => {
+    const startLocalStream = useCallback(async (constraints = null, retryCount = 0) => {
+        const maxRetries = 3;
+        const timeout = 10000; // 10 second timeout
+        
         try {
             console.log('[WebRTCContext] Starting local stream...');
             
@@ -84,6 +87,7 @@ export const WebRTCProvider = ({ children }) => {
                 // Clean up dead stream
                 console.log('[WebRTCContext] Existing stream is dead, getting new stream');
                 tracks.forEach(track => track.stop());
+                setLocalStream(null);
             }
             
             if (!webrtcManagerRef.current) {
@@ -91,12 +95,28 @@ export const WebRTCProvider = ({ children }) => {
                 throw new Error('WebRTC manager not initialized');
             }
             
-            const stream = await webrtcManagerRef.current.initializeMedia(constraints);
+            // Create a promise with timeout
+            const streamPromise = webrtcManagerRef.current.initializeMedia(constraints);
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Media initialization timeout')), timeout);
+            });
+            
+            const stream = await Promise.race([streamPromise, timeoutPromise]);
             setLocalStream(stream);
             console.log('[WebRTCContext] Local stream started with', stream.getTracks().length, 'tracks');
             return stream;
         } catch (error) {
             console.error('[WebRTCContext] Failed to start local stream:', error);
+            
+            // Retry logic for transient errors
+            if (retryCount < maxRetries && 
+                error.message === 'Media initialization timeout' || 
+                error.type === 'inuse') {
+                console.log(`[WebRTCContext] Retrying... (${retryCount + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                return startLocalStream(constraints, retryCount + 1);
+            }
+            
             throw error;
         }
     }, [localStream]);

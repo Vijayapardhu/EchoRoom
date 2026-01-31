@@ -167,6 +167,12 @@ const Room = () => {
     const [reconnectAttempts, setReconnectAttempts] = useState(0);
     const maxReconnectAttempts = 5;
     const reconnectTimeoutRef = useRef(null);
+    
+    // Local stream ready state and ref for reliable access
+    const [localStreamReady, setLocalStreamReady] = useState(false);
+    const localStreamRef = useRef(null);
+    const pendingInitiatorRef = useRef(null);
+    const streamWaitTimeoutRef = useRef(null);
 
     const preferences = location.state || {};
 
@@ -186,13 +192,22 @@ const Room = () => {
 
     // Initialize local media stream
     useEffect(() => {
+        let mounted = true;
+        
         const initMedia = async () => {
             try {
                 console.log('[Room] Initializing local media...');
-                await startLocalStream();
+                const stream = await startLocalStream();
+                
+                if (!mounted) return;
+                
+                localStreamRef.current = stream;
+                setLocalStreamReady(true);
                 setPermissionError(null);
                 console.log('[Room] Local media initialized successfully');
             } catch (err) {
+                if (!mounted) return;
+                
                 console.error('[Room] Failed to start local stream:', err);
                 if (err.type === 'permission') {
                     setPermissionError(err);
@@ -204,7 +219,14 @@ const Room = () => {
         initMedia();
 
         return () => {
+            mounted = false;
             console.log('[Room] Cleaning up on unmount...');
+            localStreamRef.current = null;
+            setLocalStreamReady(false);
+            pendingInitiatorRef.current = null;
+            if (streamWaitTimeoutRef.current) {
+                clearTimeout(streamWaitTimeoutRef.current);
+            }
             cleanup();
         };
     }, []);
@@ -216,6 +238,48 @@ const Room = () => {
             localVideoRef.current.srcObject = localStream;
         }
     }, [localStream]);
+
+    // Process pending initiator when local stream becomes ready
+    useEffect(() => {
+        if (localStreamReady && pendingInitiatorRef.current !== null && socket && roomId) {
+            console.log('[Room] Stream ready, processing pending initiator');
+            
+            const processPending = async () => {
+                const isInitiator = pendingInitiatorRef.current;
+                if (isInitiator === null || !localStreamRef.current) return;
+                
+                console.log('[Room] Processing initiator:', isInitiator);
+                pendingInitiatorRef.current = null;
+                
+                if (streamWaitTimeoutRef.current) {
+                    clearTimeout(streamWaitTimeoutRef.current);
+                    streamWaitTimeoutRef.current = null;
+                }
+                
+                initiatorHandledRef.current = true;
+                
+                const handleIceCandidate = (candidate) => {
+                    socket.emit('ice-candidate', { roomId, candidate });
+                };
+
+                createPeerConnection(handleIceCandidate);
+
+                if (isInitiator) {
+                    try {
+                        console.log('[Room] Creating offer as initiator');
+                        const offer = await createOffer();
+                        socket.emit('offer', { roomId, offer });
+                    } catch (err) {
+                        console.error('[Room] Error creating offer:', err);
+                        initiatorHandledRef.current = false;
+                        toast.error('Connection failed. Please try again.');
+                    }
+                }
+            };
+            
+            processPending();
+        }
+    }, [localStreamReady, socket, roomId, createPeerConnection, createOffer]);
 
     // Attach remote stream to video element
     useEffect(() => {
@@ -302,8 +366,9 @@ const Room = () => {
         // Group call handlers
         const handleExistingPeers = async ({ peers }) => {
             console.log('[Room] Existing peers:', peers);
-            if (!localStream) {
-                setTimeout(() => handleExistingPeers({ peers }), 100);
+            if (!localStreamRef.current) {
+                console.log('[Room] Waiting for local stream before connecting to peers...');
+                setTimeout(() => handleExistingPeers({ peers }), 200);
                 return;
             }
             
@@ -393,14 +458,27 @@ const Room = () => {
                 }
             }
 
-            if (!localStream) {
-                console.log('[Room] Waiting for local stream...');
-                setTimeout(() => handleIsInitiator(isInitiator), 200);
+            // Check if local stream is ready using ref (more reliable than state)
+            if (!localStreamRef.current) {
+                console.log('[Room] Local stream not ready, queuing initiator request');
+                pendingInitiatorRef.current = isInitiator;
+                
+                // Set a timeout to prevent infinite waiting
+                if (streamWaitTimeoutRef.current) {
+                    clearTimeout(streamWaitTimeoutRef.current);
+                }
+                streamWaitTimeoutRef.current = setTimeout(() => {
+                    if (!localStreamRef.current && pendingInitiatorRef.current !== null) {
+                        console.error('[Room] Timeout waiting for local stream');
+                        toast.error('Failed to access camera. Please refresh and try again.');
+                        pendingInitiatorRef.current = null;
+                    }
+                }, 15000); // 15 second timeout
                 return;
             }
 
+            // Stream is ready, proceed immediately
             initiatorHandledRef.current = true;
-            console.log('[Room] Creating peer connection');
 
             const handleIceCandidate = (candidate) => {
                 socket.emit('ice-candidate', { roomId, candidate });
@@ -416,8 +494,7 @@ const Room = () => {
                 } catch (err) {
                     console.error('[Room] Error creating offer:', err);
                     initiatorHandledRef.current = false;
-                    toast.error('Connection failed. Retrying...');
-                    setTimeout(() => handleIsInitiator(isInitiator), 1000);
+                    toast.error('Connection failed. Please try reconnecting.');
                 }
             }
         };

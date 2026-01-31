@@ -11,57 +11,101 @@ class MediaManager {
         this.localStream = null;
         this.devices = { video: [], audio: [] };
         this.currentConstraints = this.getDefaultConstraints();
+        this.initializationAttempts = 0;
+        this.maxInitializationAttempts = 3;
     }
 
     /**
-     * Get default media constraints
+     * Get default media constraints - optimized for quick connection
      */
     getDefaultConstraints() {
         return {
             video: {
-                width: { ideal: 1920, max: 3840, min: 1280 },
-                height: { ideal: 1080, max: 2160, min: 720 },
-                frameRate: { ideal: 30, max: 60 },
+                width: { ideal: 1280, max: 1920, min: 640 },
+                height: { ideal: 720, max: 1080, min: 480 },
+                frameRate: { ideal: 30, max: 30 },
                 facingMode: 'user'
             },
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true,
-                sampleRate: 48000
+                autoGainControl: true
+            }
+        };
+    }
+    
+    /**
+     * Get minimal constraints for quick fallback
+     */
+    getMinimalConstraints() {
+        return {
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                frameRate: { ideal: 24 }
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true
             }
         };
     }
 
     /**
-     * Initialize local media stream
+     * Initialize local media stream with progressive fallback
      * @param {Object} constraints - Optional custom constraints
      * @returns {Promise<MediaStream>}
      */
     async initializeStream(constraints = null) {
-        try {
-            const mediaConstraints = constraints || this.currentConstraints;
+        this.initializationAttempts++;
+        
+        // Try strategies in order of preference
+        const strategies = [
+            { name: 'optimal', constraints: constraints || this.currentConstraints },
+            { name: 'minimal', constraints: this.getMinimalConstraints() },
+            { name: 'basic', constraints: { video: true, audio: true } },
+            { name: 'audio-only', constraints: { video: false, audio: true } }
+        ];
+        
+        let lastError = null;
+        
+        for (const strategy of strategies) {
+            try {
+                console.log(`[MediaManager] Trying ${strategy.name} strategy...`);
+                this.localStream = await navigator.mediaDevices.getUserMedia(strategy.constraints);
+                
+                console.log('[MediaManager] Stream initialized:', {
+                    strategy: strategy.name,
+                    id: this.localStream.id,
+                    tracks: this.localStream.getTracks().map(t => ({
+                        kind: t.kind,
+                        label: t.label,
+                        enabled: t.enabled
+                    }))
+                });
 
-            console.log('[MediaManager] Requesting media with constraints:', mediaConstraints);
-            this.localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+                // Update available devices asynchronously
+                this.updateDevices().catch(console.warn);
 
-            console.log('[MediaManager] Stream initialized:', {
-                id: this.localStream.id,
-                tracks: this.localStream.getTracks().map(t => ({
-                    kind: t.kind,
-                    label: t.label,
-                    enabled: t.enabled
-                }))
-            });
-
-            // Update available devices
-            await this.updateDevices();
-
-            return this.localStream;
-        } catch (error) {
-            console.error('[MediaManager] Failed to initialize stream:', error);
-            return this.handleStreamError(error);
+                this.initializationAttempts = 0;
+                return this.localStream;
+            } catch (error) {
+                console.warn(`[MediaManager] ${strategy.name} strategy failed:`, error.name);
+                lastError = error;
+                
+                // If permission denied, don't try other strategies
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    throw {
+                        type: 'permission',
+                        message: 'Camera and microphone access denied. Please allow permissions.',
+                        originalError: error
+                    };
+                }
+            }
         }
+        
+        // All strategies failed
+        return this.handleStreamError(lastError);
     }
 
     /**
