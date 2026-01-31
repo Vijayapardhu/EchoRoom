@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { Send, X, MessageSquare } from 'lucide-react';
+import { Send, X, MessageSquare, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playMessageSound } from '../utils/soundEffects';
 
-const Chat = ({ roomId, isOpen, onClose }) => {
+const Chat = ({ roomId, isOpen, onClose, userName }) => {
     const socket = useSocket();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
@@ -14,6 +14,24 @@ const Chat = ({ roomId, isOpen, onClose }) => {
 
     const emojis = ['😀', '😂', '😍', '🔥', '👍', '🎉', '❤️', '😎', '🤔', '😭', '😡', '👋', '✨', '💯', '🚀', '👀'];
     const stickers = ['👻', '👽', '🤖', '💩', '🦄', '🦖', '🍕', '🍔']; // Using large emojis as stickers for MVP
+
+    // Handle mobile back button
+    useEffect(() => {
+        if (!isOpen) return;
+        
+        const handlePopState = (e) => {
+            e.preventDefault();
+            onClose();
+        };
+
+        // Push a state to history so back button closes chat instead of navigating away
+        window.history.pushState({ chatOpen: true }, '');
+        window.addEventListener('popstate', handlePopState);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [isOpen, onClose]);
 
     useEffect(() => {
         socket.on('receive-message', (message) => {
@@ -108,14 +126,25 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: '100%', opacity: 0 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="absolute top-0 right-0 h-full w-full md:w-96 glass-panel shadow-2xl z-40 flex flex-col"
+                    className="fixed md:absolute inset-0 md:top-0 md:right-0 md:left-auto md:bottom-0 h-full w-full md:w-96 bg-gray-900/98 md:bg-gray-900/95 backdrop-blur-md shadow-2xl z-50 md:z-40 flex flex-col"
                     style={{ boxShadow: '-20px 0 60px rgba(0, 0, 0, 0.5)' }}
                 >
                     {/* Header */}
-                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/30">
+                    <div className="p-3 md:p-4 border-b border-white/10 flex justify-between items-center bg-black/50 safe-area-top">
+                        {/* Back button for mobile */}
+                        <motion.button
+                            onClick={onClose}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="md:hidden p-2 -ml-1 rounded-xl hover:bg-white/10 text-white transition-colors flex items-center gap-2"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                            <span className="text-sm font-medium">Back</span>
+                        </motion.button>
+                        
                         <div className="flex items-center gap-3">
                             <motion.div 
-                                className="p-2 rounded-full bg-cyan-500/10 text-cyan-400"
+                                className="p-2 rounded-full bg-cyan-500/10 text-cyan-400 hidden md:flex"
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
                             >
@@ -126,14 +155,19 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                                 <p className="text-xs text-neutral-500">{messages.length} messages</p>
                             </div>
                         </div>
+                        
+                        {/* Close button for desktop */}
                         <motion.button
                             onClick={onClose}
                             whileHover={{ scale: 1.1, rotate: 90 }}
                             whileTap={{ scale: 0.9 }}
-                            className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+                            className="hidden md:flex p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </motion.button>
+                        
+                        {/* Spacer for mobile to center title */}
+                        <div className="md:hidden w-16"></div>
                     </div>
 
                     {/* Messages Area */}

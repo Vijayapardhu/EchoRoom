@@ -739,19 +739,19 @@ const Room = () => {
             </header>
 
             {/* Main Video Section */}
-            <div className="relative z-10 flex-1 flex flex-col lg:flex-row gap-3 p-3 overflow-hidden">
-                {/* Self Preview - Floating on mobile, sidebar on desktop */}
+            <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
+                {/* Self Preview - Always a small floating overlay */}
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className={`
-                        ${isGroupCall 
-                            ? 'absolute bottom-24 right-4 w-32 h-44 md:w-48 md:h-64 z-20' 
-                            : 'lg:w-1/4 lg:min-w-[280px] w-full h-48 lg:h-auto'
-                        }
-                        bg-black/50 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/10
-                        shadow-2xl transition-all duration-300 hover:border-cyan-500/50
-                    `}
+                    drag
+                    dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                    dragElastic={0.1}
+                    className="absolute bottom-20 right-3 z-30 w-24 h-32 md:w-36 md:h-48 lg:w-44 lg:h-56
+                        bg-black/60 backdrop-blur-sm rounded-xl overflow-hidden border border-white/20
+                        shadow-2xl transition-all duration-300 hover:border-cyan-500/50 hover:shadow-cyan-500/20
+                        cursor-move"
+                    style={{ aspectRatio: '3/4' }}
                 >
                     <video
                         ref={localVideoRef}
@@ -759,12 +759,13 @@ const Room = () => {
                         playsInline
                         muted
                         className="w-full h-full object-cover"
+                        style={{ transform: 'scaleX(-1)' }}
                     />
                     
                     {/* Name Badge */}
-                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                    <div className="absolute bottom-0 left-0 right-0 p-1.5 md:p-2 bg-gradient-to-t from-black/90 to-transparent">
                         <div className="flex items-center justify-between">
-                            <span className="text-xs md:text-sm font-medium text-white truncate">
+                            <span className="text-[10px] md:text-xs font-medium text-white truncate max-w-[60%]">
                                 {userName || 'You'}
                             </span>
                             <motion.button
@@ -777,77 +778,77 @@ const Room = () => {
                                 className="p-1 rounded bg-white/20 hover:bg-white/30 transition-colors"
                                 title="Edit name"
                             >
-                                <UserPlus className="w-3 h-3 md:w-4 md:h-4" />
+                                <UserPlus className="w-2.5 h-2.5 md:w-3 md:h-3" />
                             </motion.button>
                         </div>
                     </div>
 
                     {/* Video/Audio Status Indicators */}
-                    <div className="absolute top-2 left-2 flex gap-1">
+                    <div className="absolute top-1.5 left-1.5 flex gap-0.5">
                         {isMuted && (
-                            <div className="p-1 rounded bg-red-500/80">
-                                <MicOff className="w-3 h-3" />
+                            <div className="p-0.5 md:p-1 rounded bg-red-500/80">
+                                <MicOff className="w-2.5 h-2.5 md:w-3 md:h-3" />
                             </div>
                         )}
                         {isVideoOff && (
-                            <div className="p-1 rounded bg-red-500/80">
-                                <VideoOff className="w-3 h-3" />
+                            <div className="p-0.5 md:p-1 rounded bg-red-500/80">
+                                <VideoOff className="w-2.5 h-2.5 md:w-3 md:h-3" />
                             </div>
                         )}
                     </div>
                 </motion.div>
 
-                {/* Remote Videos Grid */}
-                <div className={`
-                    flex-1 grid gap-3 
-                    ${isGroupCall 
-                        ? groupPeers.length <= 1 
-                            ? 'grid-cols-1' 
-                            : groupPeers.length <= 4 
-                                ? 'grid-cols-1 md:grid-cols-2' 
-                                : 'grid-cols-2 md:grid-cols-3'
-                        : 'grid-cols-1'
-                    }
-                `}>
+                {/* Remote Videos Grid - Full width/height */}
+                <div className="flex-1 h-full">
                     {isGroupCall ? (
-                        groupPeers.length > 0 ? (
-                            groupPeers.map(({ peerId, stream, peerName }) => (
-                                <motion.div 
-                                    key={peerId}
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    className="relative rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 cursor-pointer hover:border-cyan-500/50 transition-all"
-                                    onClick={() => setFullscreenPeer(peerId)}
-                                >
-                                    <video
-                                        ref={el => {
-                                            if (el && stream) {
-                                                el.srcObject = stream;
-                                                el.play().catch(() => {});
-                                            }
-                                        }}
-                                        autoPlay
-                                        playsInline
-                                        className="w-full h-full object-cover min-h-[200px]"
-                                    />
-                                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                                        <span className="text-xs md:text-sm font-medium text-white">
-                                            {peerName || `User ${peerId.slice(0, 6)}`}
-                                        </span>
-                                    </div>
-                                </motion.div>
-                            ))
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-neutral-400">
-                                <Loader2 className="w-12 h-12 animate-spin mb-4" />
-                                <p className="text-lg font-medium">Waiting for others to join...</p>
-                                <p className="text-sm mt-2">Share the room link to invite friends</p>
-                            </div>
-                        )
+                        <div className={`
+                            h-full grid gap-2 md:gap-3
+                            ${groupPeers.length <= 1 
+                                ? 'grid-cols-1' 
+                                : groupPeers.length <= 4 
+                                    ? 'grid-cols-1 md:grid-cols-2' 
+                                    : 'grid-cols-2 md:grid-cols-3'
+                            }
+                        `}>
+                            {groupPeers.length > 0 ? (
+                                groupPeers.map(({ peerId, stream, peerName }) => (
+                                    <motion.div 
+                                        key={peerId}
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        className="relative rounded-xl md:rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 cursor-pointer hover:border-cyan-500/50 transition-all"
+                                        onClick={() => setFullscreenPeer(peerId)}
+                                    >
+                                        <video
+                                            ref={el => {
+                                                if (el && stream) {
+                                                    el.srcObject = stream;
+                                                    el.play().catch(() => {});
+                                                }
+                                            }}
+                                            autoPlay
+                                            playsInline
+                                            className="w-full h-full object-cover min-h-[150px] md:min-h-[200px]"
+                                        />
+                                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                            <span className="text-xs md:text-sm font-medium text-white">
+                                                {peerName || `User ${peerId.slice(0, 6)}`}
+                                            </span>
+                                        </div>
+                                    </motion.div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-neutral-400">
+                                    <Loader2 className="w-10 h-10 md:w-12 md:h-12 animate-spin mb-4" />
+                                    <p className="text-base md:text-lg font-medium text-center">Waiting for others...</p>
+                                    <p className="text-xs md:text-sm mt-2 text-center px-4">Share the room link to invite friends</p>
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         /* 1-on-1 Remote Video */
-                        <div className="relative rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 h-full">
+                        <div className="relative rounded-xl md:rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 h-full">
                             {remoteStream ? (
                                 <>
                                     <video
@@ -861,16 +862,16 @@ const Room = () => {
                                             initial={{ scale: 0, opacity: 0 }}
                                             animate={{ scale: 1.5, opacity: 1 }}
                                             exit={{ scale: 0, opacity: 0 }}
-                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl"
+                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-5xl md:text-6xl"
                                         >
                                             {remoteReaction}
                                         </motion.div>
                                     )}
                                 </>
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-neutral-400 min-h-[300px]">
-                                    <Loader2 className="w-12 h-12 animate-spin mb-4" />
-                                    <p className="text-lg font-medium">Connecting...</p>
+                                <div className="flex flex-col items-center justify-center h-full text-neutral-400 min-h-[250px] md:min-h-[300px]">
+                                    <Loader2 className="w-10 h-10 md:w-12 md:h-12 animate-spin mb-4" />
+                                    <p className="text-base md:text-lg font-medium">Connecting...</p>
                                 </div>
                             )}
                         </div>
@@ -1066,25 +1067,13 @@ const Room = () => {
                 isDanger={true}
             />
 
-            {/* Chat Panel */}
-            <AnimatePresence>
-                {isChatOpen && (
-                    <motion.div
-                        initial={{ x: '100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '100%' }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="absolute right-0 top-0 bottom-0 w-full md:w-96 z-30 bg-gray-900/95 backdrop-blur-md border-l border-white/10"
-                    >
-                        <Chat 
-                            socket={socket} 
-                            roomId={roomId} 
-                            userName={userName}
-                            onClose={() => setIsChatOpen(false)} 
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Chat Panel - Full screen overlay on mobile */}
+            <Chat 
+                roomId={roomId} 
+                isOpen={isChatOpen}
+                userName={userName}
+                onClose={() => setIsChatOpen(false)} 
+            />
 
             {/* Floating Reactions */}
             <AnimatePresence>
