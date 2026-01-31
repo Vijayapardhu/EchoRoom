@@ -262,31 +262,51 @@ const Room = () => {
         };
 
         const handleIsInitiator = async (isInitiator) => {
-            if (isGroupCall) return;
-            if (initiatorHandledRef.current) return;
+            console.log('[Room] Received is-initiator:', isInitiator, 'localStream:', !!localStream, 'handled:', initiatorHandledRef.current);
+            
+            if (isGroupCall) {
+                console.log('[Room] Skipping - group call mode');
+                return;
+            }
+            if (initiatorHandledRef.current) {
+                console.log('[Room] Skipping - already handled');
+                return;
+            }
             
             if (!localStream) {
+                console.log('[Room] Waiting for local stream...');
                 setTimeout(() => handleIsInitiator(isInitiator), 200);
                 return;
             }
 
             initiatorHandledRef.current = true;
+            console.log('[Room] Creating peer connection, isInitiator:', isInitiator);
+            
             const handleIceCandidate = (candidate) => {
+                console.log('[Room] Sending ICE candidate');
                 socket.emit('ice-candidate', { roomId, candidate });
             };
+            
             createPeerConnection(handleIceCandidate);
 
             if (isInitiator) {
+                console.log('[Room] I am initiator, creating offer...');
                 try {
                     const offer = await createOffer();
+                    console.log('[Room] Offer created, sending to room:', roomId);
                     socket.emit('offer', { roomId, offer });
                 } catch (err) {
-                    console.error('Error creating offer:', err);
+                    console.error('[Room] Error creating offer:', err);
+                    toast.error('Failed to start video call');
                 }
+            } else {
+                console.log('[Room] I am receiver, waiting for offer...');
             }
         };
 
         const handleOfferReceived = async ({ offer, sender }) => {
+            console.log('[Room] Received offer from:', sender);
+            
             if (isGroupCall) {
                 if (!localStream) {
                     setTimeout(() => handleOfferReceived({ offer, sender }), 100);
@@ -310,37 +330,72 @@ const Room = () => {
                     console.error('Error handling offer:', err);
                 }
             } else {
+                console.log('[Room] 1-on-1 call - handling offer');
+                if (!localStream) {
+                    console.log('[Room] Waiting for local stream before handling offer...');
+                    setTimeout(() => handleOfferReceived({ offer, sender }), 100);
+                    return;
+                }
                 if (!peerConnection.current) {
+                    console.log('[Room] Creating peer connection for receiver');
                     const handleIceCandidate = (candidate) => {
+                        console.log('[Room] Receiver sending ICE candidate');
                         socket.emit('ice-candidate', { roomId, candidate });
                     };
                     createPeerConnection(handleIceCandidate);
                 }
                 try {
+                    console.log('[Room] Creating answer...');
                     const answer = await handleOffer(offer);
+                    console.log('[Room] Answer created, sending to room:', roomId);
                     socket.emit('answer', { roomId, answer });
                     initiatorHandledRef.current = true;
                 } catch (err) {
-                    console.error('Error handling offer:', err);
+                    console.error('[Room] Error handling offer:', err);
+                    toast.error('Failed to connect video call');
                 }
             }
         };
 
         const handleAnswerReceived = async ({ answer, sender }) => {
+            console.log('[Room] Received answer from:', sender);
             if (isGroupCall) {
-                try { await handleAnswerFromPeer(answer, sender); } catch (err) {}
+                try { 
+                    await handleAnswerFromPeer(answer, sender);
+                    console.log('[Room] Answer processed for peer:', sender);
+                } catch (err) {
+                    console.error('[Room] Error processing answer:', err);
+                }
             } else {
-                if (!peerConnection.current) return;
-                try { await handleAnswer(answer); } catch (err) {}
+                if (!peerConnection.current) {
+                    console.warn('[Room] No peer connection when answer received');
+                    return;
+                }
+                try { 
+                    await handleAnswer(answer);
+                    console.log('[Room] Answer processed, connection should establish');
+                } catch (err) {
+                    console.error('[Room] Error processing answer:', err);
+                }
             }
         };
 
         const handleIceCandidateReceived = async ({ candidate, sender }) => {
+            console.log('[Room] Received ICE candidate from:', sender || 'peer');
             if (isGroupCall) {
-                try { await addIceCandidateForPeer(candidate, sender); } catch (err) {}
+                try { await addIceCandidateForPeer(candidate, sender); } catch (err) {
+                    console.error('[Room] Error adding ICE candidate for peer:', err);
+                }
             } else {
-                if (!peerConnection.current) return;
-                try { await addIceCandidate(candidate); } catch (err) {}
+                if (!peerConnection.current) {
+                    console.warn('[Room] No peer connection when ICE candidate received, queuing...');
+                    return;
+                }
+                try { 
+                    await addIceCandidate(candidate);
+                } catch (err) {
+                    console.error('[Room] Error adding ICE candidate:', err);
+                }
             }
         };
 
@@ -348,10 +403,17 @@ const Room = () => {
             setRemoteReaction(reaction);
             setTimeout(() => setRemoteReaction(null), 2000);
         };
+        
+        const handlePeerDisconnected = () => {
+            console.log('[Room] Peer disconnected from room');
+            toast('Partner disconnected', { icon: '👋' });
+            playLeaveSound();
+        };
 
         socket.on('existing-peers', handleExistingPeers);
         socket.on('peer-joined', handlePeerJoined);
         socket.on('peer-left', handlePeerLeft);
+        socket.on('peer-disconnected', handlePeerDisconnected);
         socket.on('is-initiator', handleIsInitiator);
         socket.on('offer', handleOfferReceived);
         socket.on('answer', handleAnswerReceived);
@@ -364,6 +426,7 @@ const Room = () => {
             socket.off('existing-peers', handleExistingPeers);
             socket.off('peer-joined', handlePeerJoined);
             socket.off('peer-left', handlePeerLeft);
+            socket.off('peer-disconnected', handlePeerDisconnected);
             socket.off('is-initiator', handleIsInitiator);
             socket.off('offer', handleOfferReceived);
             socket.off('answer', handleAnswerReceived);
