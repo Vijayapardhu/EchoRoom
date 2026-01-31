@@ -147,9 +147,8 @@ const Room = () => {
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const initiatorHandledRef = useRef(false);
-    const localStreamReadyRef = useRef(false);
-    const pendingInitiatorRoleRef = useRef(null);
     const [isMuted, setIsMuted] = useState(false);
+    const [pendingInitiatorRole, setPendingInitiatorRole] = useState(null);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -191,19 +190,14 @@ const Room = () => {
         return () => cleanup();
     }, []);
 
+    // Process initiator role when both stream is ready AND we have a pending role
     useEffect(() => {
-        if (localStream) {
-            localStreamReadyRef.current = true;
-            
-            // Handle pending initiator role if we received it before stream was ready
-            if (pendingInitiatorRoleRef.current !== null) {
-                const role = pendingInitiatorRoleRef.current;
-                pendingInitiatorRoleRef.current = null;
-                console.log('[Room] Processing pending initiator role:', role);
-                processInitiatorRole(role);
-            }
+        if (localStream && pendingInitiatorRole !== null && !initiatorHandledRef.current) {
+            console.log('[Room] Processing pending initiator role:', pendingInitiatorRole);
+            processInitiatorRole(pendingInitiatorRole);
+            setPendingInitiatorRole(null);
         }
-    }, [localStream]);
+    }, [localStream, pendingInitiatorRole]);
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -220,6 +214,40 @@ const Room = () => {
             remoteVideoRef.current.srcObject = remoteStream;
         }
     }, [remoteStream]);
+
+    // Process initiator role - defined as callback so it can be used from multiple places
+    const processInitiatorRole = useCallback(async (isInitiator) => {
+        console.log('[Room] Processing initiator role:', isInitiator);
+        
+        if (initiatorHandledRef.current) {
+            console.log('[Room] Skipping - already handled');
+            return;
+        }
+
+        initiatorHandledRef.current = true;
+        console.log('[Room] Creating peer connection, isInitiator:', isInitiator);
+        
+        const handleIceCandidate = (candidate) => {
+            console.log('[Room] Sending ICE candidate');
+            socket.emit('ice-candidate', { roomId, candidate });
+        };
+        
+        createPeerConnection(handleIceCandidate);
+
+        if (isInitiator) {
+            console.log('[Room] I am initiator, creating offer...');
+            try {
+                const offer = await createOffer();
+                console.log('[Room] Offer created, sending to room:', roomId);
+                socket.emit('offer', { roomId, offer });
+            } catch (err) {
+                console.error('[Room] Error creating offer:', err);
+                toast.error('Failed to start video call');
+            }
+        } else {
+            console.log('[Room] I am receiver, waiting for offer...');
+        }
+    }, [socket, roomId, localStream, createPeerConnection, createOffer]);
 
     useEffect(() => {
         if (!socket || !roomId) return;
@@ -279,8 +307,8 @@ const Room = () => {
             setGroupPeers(prev => prev.filter(p => p.peerId !== peerId));
         };
 
-        const processInitiatorRole = async (isInitiator) => {
-            console.log('[Room] Processing initiator role:', isInitiator);
+        const handleIsInitiator = (isInitiator) => {
+            console.log('[Room] Received is-initiator:', isInitiator, 'localStream:', !!localStream, 'handled:', initiatorHandledRef.current);
             
             if (isGroupCall) {
                 console.log('[Room] Skipping - group call mode');
@@ -291,47 +319,13 @@ const Room = () => {
                 return;
             }
             
-            // Double-check local stream is available
-            if (!localStreamReadyRef.current || !localStream) {
-                console.log('[Room] Local stream not ready, re-queueing...');
-                pendingInitiatorRoleRef.current = isInitiator;
-                return;
-            }
-
-            initiatorHandledRef.current = true;
-            console.log('[Room] Creating peer connection, isInitiator:', isInitiator);
-            
-            const handleIceCandidate = (candidate) => {
-                console.log('[Room] Sending ICE candidate');
-                socket.emit('ice-candidate', { roomId, candidate });
-            };
-            
-            createPeerConnection(handleIceCandidate);
-
-            if (isInitiator) {
-                console.log('[Room] I am initiator, creating offer...');
-                try {
-                    const offer = await createOffer();
-                    console.log('[Room] Offer created, sending to room:', roomId);
-                    socket.emit('offer', { roomId, offer });
-                } catch (err) {
-                    console.error('[Room] Error creating offer:', err);
-                    toast.error('Failed to start video call');
-                }
-            } else {
-                console.log('[Room] I am receiver, waiting for offer...');
-            }
-        };
-
-        const handleIsInitiator = (isInitiator) => {
-            console.log('[Room] Received is-initiator:', isInitiator, 'localStreamReady:', localStreamReadyRef.current, 'handled:', initiatorHandledRef.current);
-            
-            if (!localStreamReadyRef.current) {
+            if (!localStream) {
                 console.log('[Room] Storing initiator role for later processing');
-                pendingInitiatorRoleRef.current = isInitiator;
+                setPendingInitiatorRole(isInitiator);
                 return;
             }
             
+            // Process immediately if stream is ready
             processInitiatorRole(isInitiator);
         };
 
