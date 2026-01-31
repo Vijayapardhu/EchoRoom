@@ -554,25 +554,27 @@ const Room = () => {
                 {floatingReactions.map(({ id, emoji }) => (
                     <motion.div
                         key={id}
-                        initial={{ opacity: 1, y: 0, x: Math.random() * 100 - 50, scale: 0 }}
-                        animate={{ opacity: 0, y: -200, scale: 1.5 }}
+                        initial={{ opacity: 1, y: 0, x: Math.random() * 100 - 50, scale: 0, rotate: Math.random() * 30 - 15 }}
+                        animate={{ opacity: 0, y: -300, scale: 1.5, rotate: Math.random() * 60 - 30 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 2, ease: "easeOut" }}
-                        className="absolute bottom-32 right-8 text-4xl z-50 pointer-events-none"
+                        transition={{ duration: 2.5, ease: "easeOut" }}
+                        className="absolute bottom-32 right-8 text-5xl z-50 pointer-events-none drop-shadow-lg"
                     >
                         {emoji}
                     </motion.div>
                 ))}
             </AnimatePresence>
 
-            {/* Remote Peer Reaction */}
+            {/* Remote Peer Reaction - Enhanced */}
             <AnimatePresence>
                 {remoteReaction && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0 }}
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl z-40 pointer-events-none"
+                        initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 2, rotate: 180 }}
+                        transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-9xl z-40 pointer-events-none drop-shadow-2xl"
+                        style={{ filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.3))' }}
                     >
                         {remoteReaction}
                     </motion.div>
@@ -870,11 +872,16 @@ const Room = () => {
                 {/* Cinematic Vignette */}
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] pointer-events-none" />
 
-                {/* Local Video - Mobile Optimized Position */}
+                {/* Local Video - Mobile Optimized Position - Enhanced */}
                 <motion.div
                     drag
                     dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                    className={`absolute top-20 right-4 w-28 md:w-56 aspect-[3/4] md:aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10 cursor-grab active:cursor-grabbing z-30 group ${mode === 'text' ? 'hidden' : ''}`}
+                    whileHover={{ scale: 1.02 }}
+                    whileDrag={{ scale: 1.05 }}
+                    className={`absolute top-20 right-4 w-28 md:w-56 aspect-[3/4] md:aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/20 cursor-grab active:cursor-grabbing z-30 group video-glow ${mode === 'text' ? 'hidden' : ''}`}
+                    style={{
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)'
+                    }}
                 >
                     <video
                         ref={localVideoRef}
@@ -885,19 +892,26 @@ const Room = () => {
                     />
                     {/* Local Video Placeholder */}
                     {isVideoOff && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-800">
-                            <VideoOff className="w-6 h-6 text-neutral-500" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-900">
+                            <motion.div
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                            >
+                                <VideoOff className="w-6 h-6 text-neutral-500" />
+                            </motion.div>
                         </div>
                     )}
                     {/* Local Status Icons */}
                     <div className="absolute bottom-2 right-2 flex gap-1">
-                        {isMuted && <div className="p-1 bg-red-500/80 rounded-full"><MicOff className="w-3 h-3 text-white" /></div>}
-                        {isVideoOff && <div className="p-1 bg-red-500/80 rounded-full"><VideoOff className="w-3 h-3 text-white" /></div>}
+                        {isMuted && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="p-1 bg-red-500/90 rounded-full shadow-lg"><MicOff className="w-3 h-3 text-white" /></motion.div>}
+                        {isVideoOff && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="p-1 bg-red-500/90 rounded-full shadow-lg"><VideoOff className="w-3 h-3 text-white" /></motion.div>}
                     </div>
+                    {/* Gradient overlay for local video */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
                 </motion.div>
             </div>
 
-            {/* Bottom Controls - Mobile Optimized */}
+            {/* Bottom Controls - Mobile Optimized - Enhanced */}
             <AnimatePresence>
                 {showControls && (
                     <motion.div
@@ -906,7 +920,7 @@ const Room = () => {
                         exit={{ opacity: 0, y: 20 }}
                         className="absolute bottom-6 left-0 right-0 z-30 px-4 flex justify-center"
                     >
-                        <div className="w-full max-w-md bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex items-center justify-between shadow-2xl gap-2">
+                        <div className="w-full max-w-md glass-panel rounded-2xl p-2 flex items-center justify-between shadow-2xl gap-2" style={{ boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 0 60px rgba(6, 182, 212, 0.1)' }}>
 
                             <div className="flex gap-1">
                                 <ControlButton onClick={handleToggleMute} isActive={!isMuted} activeIcon={<Mic />} inactiveIcon={<MicOff />} />
@@ -1021,12 +1035,25 @@ const Room = () => {
 };
 
 const ControlButton = ({ onClick, isActive, activeIcon, inactiveIcon }) => (
-    <button
+    <motion.button
         onClick={onClick}
-        className={`p-3 rounded-xl transition-all duration-300 ${isActive ? 'text-white hover:bg-white/10' : 'text-red-400 bg-red-500/10 hover:bg-red-500/20'}`}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className={`p-3 rounded-xl transition-all duration-300 relative overflow-hidden ${
+            isActive 
+                ? 'text-white hover:bg-white/10' 
+                : 'text-red-400 bg-red-500/20 hover:bg-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
+        }`}
     >
-        {React.cloneElement(isActive ? activeIcon : inactiveIcon, { className: "w-5 h-5" })}
-    </button>
+        {!isActive && (
+            <motion.div
+                className="absolute inset-0 bg-red-500/10"
+                animate={{ opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+            />
+        )}
+        {React.cloneElement(isActive ? activeIcon : inactiveIcon, { className: "w-5 h-5 relative z-10" })}
+    </motion.button>
 );
 
 const ConfirmationModal = ({ isOpen, title, message, confirmText, cancelText, onConfirm, onCancel, isDanger }) => (
@@ -1036,29 +1063,57 @@ const ConfirmationModal = ({ isOpen, title, message, confirmText, cancelText, on
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
             >
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="bg-[#111] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                    initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className="glass-panel rounded-2xl p-6 max-w-sm w-full"
+                    style={{ 
+                        boxShadow: isDanger 
+                            ? '0 0 60px rgba(239, 68, 68, 0.2)' 
+                            : '0 0 60px rgba(6, 182, 212, 0.2)' 
+                    }}
                 >
-                    <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-                    <p className="text-neutral-400 mb-6">{message}</p>
+                    <motion.h3 
+                        className="text-xl font-bold text-white mb-2"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 }}
+                    >
+                        {title}
+                    </motion.h3>
+                    <motion.p 
+                        className="text-neutral-400 mb-6"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.15 }}
+                    >
+                        {message}
+                    </motion.p>
                     <div className="flex gap-3">
-                        <button
+                        <motion.button
                             onClick={onCancel}
-                            className="flex-1 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors font-medium"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="flex-1 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors font-medium border border-white/10"
                         >
                             {cancelText}
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
                             onClick={onConfirm}
-                            className={`flex-1 py-3 rounded-xl font-bold transition-colors ${isDanger ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-cyan-500 hover:bg-cyan-400 text-black'}`}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+                                isDanger 
+                                    ? 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-lg shadow-red-500/30' 
+                                    : 'bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-black shadow-lg shadow-cyan-500/30'
+                            }`}
                         >
                             {confirmText}
-                        </button>
+                        </motion.button>
                     </div>
                 </motion.div>
             </motion.div>

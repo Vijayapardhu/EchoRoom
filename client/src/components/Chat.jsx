@@ -108,47 +108,74 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: '100%', opacity: 0 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="absolute top-0 right-0 h-full w-full md:w-96 bg-black/95 backdrop-blur-xl border-l border-white/10 shadow-2xl z-40 flex flex-col"
+                    className="absolute top-0 right-0 h-full w-full md:w-96 glass-panel shadow-2xl z-40 flex flex-col"
+                    style={{ boxShadow: '-20px 0 60px rgba(0, 0, 0, 0.5)' }}
                 >
                     {/* Header */}
-                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/50">
+                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/30">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-full bg-cyan-500/10 text-cyan-400">
+                            <motion.div 
+                                className="p-2 rounded-full bg-cyan-500/10 text-cyan-400"
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                            >
                                 <MessageSquare className="w-5 h-5" />
+                            </motion.div>
+                            <div>
+                                <h3 className="font-medium tracking-wide text-white">Live Chat</h3>
+                                <p className="text-xs text-neutral-500">{messages.length} messages</p>
                             </div>
-                            <h3 className="font-medium tracking-wide text-white">Live Chat</h3>
                         </div>
-                        <button
+                        <motion.button
                             onClick={onClose}
+                            whileHover={{ scale: 1.1, rotate: 90 }}
+                            whileTap={{ scale: 0.9 }}
                             className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
                         >
                             <X className="w-5 h-5" />
-                        </button>
+                        </motion.button>
                     </div>
 
                     {/* Messages Area */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                         {messages.length === 0 && (
-                            <div className="flex flex-col items-center justify-center h-full text-neutral-600 space-y-2">
-                                <MessageSquare className="w-12 h-12 opacity-20" />
+                            <motion.div 
+                                className="flex flex-col items-center justify-center h-full text-neutral-600 space-y-3"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                            >
+                                <motion.div
+                                    animate={{ y: [0, -10, 0] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                >
+                                    <MessageSquare className="w-12 h-12 opacity-20" />
+                                </motion.div>
                                 <p className="text-sm">No messages yet. Say hello!</p>
-                            </div>
+                                <div className="typing-indicator flex gap-1 mt-2">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </motion.div>
                         )}
 
                         {messages.map((msg, index) => (
-                            <div
+                            <motion.div
                                 key={index}
+                                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{ duration: 0.2 }}
                                 className={`flex ${msg.isLocal ? 'justify-end' : 'justify-start'}`}
                             >
                                 <div
-                                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.isLocal
-                                        ? 'bg-cyan-500/10 text-cyan-50 border border-cyan-500/20 rounded-tr-sm'
-                                        : 'bg-white/5 text-neutral-200 border border-white/5 rounded-tl-sm'
+                                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed transition-all hover:scale-[1.02] ${msg.isLocal
+                                        ? 'bg-gradient-to-br from-cyan-500/20 to-cyan-500/10 text-cyan-50 border border-cyan-500/30 rounded-tr-sm shadow-[0_0_15px_rgba(6,182,212,0.1)]'
+                                        : 'bg-white/5 text-neutral-200 border border-white/10 rounded-tl-sm'
                                         }`}
                                 >
                                     {renderMessageContent(msg)}
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                         <div ref={messagesEndRef} />
                     </div>
@@ -160,13 +187,33 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                className="bg-neutral-900 border-t border-white/10 overflow-hidden"
+                                className="bg-black/50 border-t border-white/10 overflow-hidden"
                             >
                                 <div className="p-4 grid grid-cols-8 gap-2">
-                                    {showPicker === 'emoji' ? emojis.map(e => (
-                                        <button key={e} onClick={() => setNewMessage(prev => prev + e)} className="text-2xl hover:bg-white/10 rounded p-1 transition-colors">{e}</button>
-                                    )) : stickers.map(s => (
-                                        <button key={s} onClick={() => sendSticker(s)} className="text-4xl hover:bg-white/10 rounded p-2 transition-colors">{s}</button>
+                                    {showPicker === 'emoji' ? emojis.map((e, i) => (
+                                        <motion.button 
+                                            key={e} 
+                                            onClick={() => setNewMessage(prev => prev + e)} 
+                                            initial={{ opacity: 0, scale: 0 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: i * 0.02 }}
+                                            whileHover={{ scale: 1.3 }}
+                                            className="text-2xl hover:bg-white/10 rounded-lg p-1 transition-colors"
+                                        >
+                                            {e}
+                                        </motion.button>
+                                    )) : stickers.map((s, i) => (
+                                        <motion.button 
+                                            key={s} 
+                                            onClick={() => sendSticker(s)} 
+                                            initial={{ opacity: 0, scale: 0 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: i * 0.02 }}
+                                            whileHover={{ scale: 1.3 }}
+                                            className="text-4xl hover:bg-white/10 rounded-lg p-2 transition-colors"
+                                        >
+                                            {s}
+                                        </motion.button>
                                     ))}
                                 </div>
                             </motion.div>
@@ -174,29 +221,35 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                     </AnimatePresence>
 
                     {/* Input Area */}
-                    <form onSubmit={sendMessage} className="p-4 border-t border-white/5 bg-black/50">
+                    <form onSubmit={sendMessage} className="p-4 border-t border-white/5 bg-black/30">
                         <div className="relative flex items-center gap-2">
-                            <button
+                            <motion.button
                                 type="button"
                                 onClick={() => setShowPicker(showPicker === 'emoji' ? null : 'emoji')}
-                                className={`p-2 rounded-full transition-colors ${showPicker === 'emoji' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white'}`}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                className={`p-2 rounded-full transition-colors ${showPicker === 'emoji' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
                             >
                                 <span className="text-xl">😊</span>
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
                                 type="button"
                                 onClick={() => setShowPicker(showPicker === 'sticker' ? null : 'sticker')}
-                                className={`p-2 rounded-full transition-colors ${showPicker === 'sticker' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white'}`}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                className={`p-2 rounded-full transition-colors ${showPicker === 'sticker' ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
                             >
                                 <span className="text-xl">🎁</span>
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="p-2 rounded-full text-neutral-400 hover:text-white transition-colors"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                className="p-2 rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
                             >
                                 <span className="text-xl">📎</span>
-                            </button>
+                            </motion.button>
                             <input
                                 type="file"
                                 ref={fileInputRef}
@@ -210,15 +263,17 @@ const Chat = ({ roomId, isOpen, onClose }) => {
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                                 placeholder="Type a message..."
-                                className="w-full bg-white/5 border border-white/10 rounded-full py-3 pl-4 pr-12 text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
+                                className="w-full bg-white/5 border border-white/10 rounded-full py-3 pl-4 pr-12 text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 focus:shadow-[0_0_20px_rgba(6,182,212,0.1)] transition-all"
                             />
-                            <button
+                            <motion.button
                                 type="submit"
                                 disabled={!newMessage.trim()}
-                                className="absolute right-2 p-2 rounded-full bg-cyan-500 text-black hover:bg-cyan-400 disabled:opacity-50 disabled:hover:bg-cyan-500 transition-all"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                className="absolute right-2 p-2 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400 text-black hover:from-cyan-400 hover:to-cyan-300 disabled:opacity-50 disabled:hover:from-cyan-500 transition-all shadow-lg shadow-cyan-500/30"
                             >
                                 <Send className="w-4 h-4" />
-                            </button>
+                            </motion.button>
                         </div>
                     </form>
                 </motion.div>
