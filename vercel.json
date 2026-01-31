@@ -1,17 +1,8 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "client/package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "dist"
-            }
-        }
-    ],
-    "routes": [
-        { "src": "/(.*)\\.(?:js|css|ico|png|jpg|jpeg|svg|webp|woff|woff2|ttf|eot|json|txt|xml)", "dest": "/$1.$2" },
-        { "src": "/assets/(.*)", "dest": "/assets/$1" },
-        { "src": "/(.*)", "dest": "/index.html" }
-    ]
+  "buildCommand": "cd client && npm install && npm run build",
+  "outputDirectory": "client/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
