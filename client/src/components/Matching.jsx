@@ -10,7 +10,6 @@ import {
     CheckCircle,
     Crosshair,
     Waveform,
-    Radar,
     Scan,
     Cpu,
     ArrowLeft,

@@ -32,7 +32,11 @@ import {
     Star,
     Crosshair,
     Users,
-    Scan
+    Scan,
+    CornersOut,
+    CornersIn,
+    ArrowsOutSimple,
+    ArrowsInSimple
 } from '@phosphor-icons/react';
 import Chat from './Chat';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
@@ -169,6 +173,12 @@ const Room = () => {
     const [showReactions, setShowReactions] = useState(false);
     const [floatingReactions, setFloatingReactions] = useState([]);
     const [remoteReaction, setRemoteReaction] = useState(null);
+    
+    // Video display modes for cross-device compatibility (mobile/desktop)
+    const [videoFitMode, setVideoFitMode] = useState('contain'); // 'contain' = fit center, 'cover' = fill
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [remoteAspectRatio, setRemoteAspectRatio] = useState(null); // 'portrait', 'landscape', or null
+    const remoteVideoContainerRef = useRef(null);
 
     const preferences = location.state || {};
 
@@ -209,8 +219,77 @@ const Room = () => {
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
+            
+            // Detect aspect ratio when video metadata loads
+            const handleLoadedMetadata = () => {
+                const video = remoteVideoRef.current;
+                if (video) {
+                    const aspectRatio = video.videoWidth / video.videoHeight;
+                    // Portrait (mobile) is typically < 1, Landscape (desktop) is > 1
+                    if (aspectRatio < 1) {
+                        setRemoteAspectRatio('portrait');
+                        setVideoFitMode('contain'); // Default to fit-center for portrait videos
+                    } else {
+                        setRemoteAspectRatio('landscape');
+                        setVideoFitMode('cover'); // Default to fill for landscape videos
+                    }
+                    console.log('[Room] Remote video aspect ratio:', aspectRatio.toFixed(2), aspectRatio < 1 ? 'portrait' : 'landscape');
+                }
+            };
+            
+            remoteVideoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
+            
+            return () => {
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
+                }
+            };
         }
     }, [remoteStream]);
+    
+    // Handle fullscreen changes
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+    
+    // Toggle fullscreen mode
+    const toggleFullscreen = useCallback(async () => {
+        try {
+            if (!document.fullscreenElement) {
+                const element = remoteVideoContainerRef.current;
+                if (element) {
+                    if (element.requestFullscreen) {
+                        await element.requestFullscreen();
+                    } else if (element.webkitRequestFullscreen) {
+                        await element.webkitRequestFullscreen();
+                    }
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    await document.webkitExitFullscreen();
+                }
+            }
+        } catch (err) {
+            console.error('[Room] Fullscreen error:', err);
+        }
+    }, []);
+    
+    // Toggle video fit mode (contain/cover)
+    const toggleVideoFitMode = useCallback(() => {
+        setVideoFitMode(prev => prev === 'contain' ? 'cover' : 'contain');
+    }, []);
 
     useEffect(() => {
         if (!socket || !roomId) return;

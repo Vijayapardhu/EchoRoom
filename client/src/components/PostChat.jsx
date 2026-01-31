@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
     ThumbsUp, 
@@ -9,38 +9,105 @@ import {
     ChatCircle, 
     UserPlus, 
     Heart, 
-    Star, 
-    Copy,
     Smiley,
     Question,
     HandWaving,
-    Sparkle,
+    Copy,
     CheckCircle,
-    Lightning
+    Lightning,
+    Crosshair,
+    Scan,
+    X
 } from '@phosphor-icons/react';
 import toast, { Toaster } from 'react-hot-toast';
 
-const emojiReactions = [
-    { id: 'happy', icon: Smiley, color: 'text-yellow-400', bg: 'from-yellow-400 to-orange-500', label: 'Happy' },
-    { id: 'thinking', icon: Question, color: 'text-cyan-400', bg: 'from-blue-400 to-cyan-500', label: 'Interesting' },
-    { id: 'wave', icon: HandWaving, color: 'text-pink-400', bg: 'from-pink-400 to-rose-500', label: 'Goodbye' },
-    { id: 'love', icon: Heart, color: 'text-red-400', bg: 'from-red-400 to-pink-500', label: 'Loved it' },
-];
+const NeonButton = ({ children, onClick, primary = false, icon: Icon, className = '' }) => (
+    <motion.button
+        onClick={onClick}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className={`
+            relative group px-8 py-4 font-bold text-sm tracking-widest uppercase overflow-hidden
+            transition-all duration-300
+            ${primary 
+                ? 'bg-transparent text-cyan-400 border-2 border-cyan-400 hover:bg-cyan-400/10' 
+                : 'bg-transparent text-white border-2 border-white/30 hover:border-white hover:bg-white/5'
+            }
+            ${className}
+        `}
+        style={{
+            clipPath: primary ? 'polygon(10% 0, 100% 0, 90% 100%, 0% 100%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%)',
+            boxShadow: primary ? '0 0 20px rgba(0, 243, 255, 0.3), inset 0 0 20px rgba(0, 243, 255, 0.1)' : 'none'
+        }}
+    >
+        <span className="relative z-10 flex items-center gap-3">
+            {Icon && <Icon weight="fill" className="w-5 h-5" />}
+            {children}
+        </span>
+        {primary && (
+            <>
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/20 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                <div className="absolute top-0 left-0 w-full h-[2px] bg-cyan-400 shadow-[0_0_10px_#00f3ff]" />
+                <div className="absolute bottom-0 right-0 w-full h-[2px] bg-cyan-400 shadow-[0_0_10px_#00f3ff]" />
+            </>
+        )}
+    </motion.button>
+);
+
+const SharpCard = ({ children, selected, onClick, icon: Icon, label }) => (
+    <motion.button
+        onClick={onClick}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className={`
+            p-6 border transition-all relative overflow-hidden
+            ${selected 
+                ? 'border-cyan-400 bg-cyan-400/10 text-cyan-400' 
+                : 'border-white/10 bg-white/5 text-white/50 hover:border-white/30 hover:text-white'
+            }
+        `}
+        style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px))' }}
+    >
+        {selected && <div className="absolute top-0 left-0 w-full h-[2px] bg-cyan-400" />}
+        <Icon weight="fill" className="w-8 h-8 mx-auto mb-2" />
+        <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
+    </motion.button>
+);
+
+const ReactionButton = ({ icon: Icon, color, label, onClick }) => {
+    const colorClasses = {
+        yellow: 'from-yellow-400 to-orange-500',
+        blue: 'from-blue-400 to-cyan-500',
+        pink: 'from-pink-400 to-rose-500',
+        red: 'from-red-400 to-pink-500'
+    };
+
+    return (
+        <motion.button
+            whileHover={{ scale: 1.1, y: -5 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onClick}
+            className="group relative"
+        >
+            <div className={`w-12 h-12 border border-white/20 bg-gradient-to-br ${colorClasses[color]} bg-opacity-20 flex items-center justify-center transition-all group-hover:border-white/50`}
+                style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+            >
+                <Icon weight="fill" className="w-6 h-6 text-white" />
+            </div>
+        </motion.button>
+    );
+};
 
 const PostChat = () => {
     const navigate = useNavigate();
-    const location = useLocation();
     const [rating, setRating] = useState(null);
     const [feedback, setFeedback] = useState('');
     const [showAddFriend, setShowAddFriend] = useState(false);
     const [friendCode, setFriendCode] = useState('');
 
-    const partnerInfo = location.state?.partner || null;
-
     const handleSubmit = () => {
-        console.log({ rating, feedback });
-        toast.success('Thanks for your feedback!', {
-            icon: <CheckCircle weight="fill" className="w-5 h-5 text-green-400" />
+        toast.success('Feedback transmitted', {
+            icon: <CheckCircle weight="fill" className="w-5 h-5 text-cyan-400" />
         });
         setRating(null);
         setFeedback('');
@@ -54,8 +121,8 @@ const PostChat = () => {
 
     const copyFriendCode = () => {
         navigator.clipboard.writeText(friendCode);
-        toast.success('Friend code copied!', {
-            icon: <CheckCircle weight="fill" className="w-5 h-5 text-green-400" />
+        toast.success('Code copied to clipboard', {
+            icon: <CheckCircle weight="fill" className="w-5 h-5 text-cyan-400" />
         });
     };
 
@@ -65,189 +132,165 @@ const PostChat = () => {
                 style: {
                     background: 'rgba(0,0,0,0.9)',
                     color: '#fff',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(0, 243, 255, 0.3)',
+                    borderRadius: '0',
                 },
             }} />
-            
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50" />
-            <motion.div 
-                className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[100px] pointer-events-none"
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <motion.div 
-                className="absolute top-1/4 left-0 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"
-                animate={{ scale: [1, 1.3, 1], x: [0, 30, 0] }}
-                transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-            />
+
+            {/* Background */}
+            <div className="absolute inset-0">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-900/10 via-black to-black" />
+                <div 
+                    className="absolute inset-0 opacity-20"
+                    style={{
+                        backgroundImage: `linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px)`,
+                        backgroundSize: '80px 80px'
+                    }}
+                />
+            </div>
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="max-w-md w-full glass-panel rounded-3xl p-8 shadow-2xl border border-white/10 bg-black/40 backdrop-blur-xl"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="max-w-md w-full relative z-10"
             >
-                <motion.div 
-                    className="text-center mb-8"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
+                <div 
+                    className="border border-white/10 bg-black/80 backdrop-blur-xl p-8 relative overflow-hidden"
+                    style={{ clipPath: 'polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 40px 100%, 0 calc(100% - 40px))' }}
                 >
-                    <motion.div 
-                        className="w-20 h-20 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10"
-                        animate={{ rotate: [0, 5, -5, 0] }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                    >
-                        <ChatCircle weight="fill" className="w-10 h-10 text-white" />
-                    </motion.div>
-                    <h2 className="text-3xl font-bold text-white mb-2">Chat Ended</h2>
-                    <p className="text-neutral-400">How was your conversation?</p>
-                </motion.div>
+                    {/* Corner Accents */}
+                    <div className="absolute top-0 left-0 w-20 h-[2px] bg-cyan-400" />
+                    <div className="absolute top-0 left-0 w-[2px] h-20 bg-cyan-400" />
+                    <div className="absolute bottom-0 right-0 w-20 h-[2px] bg-cyan-400" />
+                    <div className="absolute bottom-0 right-0 w-[2px] h-20 bg-cyan-400" />
 
-                <motion.div 
-                    className="flex justify-center gap-4 mb-6"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                >
-                    <motion.button
-                        whileHover={{ scale: 1.1, y: -5 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setRating('good')}
-                        className={`p-5 rounded-2xl border-2 transition-all ${rating === 'good' ? 'bg-green-500/20 border-green-500 text-green-400 shadow-lg shadow-green-500/30' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}
-                    >
-                        <ThumbsUp weight="fill" className="w-8 h-8" />
-                    </motion.button>
-                    <motion.button
-                        whileHover={{ scale: 1.1, y: -5 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setRating('bad')}
-                        className={`p-5 rounded-2xl border-2 transition-all ${rating === 'bad' ? 'bg-red-500/20 border-red-500 text-red-400 shadow-lg shadow-red-500/30' : 'bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10 hover:border-white/20'}`}
-                    >
-                        <ThumbsDown weight="fill" className="w-8 h-8" />
-                    </motion.button>
-                </motion.div>
-
-                <motion.div 
-                    className="flex justify-center gap-3 mb-6"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4 }}
-                >
-                    {emojiReactions.map((emoji, i) => (
-                        <motion.button
-                            key={emoji.id}
-                            initial={{ opacity: 0, scale: 0 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.4 + i * 0.05, type: 'spring', stiffness: 400 }}
-                            whileHover={{ scale: 1.2, y: -5 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => toast(
-                                <div className="flex items-center gap-2">
-                                    <emoji.icon weight="fill" className={`w-5 h-5 ${emoji.color}`} />
-                                    <span>{emoji.label}</span>
-                                </div>,
-                                { duration: 1500 }
-                            )}
-                            className="group relative"
-                            title={emoji.label}
+                    {/* Header */}
+                    <div className="text-center mb-8">
+                        <motion.div 
+                            className="w-20 h-20 border border-cyan-400/30 bg-cyan-400/5 flex items-center justify-center mx-auto mb-4"
+                            style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                            animate={{ rotate: [0, 5, -5, 0] }}
+                            transition={{ duration: 4, repeat: Infinity }}
                         >
-                            <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${emoji.bg} flex items-center justify-center shadow-lg transition-shadow group-hover:shadow-xl`}>
-                                <emoji.icon weight="fill" className="w-5 h-5 text-white drop-shadow-md" />
-                            </div>
-                        </motion.button>
-                    ))}
-                </motion.div>
+                            <Scan weight="fill" className="w-10 h-10 text-cyan-400" />
+                        </motion.div>
+                        <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">Session Ended</h2>
+                        <p className="text-white/40 uppercase tracking-widest text-xs">Transmit session feedback</p>
+                    </div>
 
-                <motion.div 
-                    className="mb-6"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                >
-                    <textarea
-                        value={feedback}
-                        onChange={(e) => setFeedback(e.target.value)}
-                        placeholder="Any additional comments? (Optional)"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 focus:shadow-[0_0_20px_rgba(6,182,212,0.1)] transition-all resize-none h-24"
-                    />
-                    {rating && (
+                    {/* Rating */}
+                    <div className="flex justify-center gap-4 mb-8">
+                        <SharpCard
+                            icon={ThumbsUp}
+                            label="Positive"
+                            selected={rating === 'good'}
+                            onClick={() => setRating('good')}
+                        />
+                        <SharpCard
+                            icon={ThumbsDown}
+                            label="Negative"
+                            selected={rating === 'bad'}
+                            onClick={() => setRating('bad')}
+                        />
+                    </div>
+
+                    {/* Reactions */}
+                    <div className="flex justify-center gap-4 mb-8">
+                        {[
+                            { icon: Smiley, color: 'yellow', label: 'Happy' },
+                            { icon: Question, color: 'blue', label: 'Curious' },
+                            { icon: HandWaving, color: 'pink', label: 'Farewell' },
+                            { icon: Heart, color: 'red', label: 'Loved' },
+                        ].map((emoji) => (
+                            <ReactionButton
+                                key={emoji.label}
+                                icon={emoji.icon}
+                                color={emoji.color}
+                                label={emoji.label}
+                                onClick={() => toast(
+                                    <div className="flex items-center gap-2">
+                                        <emoji.icon weight="fill" className="w-5 h-5 text-cyan-400" />
+                                        <span>{emoji.label}</span>
+                                    </div>,
+                                    { duration: 1500 }
+                                )}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Feedback */}
+                    <div className="mb-8">
+                        <textarea
+                            value={feedback}
+                            onChange={(e) => setFeedback(e.target.value)}
+                            placeholder="Additional telemetry (optional)..."
+                            className="w-full bg-black/50 border border-white/10 p-4 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50 transition-colors resize-none h-24 uppercase tracking-wider"
+                            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+                        />
+                        {rating && (
+                            <motion.button
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={handleSubmit}
+                                className="w-full mt-3 py-3 border border-cyan-400/30 bg-cyan-400/5 text-cyan-400 text-xs font-bold uppercase tracking-widest hover:bg-cyan-400/10 transition-all"
+                            >
+                                Transmit Feedback
+                            </motion.button>
+                        )}
+                    </div>
+
+                    {/* Friend Code */}
+                    {!showAddFriend ? (
                         <motion.button
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            onClick={handleSubmit}
-                            className="w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-white/10 text-sm font-medium text-white hover:from-cyan-500/30 hover:to-purple-500/30 transition-all"
+                            onClick={generateFriendCode}
+                            className="w-full py-3 mb-4 border border-purple-400/30 bg-purple-400/5 text-purple-400 font-bold text-xs uppercase tracking-widest hover:bg-purple-400/10 transition-all flex items-center justify-center gap-2"
                         >
-                            Submit Feedback
+                            <UserPlus weight="fill" className="w-5 h-5" />
+                            Generate Reconnect Code
                         </motion.button>
-                    )}
-                </motion.div>
-
-                {!showAddFriend ? (
-                    <motion.button
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.6 }}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={generateFriendCode}
-                        className="w-full py-3 mb-4 bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/30 text-pink-400 font-medium rounded-xl flex items-center justify-center gap-2 hover:from-pink-500/30 hover:to-purple-500/30 transition-all shadow-[0_0_20px_rgba(236,72,153,0.1)]"
-                    >
-                        <UserPlus weight="fill" className="w-5 h-5" />
-                        Want to reconnect? Get Friend Code
-                    </motion.button>
-                ) : (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="mb-4 p-4 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/20 rounded-xl"
-                    >
-                        <p className="text-sm text-neutral-400 mb-2 text-center">Share this code with your chat partner</p>
-                        <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-black/50 rounded-lg px-4 py-3 text-center border border-white/10">
-                                <span className="text-2xl font-mono font-bold text-white tracking-widest">{friendCode}</span>
+                    ) : (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="mb-4 p-4 border border-purple-400/20 bg-purple-400/5"
+                        >
+                            <p className="text-xs text-white/40 mb-2 text-center uppercase tracking-wider">Share with partner</p>
+                            <div className="flex items-center gap-2">
+                                <div 
+                                    className="flex-1 bg-black/50 border border-white/10 px-4 py-3 text-center"
+                                    style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
+                                >
+                                    <span className="text-2xl font-mono font-bold text-white tracking-widest">{friendCode}</span>
+                                </div>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={copyFriendCode}
+                                    className="p-3 border-2 border-purple-400 bg-purple-400/10 hover:bg-purple-400 hover:text-black transition-all"
+                                    style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 80%, 80% 100%, 0 100%, 0 20%)' }}
+                                >
+                                    <Copy weight="fill" className="w-5 h-5" />
+                                </motion.button>
                             </div>
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={copyFriendCode}
-                                className="p-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-400 hover:to-purple-400 rounded-lg transition-colors shadow-lg shadow-pink-500/30"
-                            >
-                                <Copy weight="fill" className="w-5 h-5 text-white" />
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                )}
+                        </motion.div>
+                    )}
 
-                <motion.div 
-                    className="space-y-3"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.7 }}
-                >
-                    <motion.button
-                        whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(6, 182, 212, 0.4)' }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => navigate('/room/matching')}
-                        className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/30 group"
-                    >
-                        <ArrowClockwise weight="bold" className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-                        Find New Match
-                    </motion.button>
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => navigate('/')}
-                        className="w-full py-4 bg-white/5 text-white font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/10"
-                    >
-                        <House weight="fill" className="w-5 h-5" />
-                        Return Home
-                    </motion.button>
-                </motion.div>
+                    {/* Actions */}
+                    <div className="space-y-3">
+                        <NeonButton onClick={() => navigate('/room/matching')} primary icon={ArrowClockwise}>
+                            New Connection
+                        </NeonButton>
+                        <NeonButton onClick={() => navigate('/')} icon={House}>
+                            Return to Base
+                        </NeonButton>
+                    </div>
+                </div>
             </motion.div>
         </div>
     );
