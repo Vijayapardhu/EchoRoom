@@ -1,8 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ThumbsUp, ThumbsDown, Home, RefreshCw, MessageSquare, UserPlus, Heart, Star, Share2, Copy } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Home, RefreshCw, MessageSquare, UserPlus, Heart, Star, Share2, Copy, Smile, Laugh, HelpCircle, Hand, Sparkles } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+
+// Custom styled emoji components
+const StyledEmoji = ({ children, gradient, icon: Icon }) => (
+    <div className={`w-full h-full rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+        <Icon className="w-5 h-5 text-white drop-shadow-lg" />
+    </div>
+);
+
+const emojiReactions = [
+    { id: 'happy', icon: Smile, gradient: 'from-yellow-400 to-orange-500', label: 'Happy' },
+    { id: 'laugh', icon: Laugh, gradient: 'from-amber-400 to-yellow-500', label: 'Funny' },
+    { id: 'thinking', icon: HelpCircle, gradient: 'from-blue-400 to-cyan-500', label: 'Interesting' },
+    { id: 'wave', icon: Hand, gradient: 'from-pink-400 to-rose-500', label: 'Goodbye' },
+    { id: 'love', icon: Heart, gradient: 'from-red-400 to-pink-500', label: 'Loved it' },
+];
 
 const PostChat = () => {
     const navigate = useNavigate();
@@ -110,23 +125,35 @@ const PostChat = () => {
 
                 {/* Quick Reactions */}
                 <motion.div 
-                    className="flex justify-center gap-2 mb-6"
+                    className="flex justify-center gap-3 mb-6"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.4 }}
                 >
-                    {['😊', '😂', '🤔', '👋', '❤️'].map((emoji, i) => (
+                    {emojiReactions.map((emoji, i) => (
                         <motion.button
-                            key={emoji}
+                            key={emoji.id}
                             initial={{ opacity: 0, scale: 0 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.4 + i * 0.05 }}
-                            whileHover={{ scale: 1.2, y: -3 }}
+                            transition={{ delay: 0.4 + i * 0.05, type: 'spring', stiffness: 400 }}
+                            whileHover={{ scale: 1.2, y: -5 }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => toast(emoji, { duration: 1000 })}
-                            className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-xl transition-all"
+                            onClick={() => toast(
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${emoji.gradient} flex items-center justify-center`}>
+                                        <emoji.icon className="w-3.5 h-3.5 text-white" />
+                                    </div>
+                                    <span>{emoji.label}</span>
+                                </div>,
+                                { duration: 1500 }
+                            )}
+                            className="group relative"
+                            title={emoji.label}
                         >
-                            {emoji}
+                            <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${emoji.gradient} flex items-center justify-center shadow-lg transition-shadow group-hover:shadow-xl`}>
+                                <emoji.icon className="w-5 h-5 text-white drop-shadow-md" />
+                            </div>
+                            <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${emoji.gradient} opacity-0 group-hover:opacity-40 blur-md transition-opacity`} />
                         </motion.button>
                     ))}
                 </motion.div>
