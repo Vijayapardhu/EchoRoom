@@ -20,37 +20,40 @@ export const WebRTCProvider = ({ children }) => {
 
     const webrtcManagerRef = useRef(null);
     const peerConnection = useRef(null);
+    const managerInitialized = useRef(false);
 
-    // Initialize WebRTC Manager
+    // Initialize WebRTC Manager - only once
     useEffect(() => {
-        if (!webrtcManagerRef.current) {
-            webrtcManagerRef.current = new WebRTCManager();
-            console.log('[WebRTCContext] WebRTCManager initialized');
+        if (managerInitialized.current) return;
+        
+        webrtcManagerRef.current = new WebRTCManager();
+        managerInitialized.current = true;
+        console.log('[WebRTCContext] WebRTCManager initialized');
 
-            // Set up event listeners
-            webrtcManagerRef.current.on('stateChange', ({ newState }) => {
-                console.log('[WebRTCContext] State changed to:', newState);
-                setConnectionState(newState);
-            });
+        // Set up event listeners
+        webrtcManagerRef.current.on('stateChange', ({ newState }) => {
+            console.log('[WebRTCContext] State changed to:', newState);
+            setConnectionState(newState);
+        });
 
-            webrtcManagerRef.current.on('remoteStream', (stream) => {
-                console.log('[WebRTCContext] Remote stream received');
-                setRemoteStream(stream);
-            });
+        webrtcManagerRef.current.on('remoteStream', (stream) => {
+            console.log('[WebRTCContext] Remote stream received');
+            setRemoteStream(stream);
+        });
 
-            webrtcManagerRef.current.on('error', (error) => {
-                console.error('[WebRTCContext] Error:', error);
-            });
+        webrtcManagerRef.current.on('error', (error) => {
+            console.error('[WebRTCContext] Error:', error);
+        });
 
-            webrtcManagerRef.current.on('stats', (stats) => {
-                setConnectionStats(stats);
-            });
-        }
+        webrtcManagerRef.current.on('stats', (stats) => {
+            setConnectionStats(stats);
+        });
 
         return () => {
             if (webrtcManagerRef.current) {
                 webrtcManagerRef.current.cleanup();
                 webrtcManagerRef.current = null;
+                managerInitialized.current = false;
             }
         };
     }, []);

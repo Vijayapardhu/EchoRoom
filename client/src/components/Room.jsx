@@ -141,11 +141,11 @@ const Room = () => {
                 }
             }
 
-            // Wait for local stream to be ready
+            // Wait for local stream to be ready - reduced delay for faster connection
             if (!localStream) {
                 console.log("Waiting for local stream before creating peer connection...");
-                // Wait a bit and retry
-                setTimeout(() => handleIsInitiator(isInitiator), 200);
+                // Wait a bit and retry - reduced to 100ms for faster connection
+                setTimeout(() => handleIsInitiator(isInitiator), 100);
                 return;
             }
 

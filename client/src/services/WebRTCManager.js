@@ -40,10 +40,13 @@ class WebRTCManager {
             stats: []
         };
 
-        // ICE servers configuration
+        // ICE servers configuration - multiple STUN servers for redundancy
         this.iceServers = iceServers || [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
         ];
 
         console.log('[WebRTCManager] Initialized');
@@ -57,7 +60,8 @@ class WebRTCManager {
             iceServers: this.iceServers,
             iceCandidatePoolSize: 10,
             bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require'
+            rtcpMuxPolicy: 'require',
+            iceTransportPolicy: 'all' // Use all available transports
         };
     }
 
