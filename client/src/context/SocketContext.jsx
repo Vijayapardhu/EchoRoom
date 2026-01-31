@@ -21,8 +21,11 @@ export const SocketProvider = ({ children }) => {
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 10,
-            reconnectionDelay: 1000,
-            timeout: 20000
+            reconnectionDelay: 500,
+            reconnectionDelayMax: 5000,
+            timeout: 10000,
+            forceNew: false,
+            autoConnect: true
         });
         
         socketRef.current = newSocket;

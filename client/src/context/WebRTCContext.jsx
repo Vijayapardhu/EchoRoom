@@ -21,6 +21,7 @@ export const WebRTCProvider = ({ children }) => {
     const webrtcManagerRef = useRef(null);
     const peerConnection = useRef(null);
     const peerConnections = useRef(new Map()); // For group calls: peerId -> RTCPeerConnection
+    const candidateQueues = useRef(new Map()); // For group calls: peerId -> candidate[]
     const managerInitialized = useRef(false);
 
     // Initialize WebRTC Manager - only once
@@ -104,8 +105,23 @@ export const WebRTCProvider = ({ children }) => {
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' },
+                // Free TURN servers for NAT traversal
+                {
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
             ],
-            iceCandidatePoolSize: 10,
+            iceCandidatePoolSize: 5,
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require'
         };
 
         const pc = new RTCPeerConnection(config);
@@ -156,6 +172,10 @@ export const WebRTCProvider = ({ children }) => {
         if (!pc) throw new Error('No peer connection for ' + peerId);
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        
+        // Process queued candidates after setting remote description
+        await processQueuedCandidatesForPeer(peerId);
+        
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         return answer;
@@ -169,7 +189,32 @@ export const WebRTCProvider = ({ children }) => {
         if (!pc) throw new Error('No peer connection for ' + peerId);
 
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        
+        // Process queued candidates after setting remote description
+        await processQueuedCandidatesForPeer(peerId);
     }, []);
+
+    /**
+     * Process queued ICE candidates for a peer
+     */
+    const processQueuedCandidatesForPeer = async (peerId) => {
+        const queue = candidateQueues.current.get(peerId);
+        const pc = peerConnections.current.get(peerId);
+        
+        if (!queue || !pc) return;
+        
+        console.log(`[WebRTCContext] Processing ${queue.length} queued candidates for peer:`, peerId);
+        
+        for (const candidate of queue) {
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+                console.warn('[WebRTCContext] Failed to add queued candidate:', e);
+            }
+        }
+        
+        candidateQueues.current.delete(peerId);
+    };
 
     /**
      * Add ICE candidate for a specific peer (group calls)
@@ -179,6 +224,16 @@ export const WebRTCProvider = ({ children }) => {
         if (!pc) return;
 
         try {
+            // Queue candidates if remote description isn't set yet
+            if (!pc.remoteDescription || !pc.remoteDescription.type) {
+                if (!candidateQueues.current.has(peerId)) {
+                    candidateQueues.current.set(peerId, []);
+                }
+                candidateQueues.current.get(peerId).push(candidate);
+                console.log('[WebRTCContext] Queued ICE candidate for peer:', peerId);
+                return;
+            }
+            
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {
             console.error('[WebRTCContext] Error adding ICE candidate for peer:', peerId, e);
@@ -193,6 +248,7 @@ export const WebRTCProvider = ({ children }) => {
         if (pc) {
             pc.close();
             peerConnections.current.delete(peerId);
+            candidateQueues.current.delete(peerId); // Also clear candidate queue
             console.log('[WebRTCContext] Removed peer connection for:', peerId);
         }
     }, []);

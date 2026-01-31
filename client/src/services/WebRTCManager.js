@@ -24,12 +24,13 @@ class WebRTCManager {
         this.mediaManager = new MediaManager();
         this.state = ConnectionState.IDLE;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 1000; // Start with 1 second
+        this.maxReconnectAttempts = 3; // Reduced for faster failover
+        this.reconnectDelay = 500; // Start with 500ms for faster retry
         this.reconnectTimer = null;
         this.iceConnectionCheckTimer = null;
         this.candidateQueue = []; // Queue for early ICE candidates
         this.statsInterval = null;
+        this.iceGatheringTimeout = null;
 
         // Event listeners
         this.listeners = {
@@ -40,16 +41,25 @@ class WebRTCManager {
             stats: []
         };
 
-        // ICE servers configuration - multiple STUN servers for redundancy
+        // ICE servers configuration - optimized for speed with TURN fallback
         this.iceServers = iceServers || [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' }
+            // Free TURN servers for NAT traversal
+            {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            }
         ];
 
-        console.log('[WebRTCManager] Initialized');
+        console.log('[WebRTCManager] Initialized with optimized ICE config');
     }
 
     /**
@@ -58,10 +68,10 @@ class WebRTCManager {
     getPeerConnectionConfig() {
         return {
             iceServers: this.iceServers,
-            iceCandidatePoolSize: 10,
+            iceCandidatePoolSize: 5, // Pre-gather candidates
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
-            iceTransportPolicy: 'all' // Use all available transports
+            iceTransportPolicy: 'all'
         };
     }
 
@@ -166,6 +176,16 @@ class WebRTCManager {
         this.peerConnection.onsignalingstatechange = () => {
             console.log('[WebRTCManager] Signaling state:', this.peerConnection.signalingState);
         };
+
+        // ICE gathering state handler for connection monitoring
+        this.peerConnection.onicegatheringstatechange = () => {
+            const gatheringState = this.peerConnection.iceGatheringState;
+            console.log('[WebRTCManager] ICE gathering state:', gatheringState);
+            
+            if (gatheringState === 'complete') {
+                console.log('[WebRTCManager] ICE gathering complete');
+            }
+        };
     }
 
     /**
@@ -186,12 +206,12 @@ class WebRTCManager {
         console.warn('[WebRTCManager] Connection disconnected');
 
         if (this.state === ConnectionState.CONNECTED) {
-            // Wait a moment for transient issues
+            // Wait briefly for transient issues (reduced from 1000ms)
             setTimeout(() => {
                 if (this.peerConnection && this.peerConnection.iceConnectionState === 'disconnected') {
                     this.attemptReconnection();
                 }
-            }, 1000);
+            }, 300);
         }
     }
 
@@ -227,8 +247,8 @@ class WebRTCManager {
             this.restartIce();
         }, this.reconnectDelay);
 
-        // Exponential backoff: 1s, 2s, 4s, 8s, 16s
-        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 16000);
+        // Exponential backoff: 500ms, 1s, 2s, 4s, 8s
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 8000);
     }
 
     /**
@@ -253,7 +273,7 @@ class WebRTCManager {
     }
 
     /**
-     * Create offer
+     * Create offer with optimized settings
      */
     async createOffer() {
         if (!this.peerConnection) {
@@ -262,8 +282,17 @@ class WebRTCManager {
 
         try {
             this.setState(ConnectionState.CONNECTING);
-            const offer = await this.peerConnection.createOffer();
+            
+            // Optimized offer options for faster connection
+            const offerOptions = {
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+                iceRestart: false
+            };
+            
+            const offer = await this.peerConnection.createOffer(offerOptions);
             await this.peerConnection.setLocalDescription(offer);
+            
             console.log('[WebRTCManager] Offer created');
             return offer;
         } catch (error) {
@@ -314,10 +343,16 @@ class WebRTCManager {
             this.setState(ConnectionState.CONNECTING);
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             
-            // Process any queued candidates now that we have a remote description
-            this.processCandidateQueue();
+            // Process any queued candidates immediately
+            await this.processCandidateQueue();
             
-            const answer = await this.peerConnection.createAnswer();
+            // Create answer with optimized options
+            const answerOptions = {
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            };
+            
+            const answer = await this.peerConnection.createAnswer(answerOptions);
             await this.peerConnection.setLocalDescription(answer);
             console.log('[WebRTCManager] Answer created');
             return answer;
