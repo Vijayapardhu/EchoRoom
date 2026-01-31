@@ -411,12 +411,22 @@ const Room = () => {
             toast('Partner disconnected', { icon: '👋' });
             playLeaveSound();
         };
+        
+        const handlePartnerLeft = ({ reason }) => {
+            console.log('[Room] Partner left, reason:', reason);
+            toast('Partner left the chat', { icon: '👋', duration: 2000 });
+            playLeaveSound();
+            cleanup();
+            // Navigate to post-chat or matching screen
+            navigate('/matching');
+        };
 
         // IMPORTANT: Set up ALL listeners FIRST
         socket.on('existing-peers', handleExistingPeers);
         socket.on('peer-joined', handlePeerJoined);
         socket.on('peer-left', handlePeerLeft);
         socket.on('peer-disconnected', handlePeerDisconnected);
+        socket.on('partner-left', handlePartnerLeft);
         socket.on('is-initiator', handleIsInitiator);
         socket.on('offer', handleOfferReceived);
         socket.on('answer', handleAnswerReceived);
@@ -434,13 +444,14 @@ const Room = () => {
             socket.off('peer-joined', handlePeerJoined);
             socket.off('peer-left', handlePeerLeft);
             socket.off('peer-disconnected', handlePeerDisconnected);
+            socket.off('partner-left', handlePartnerLeft);
             socket.off('is-initiator', handleIsInitiator);
             socket.off('offer', handleOfferReceived);
             socket.off('answer', handleAnswerReceived);
             socket.off('ice-candidate', handleIceCandidateReceived);
             socket.off('receive-reaction', handleReaction);
         };
-    }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection, peerConnection]);
+    }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection, peerConnection, cleanup, navigate]);
 
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
@@ -457,6 +468,13 @@ const Room = () => {
         cleanup();
         socket.emit('leave-room', roomId);
         navigate('/post-chat');
+    }, [cleanup, socket, roomId, navigate]);
+
+    const handleNext = useCallback(() => {
+        console.log('[Room] Next button clicked');
+        cleanup();
+        socket.emit('next', { roomId });
+        navigate('/matching');
     }, [cleanup, socket, roomId, navigate]);
 
     const sendReaction = useCallback((reaction) => {

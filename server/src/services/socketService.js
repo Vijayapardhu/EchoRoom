@@ -255,13 +255,43 @@ const socketService = (io) => {
             }
         });
 
+        // Handle "Next" button - skip to next match
+        socket.on('next', ({ roomId }) => {
+            console.log(`User ${socket.id} clicked Next in room ${roomId}`);
+            
+            // Notify partner that user left
+            socket.to(roomId).emit('partner-left', { reason: 'next' });
+            
+            // Leave the current room
+            socket.leave(roomId);
+            
+            // Clean up room state
+            roomsWithInitiator.delete(roomId);
+            if (roomConnectionStates.has(roomId)) {
+                roomConnectionStates.delete(roomId);
+            }
+            
+            // Clean up ICE candidate buffer
+            for (const [key] of iceCandidateBuffer.entries()) {
+                if (key.includes(roomId)) {
+                    iceCandidateBuffer.delete(key);
+                }
+            }
+            
+            // Remove from matching queue if was waiting
+            matchingService.removeUserFromQueue(socket.id);
+            pendingMatches.delete(socket.id);
+        });
+
         // Handle leaving a room
         socket.on('leave-room', (roomId) => {
             console.log(`User ${socket.id} leaving room ${roomId}`);
             socket.leave(roomId);
             socket.to(roomId).emit('peer-disconnected');
+            socket.to(roomId).emit('partner-left', { reason: 'leave' });
             
             // Clean up room state
+            roomsWithInitiator.delete(roomId);
             if (roomConnectionStates.has(roomId)) {
                 roomConnectionStates.get(roomId).delete(socket.id);
                 if (roomConnectionStates.get(roomId).size === 0) {

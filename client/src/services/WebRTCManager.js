@@ -8,6 +8,7 @@
  */
 
 import MediaManager from './MediaManager';
+import { ICE_SERVERS, PEER_CONFIG, MEDIA_CONSTRAINTS, CONNECTION_SETTINGS } from '../config/webrtc.config';
 
 // Connection states
 export const ConnectionState = {
@@ -65,47 +66,8 @@ class WebRTCManager {
             iceRestart: []
         };
 
-        // Optimized ICE servers configuration - using reliable free TURN servers
-        this.iceServers = iceServers || [
-            // Google's public STUN servers (most reliable)
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            // Twilio's STUN server
-            { urls: 'stun:global.stun.twilio.com:3478' },
-            // Metered.ca free TURN servers (reliable)
-            {
-                urls: 'turn:a.relay.metered.ca:80',
-                username: 'e8dd65c92eb0fb1e27f3b6c4',
-                credential: 'u/LHJ+nC+RxSWmup'
-            },
-            {
-                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-                username: 'e8dd65c92eb0fb1e27f3b6c4',
-                credential: 'u/LHJ+nC+RxSWmup'
-            },
-            {
-                urls: 'turn:a.relay.metered.ca:443',
-                username: 'e8dd65c92eb0fb1e27f3b6c4',
-                credential: 'u/LHJ+nC+RxSWmup'
-            },
-            {
-                urls: 'turn:a.relay.metered.ca:443?transport=tcp',
-                username: 'e8dd65c92eb0fb1e27f3b6c4',
-                credential: 'u/LHJ+nC+RxSWmup'
-            },
-            {
-                urls: 'turns:a.relay.metered.ca:443',
-                username: 'e8dd65c92eb0fb1e27f3b6c4',
-                credential: 'u/LHJ+nC+RxSWmup'
-            },
-            // OpenRelay backup
-            {
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            }
-        ];
+        // Use centralized ICE servers configuration
+        this.iceServers = iceServers || ICE_SERVERS;
 
         console.log('[WebRTCManager] Initialized with enhanced ICE config');
     }
@@ -140,11 +102,8 @@ class WebRTCManager {
      */
     getPeerConnectionConfig() {
         return {
-            iceServers: this.iceServers,
-            iceCandidatePoolSize: 5, // Reduced for faster gathering
-            bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require',
-            iceTransportPolicy: 'all'
+            ...PEER_CONFIG,
+            iceServers: this.iceServers // Allow override with custom servers
         };
     }
 
@@ -155,20 +114,8 @@ class WebRTCManager {
         try {
             console.log('[WebRTCManager] Initializing media with optimized constraints...');
             
-            // Optimized constraints for faster connection
-            const defaultConstraints = {
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                },
-                video: {
-                    width: { ideal: 1280, max: 1920 },
-                    height: { ideal: 720, max: 1080 },
-                    frameRate: { ideal: 30, max: 30 },
-                    facingMode: 'user'
-                }
-            };
+            // Use centralized media constraints
+            const defaultConstraints = MEDIA_CONSTRAINTS;
 
             const stream = await this.mediaManager.initializeStream(constraints || defaultConstraints);
             console.log('[WebRTCManager] Media initialized successfully with tracks:', 

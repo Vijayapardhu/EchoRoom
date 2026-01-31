@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import WebRTCManager, { ConnectionState } from '../services/WebRTCManager';
+import { PEER_CONFIG } from '../config/webrtc.config';
 
 const WebRTCContext = createContext();
 
@@ -152,47 +153,8 @@ export const WebRTCProvider = ({ children }) => {
             peerConnections.current.delete(peerId);
         }
 
-        const config = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' },
-                // Metered.ca free TURN servers (reliable)
-                {
-                    urls: 'turn:a.relay.metered.ca:80',
-                    username: 'e8dd65c92eb0fb1e27f3b6c4',
-                    credential: 'u/LHJ+nC+RxSWmup'
-                },
-                {
-                    urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-                    username: 'e8dd65c92eb0fb1e27f3b6c4',
-                    credential: 'u/LHJ+nC+RxSWmup'
-                },
-                {
-                    urls: 'turn:a.relay.metered.ca:443',
-                    username: 'e8dd65c92eb0fb1e27f3b6c4',
-                    credential: 'u/LHJ+nC+RxSWmup'
-                },
-                {
-                    urls: 'turn:a.relay.metered.ca:443?transport=tcp',
-                    username: 'e8dd65c92eb0fb1e27f3b6c4',
-                    credential: 'u/LHJ+nC+RxSWmup'
-                },
-                {
-                    urls: 'turns:a.relay.metered.ca:443',
-                    username: 'e8dd65c92eb0fb1e27f3b6c4',
-                    credential: 'u/LHJ+nC+RxSWmup'
-                }
-            ],
-            iceCandidatePoolSize: 10,
-            bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require'
-        };
-
-        const pc = new RTCPeerConnection(config);
+        // Use centralized config for consistency
+        const pc = new RTCPeerConnection(PEER_CONFIG);
 
         // Add local tracks
         if (localStream) {
