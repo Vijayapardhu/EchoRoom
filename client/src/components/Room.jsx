@@ -91,11 +91,22 @@ const Room = () => {
 
     const preferences = location.state || {};
 
-    // Check if this is a group room
+    // Check if this is a group room and reset connection state on roomId change
     useEffect(() => {
         if (roomId && roomId.startsWith('group-')) {
             setIsGroupCall(true);
+        } else {
+            setIsGroupCall(false);
         }
+        
+        // Reset initiator flag for new room connections
+        initiatorHandledRef.current = false;
+        console.log('[Room] Room changed, reset initiatorHandledRef');
+        
+        return () => {
+            // Cleanup on room change
+            initiatorHandledRef.current = false;
+        };
     }, [roomId]);
 
     // Initialize local media stream
@@ -173,7 +184,10 @@ const Room = () => {
         setReconnectAttempts(prev => prev + 1);
         
         try {
-            console.log(`Reconnect attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}`);
+            console.log(`[Room] Reconnect attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}`);
+            
+            // Reset initiator flag to allow new connection
+            initiatorHandledRef.current = false;
             
             // Clean up existing connections
             cleanup();
@@ -183,13 +197,14 @@ const Room = () => {
             
             // Rejoin the room
             if (socket && roomId) {
+                console.log('[Room] Rejoining room:', roomId);
                 socket.emit('join-room', { roomId, userName });
                 toast.success("Reconnected successfully!");
                 setIsReconnecting(false);
                 setReconnectAttempts(0);
             }
         } catch (err) {
-            console.error("Reconnect failed:", err);
+            console.error('[Room] Reconnect failed:', err);
             toast.error(`Reconnect attempt ${reconnectAttempts + 1} failed`);
             
             // Schedule next attempt with exponential backoff
@@ -301,33 +316,47 @@ const Room = () => {
 
         // Handle WebRTC initiator role (1-on-1 only)
         const handleIsInitiator = async (isInitiator) => {
-            if (isGroupCall) return; // Skip for group calls
+            if (isGroupCall) {
+                console.log('[Room] Skipping is-initiator for group call');
+                return;
+            }
             
-            console.log("Is initiator:", isInitiator);
+            console.log('[Room] Is initiator:', isInitiator, 'handled:', initiatorHandledRef.current);
 
             if (initiatorHandledRef.current) {
-                console.log("Initiator already handled, skipping");
+                console.log('[Room] Initiator already handled, skipping');
                 return;
             }
 
             setIsSearching(false);
 
+            // Check if peer connection already exists and is active
             if (peerConnection.current) {
                 const state = peerConnection.current.connectionState;
+                const iceState = peerConnection.current.iceConnectionState;
+                console.log('[Room] Existing connection state:', state, 'ICE state:', iceState);
+                
                 if (state === 'connected' || state === 'connecting') {
-                    console.log("Peer connection already active, skipping creation");
+                    console.log('[Room] Peer connection already active, skipping creation');
+                    initiatorHandledRef.current = true;
                     return;
+                }
+                
+                // Close stale connection
+                if (state === 'failed' || state === 'closed' || iceState === 'failed') {
+                    console.log('[Room] Closing stale peer connection');
+                    closeConnection();
                 }
             }
 
             if (!localStream) {
-                console.log("Waiting for local stream before creating peer connection...");
-                setTimeout(() => handleIsInitiator(isInitiator), 100);
-                return;
+                console.log('[Room] Waiting for local stream before creating peer connection...');
+                const retryTimeout = setTimeout(() => handleIsInitiator(isInitiator), 200);
+                return () => clearTimeout(retryTimeout);
             }
 
             initiatorHandledRef.current = true;
-            console.log("Local stream ready, proceeding with peer connection");
+            console.log('[Room] Local stream ready, proceeding with peer connection');
 
             const handleIceCandidate = (candidate) => {
                 socket.emit('ice-candidate', { roomId, candidate });
@@ -337,11 +366,18 @@ const Room = () => {
 
             if (isInitiator) {
                 try {
+                    console.log('[Room] Creating offer as initiator...');
                     const offer = await createOffer();
+                    console.log('[Room] Offer created, emitting to room:', roomId);
                     socket.emit('offer', { roomId, offer });
                 } catch (err) {
-                    console.error("Error creating offer:", err);
+                    console.error('[Room] Error creating offer:', err);
+                    initiatorHandledRef.current = false; // Allow retry
+                    toast.error('Connection failed. Retrying...');
+                    setTimeout(() => handleIsInitiator(isInitiator), 1000);
                 }
+            } else {
+                console.log('[Room] Waiting for offer as receiver...');
             }
         };
 
@@ -381,19 +417,26 @@ const Room = () => {
                 }
             } else {
                 // 1-on-1 call
+                console.log('[Room] Handling offer for 1-on-1 call');
+                
                 if (!peerConnection.current) {
+                    console.log('[Room] Creating peer connection for received offer');
                     const handleIceCandidate = (candidate) => {
                         socket.emit('ice-candidate', { roomId, candidate });
                     };
                     createPeerConnection(handleIceCandidate);
                 }
 
-            try {
-                const answer = await handleOffer(offer);
-                socket.emit('answer', { roomId, answer });
-            } catch (err) {
-                console.error("Error handling offer:", err);
-            }
+                try {
+                    console.log('[Room] Creating answer...');
+                    const answer = await handleOffer(offer);
+                    console.log('[Room] Answer created, sending to peer');
+                    socket.emit('answer', { roomId, answer });
+                    initiatorHandledRef.current = true; // Mark as handled
+                } catch (err) {
+                    console.error('[Room] Error handling offer:', err);
+                    toast.error('Failed to connect. Please try reconnecting.');
+                }
             }
         };
 

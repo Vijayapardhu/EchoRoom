@@ -66,15 +66,34 @@ export const WebRTCProvider = ({ children }) => {
     const startLocalStream = useCallback(async (constraints = null) => {
         try {
             console.log('[WebRTCContext] Starting local stream...');
+            
+            // Check if we already have an active stream
+            if (localStream) {
+                const tracks = localStream.getTracks();
+                const allActive = tracks.every(track => track.readyState === 'live');
+                if (allActive && tracks.length > 0) {
+                    console.log('[WebRTCContext] Reusing existing active stream');
+                    return localStream;
+                }
+                // Clean up dead stream
+                console.log('[WebRTCContext] Existing stream is dead, getting new stream');
+                tracks.forEach(track => track.stop());
+            }
+            
+            if (!webrtcManagerRef.current) {
+                console.error('[WebRTCContext] WebRTC manager not initialized');
+                throw new Error('WebRTC manager not initialized');
+            }
+            
             const stream = await webrtcManagerRef.current.initializeMedia(constraints);
             setLocalStream(stream);
-            console.log('[WebRTCContext] Local stream started');
+            console.log('[WebRTCContext] Local stream started with tracks:', stream.getTracks().map(t => t.kind));
             return stream;
         } catch (error) {
             console.error('[WebRTCContext] Failed to start local stream:', error);
             throw error;
         }
-    }, []);
+    }, [localStream]);
 
     /**
      * Create peer connection
@@ -443,6 +462,7 @@ export const WebRTCProvider = ({ children }) => {
         }
         peerConnection.current = null;
         setRemoteStream(null);
+        setConnectionState(ConnectionState.IDLE);
     }, []);
 
     /**
@@ -451,7 +471,8 @@ export const WebRTCProvider = ({ children }) => {
     const resetPeerConnection = useCallback(() => {
         console.log('[WebRTCContext] Resetting peer connection...');
         closeConnection();
-        setConnectionState(ConnectionState.IDLE);
+        // Clear all candidate queues
+        candidateQueues.current.clear();
     }, [closeConnection]);
 
     /**
