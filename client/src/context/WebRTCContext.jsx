@@ -16,6 +16,7 @@ export const WebRTCProvider = ({ children }) => {
     const [remoteStream, setRemoteStream] = useState(null);
     const [connectionState, setConnectionState] = useState(ConnectionState.IDLE);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [connectionStats, setConnectionStats] = useState({ rtt: 0, packetsLost: 0 });
 
     const webrtcManagerRef = useRef(null);
     const peerConnection = useRef(null);
@@ -39,6 +40,10 @@ export const WebRTCProvider = ({ children }) => {
 
             webrtcManagerRef.current.on('error', (error) => {
                 console.error('[WebRTCContext] Error:', error);
+            });
+
+            webrtcManagerRef.current.on('stats', (stats) => {
+                setConnectionStats(stats);
             });
         }
 
@@ -270,6 +275,9 @@ export const WebRTCProvider = ({ children }) => {
         console.log('[WebRTCContext] Cleaning up...');
         if (webrtcManagerRef.current) {
             webrtcManagerRef.current.cleanup();
+            // Re-initialize manager for next use? No, wait for mount.
+            // But we need to make sure the ref is ready if we remount.
+            // For now, cleanup stops tracks.
         }
         setLocalStream(null);
         setRemoteStream(null);
@@ -302,6 +310,7 @@ export const WebRTCProvider = ({ children }) => {
         closeConnection,
         resetPeerConnection,
         cleanup,
+        connectionStats,
 
         // Manager access
         webrtcManager: webrtcManagerRef.current

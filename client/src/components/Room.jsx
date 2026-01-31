@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { useWebRTC } from '../context/WebRTCContext';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Flag, MessageSquare, Monitor, MonitorOff, SkipForward, Loader2, RefreshCcw } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Flag, MessageSquare, Monitor, MonitorOff, SkipForward, Loader2, RefreshCcw, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import PanicButton from './safety/PanicButton';
@@ -28,6 +28,7 @@ const Room = () => {
         addIceCandidate,
         closeConnection,
         resetPeerConnection,
+        cleanup, // Get cleanup from context
         peerConnection,
         startScreenShare,
         stopScreenShare,
@@ -52,6 +53,9 @@ const Room = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [permissionError, setPermissionError] = useState(null);
     const [isNextDisabled, setIsNextDisabled] = useState(false);
+    
+    // Video aspect ratio control
+    const [videoFit, setVideoFit] = useState('cover'); // 'cover' | 'contain'
 
     const preferences = location.state || {};
 
@@ -73,7 +77,13 @@ const Room = () => {
             }
         };
         initMedia();
-    }, [startLocalStream]);
+
+        return () => {
+             // Ensure tracks are stopped when leaving the room page
+             console.log("Room unmounting, cleaning up...");
+             cleanup(); 
+        };
+    }, []); // Empty dependency array: run once on mount, cleanup on unmount
 
     // Attach local stream to video element
     useEffect(() => {
@@ -415,15 +425,30 @@ const Room = () => {
             </AnimatePresence>
 
             {/* Main Video Area */}
-            <div className="flex-1 relative w-full h-full">
+            <div className="flex-1 relative w-full h-full bg-black">
                 {/* Remote Video */}
                 <video
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
                     muted={false}
-                    className={`w-full h-full object-cover ${remoteVideoOff || mode === 'text' ? 'hidden' : ''}`}
+                    className={`w-full h-full ${videoFit === 'cover' ? 'object-cover' : 'object-contain'} transition-all duration-300 ${remoteVideoOff || mode === 'text' ? 'hidden' : ''}`}
                 />
+
+                {/* Video Fit Toggle (Overlay on Remote Video) */}
+                {!remoteVideoOff && mode === 'video' && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setVideoFit(prev => prev === 'cover' ? 'contain' : 'cover');
+                        }}
+                        className="absolute bottom-6 left-6 p-2 rounded-full bg-black/40 backdrop-blur-md text-white/70 hover:text-white hover:bg-black/60 transition-all z-20"
+                        title={videoFit === 'cover' ? "Show Full Video" : "Fill Screen"}
+                    >
+                        {videoFit === 'cover' ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                    </button>
+                )}
+
                 {/* Remote Video Placeholder */}
                 {(remoteVideoOff || mode === 'text') && (
                     <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">

@@ -19,8 +19,8 @@ class MediaManager {
     getDefaultConstraints() {
         return {
             video: {
-                width: { ideal: 1280, max: 1920 },
-                height: { ideal: 720, max: 1080 },
+                width: { ideal: 1920, max: 3840, min: 1280 },
+                height: { ideal: 1080, max: 2160, min: 720 },
                 frameRate: { ideal: 30, max: 60 },
                 facingMode: 'user'
             },

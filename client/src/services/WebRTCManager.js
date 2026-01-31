@@ -29,13 +29,15 @@ class WebRTCManager {
         this.reconnectTimer = null;
         this.iceConnectionCheckTimer = null;
         this.candidateQueue = []; // Queue for early ICE candidates
+        this.statsInterval = null;
 
         // Event listeners
         this.listeners = {
             stateChange: [],
             remoteStream: [],
             iceCandidate: [],
-            error: []
+            error: [],
+            stats: []
         };
 
         // ICE servers configuration
@@ -84,6 +86,11 @@ class WebRTCManager {
             this.closePeerConnection();
         }
 
+        if (this.statsInterval) {
+            clearInterval(this.statsInterval);
+            this.statsInterval = null;
+        }
+
         console.log('[WebRTCManager] Creating new peer connection');
         this.peerConnection = new RTCPeerConnection(this.getPeerConnectionConfig());
 
@@ -99,8 +106,9 @@ class WebRTCManager {
         }
 
         // Set up event handlers
-        this.setupPeerConnectionHandlers();
-
+        this.setupPeerConnectionHandlers();        
+        // Start stats monitoring
+        this.startStatsMonitoring();
         return this.peerConnection;
     }
 
@@ -269,9 +277,19 @@ class WebRTCManager {
 
         console.log(`[WebRTCManager] Processing ${this.candidateQueue.length} queued candidates`);
         
+        // Use a copy to iterate, but we shift one by one in case of errors
+        // Wait for connection to be stable enough?
+        // Candidates can be added when remote description is set.
+        
         while (this.candidateQueue.length > 0) {
             const candidate = this.candidateQueue.shift();
             try {
+                // Check if connection is still valid
+                if (!this.peerConnection || this.peerConnection.signalingState === 'closed') {
+                    console.warn('[WebRTCManager] Peer connection closed while processing queue');
+                    break;
+                }
+                
                 await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                 console.log('[WebRTCManager] Queued ICE candidate added');
             } catch (error) {
@@ -336,7 +354,7 @@ class WebRTCManager {
             return;
         }
 
-        if (!this.peerConnection.remoteDescription) {
+        if (!this.peerConnection.remoteDescription || !this.peerConnection.remoteDescription.type) {
             console.warn('[WebRTCManager] No remote description set, queuing ICE candidate');
             this.candidateQueue.push(candidate);
             return;
@@ -348,6 +366,36 @@ class WebRTCManager {
         } catch (error) {
             console.error('[WebRTCManager] Failed to add ICE candidate:', error);
         }
+    }
+
+    /**
+     * Start monitoring connection stats
+     */
+    startStatsMonitoring() {
+        if (this.statsInterval) clearInterval(this.statsInterval);
+
+        this.statsInterval = setInterval(async () => {
+            if (!this.peerConnection || this.peerConnection.connectionState !== 'connected') return;
+
+            try {
+                const stats = await this.peerConnection.getStats();
+                let rtt = 0;
+                let packetsLost = 0;
+
+                stats.forEach(report => {
+                    if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
+                        rtt = report.currentRoundTripTime * 1000; // Convert to ms
+                    }
+                    if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                        packetsLost = report.packetsLost || 0;
+                    }
+                });
+
+                this.emit('stats', { rtt, packetsLost });
+            } catch (err) {
+                // silently fail for stats
+            }
+        }, 2000);
     }
 
     /**
@@ -371,7 +419,7 @@ class WebRTCManager {
         this.closePeerConnection();
         this.mediaManager.cleanup();
         this.clearReconnectTimer();
-        this.listeners = { stateChange: [], remoteStream: [], iceCandidate: [], error: [] };
+        this.listeners = { stateChange: [], remoteStream: [], iceCandidate: [], error: [], stats: [] };
     }
 
     /**
