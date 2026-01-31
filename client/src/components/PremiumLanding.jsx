@@ -17,7 +17,9 @@ import {
     Envelope,
     FileText,
     Shield,
-    GithubLogo
+    GithubLogo,
+    ChatCircleText,
+    Info
 } from '@phosphor-icons/react';
 import StarField from './StarField';
 import Footer from './Footer';
@@ -229,6 +231,16 @@ const PremiumLanding = () => {
     const heroRef = useRef(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
     const [activeModal, setActiveModal] = useState(null);
+    
+    // Create Room modal state
+    const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+    const [createRoomInterests, setCreateRoomInterests] = useState([]);
+    const [createRoomMode, setCreateRoomMode] = useState('video'); // 'video' or 'text'
+    const availableInterests = [
+        'Technology', 'Music', 'Sports', 'Gaming', 'Art', 'Movies',
+        'Travel', 'Food', 'Books', 'Science', 'Photography', 'Business',
+        'Fashion', 'Fitness', 'Education', 'Politics', 'History', 'Nature'
+    ];
 
     const { scrollYProgress } = useScroll();
     const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
@@ -280,9 +292,30 @@ const PremiumLanding = () => {
         navigate('/matching', { state: { mode: 'video', interests: [] } });
     };
 
-    const createRoom = () => {
+    const openCreateRoomModal = () => {
+        setShowCreateRoomModal(true);
+    };
+
+    const handleCreateRoom = () => {
         const roomId = Math.random().toString(36).substring(2, 9);
-        navigate(`/room/${roomId}`, { state: { mode: 'video', isHost: true } });
+        const roomType = createRoomMode === 'text' ? 'group-text-' : 'group-';
+        const fullRoomId = `${roomType}${roomId}`;
+        navigate(`/room/${fullRoomId}`, { 
+            state: { 
+                mode: createRoomMode, 
+                isHost: true, 
+                interests: createRoomInterests 
+            } 
+        });
+        setShowCreateRoomModal(false);
+    };
+
+    const toggleCreateRoomInterest = (interest) => {
+        setCreateRoomInterests(prev => 
+            prev.includes(interest) 
+                ? prev.filter(i => i !== interest)
+                : [...prev, interest]
+        );
     };
 
     const openModal = (modal) => {
@@ -409,7 +442,7 @@ const PremiumLanding = () => {
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={createRoom}
+                            onClick={openCreateRoomModal}
                             className="flex items-center gap-3 px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-semibold transition-all"
                         >
                             <Users weight="fill" className="w-5 h-5" />
@@ -711,6 +744,125 @@ const PremiumLanding = () => {
             >
                 <ContactContent />
             </PageModal>
+
+            {/* Create Room Modal */}
+            <AnimatePresence>
+                {showCreateRoomModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                        onClick={() => setShowCreateRoomModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            onClick={e => e.stopPropagation()}
+                            className="relative w-full max-w-md bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden"
+                        >
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                                <div className="flex items-center gap-2">
+                                    <Users weight="fill" className="w-5 h-5 text-violet-400" />
+                                    <h2 className="text-xl font-bold text-white">Create Room</h2>
+                                </div>
+                                <button
+                                    onClick={() => setShowCreateRoomModal(false)}
+                                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                                >
+                                    <X weight="bold" className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-6 space-y-6">
+                                {/* Mode Selection */}
+                                <div>
+                                    <label className="text-sm text-white/60 mb-3 block">Room Type</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => setCreateRoomMode('video')}
+                                            className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+                                                createRoomMode === 'video' 
+                                                    ? 'bg-blue-500/10 border-blue-500/50 text-blue-400' 
+                                                    : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <VideoCamera weight="fill" className="w-5 h-5" />
+                                            <span className="font-medium">Video Chat</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setCreateRoomMode('text')}
+                                            className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+                                                createRoomMode === 'text' 
+                                                    ? 'bg-violet-500/10 border-violet-500/50 text-violet-400' 
+                                                    : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <ChatCircleText weight="fill" className="w-5 h-5" />
+                                            <span className="font-medium">Text Only</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Interests Selection */}
+                                <div>
+                                    <label className="text-sm text-white/60 mb-3 block">
+                                        Select Interests 
+                                        <span className="text-white/30 ml-1">(optional)</span>
+                                    </label>
+                                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto py-2">
+                                        {availableInterests.map((interest) => (
+                                            <motion.button
+                                                key={interest}
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => toggleCreateRoomInterest(interest)}
+                                                className={`
+                                                    px-4 py-2 rounded-full text-sm font-medium transition-all
+                                                    ${createRoomInterests.includes(interest) 
+                                                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' 
+                                                        : 'bg-white/5 text-white/60 hover:bg-white/10 border border-white/10'
+                                                    }
+                                                `}
+                                            >
+                                                {interest}
+                                            </motion.button>
+                                        ))}
+                                    </div>
+                                    {createRoomInterests.length > 0 && (
+                                        <p className="text-sm text-blue-400 mt-2">
+                                            {createRoomInterests.length} interest{createRoomInterests.length !== 1 ? 's' : ''} selected
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Info */}
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                    <div className="flex items-start gap-3">
+                                        <Info weight="fill" className="w-5 h-5 text-blue-400 mt-0.5" />
+                                        <div className="text-sm text-white/60">
+                                            <p className="mb-1">You'll get a unique room link to share with friends.</p>
+                                            <p>People with matching interests will be prioritized.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Create Button */}
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={handleCreateRoom}
+                                    className="w-full py-4 bg-gradient-to-r from-blue-500 to-violet-500 rounded-2xl font-semibold text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all"
+                                >
+                                    Create Room
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

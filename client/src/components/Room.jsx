@@ -315,7 +315,13 @@ const Room = () => {
         if (roomId && roomId.startsWith('group-')) {
             setIsGroupCall(true);
         }
+        // Reset all state when room changes
         initiatorHandledRef.current = false;
+        setPendingInitiatorRole(null);
+        setGroupPeers([]);
+        setRemotePeerInfo(null);
+        setIsMuted(false);
+        setIsVideoOff(false);
     }, [roomId]);
 
     useEffect(() => {
@@ -603,18 +609,33 @@ const Room = () => {
         socket.emit('toggle-video', { roomId, isVideoOff: !isEnabled });
     }, [toggleVideo, socket, roomId]);
 
+    const resetRoomState = useCallback(() => {
+        console.log('[Room] Resetting room state...');
+        initiatorHandledRef.current = false;
+        setPendingInitiatorRole(null);
+        setIsMuted(false);
+        setIsVideoOff(false);
+        setGroupPeers([]);
+        setRemotePeerInfo(null);
+        setRemoteReaction(null);
+        setFloatingReactions([]);
+    }, []);
+
     const handleLeaveRoom = useCallback(() => {
+        console.log('[Room] Leaving room...');
         cleanup();
         socket.emit('leave-room', roomId);
+        resetRoomState();
         navigate('/post-chat');
-    }, [cleanup, socket, roomId, navigate]);
+    }, [cleanup, socket, roomId, navigate, resetRoomState]);
 
     const handleNext = useCallback(() => {
         console.log('[Room] Next button clicked');
         cleanup();
         socket.emit('next', { roomId });
+        resetRoomState();
         navigate('/matching');
-    }, [cleanup, socket, roomId, navigate]);
+    }, [cleanup, socket, roomId, navigate, resetRoomState]);
 
     const sendReaction = useCallback((reaction) => {
         const id = Date.now();
