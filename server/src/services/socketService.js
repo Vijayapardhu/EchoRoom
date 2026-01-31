@@ -202,6 +202,7 @@ const socketService = (io) => {
             socket.join(roomId);
 
             const room = io.sockets.adapter.rooms.get(roomId);
+            console.log(`[Room ${roomId}] Current size: ${room?.size || 0}`);
             
             // Check if this is a group room
             if (roomId.startsWith('group-')) {
@@ -223,20 +224,33 @@ const socketService = (io) => {
                     // Only emit is-initiator if not already done for this room
                     if (!roomsWithInitiator.has(roomId)) {
                         const clients = Array.from(room);
-                        console.log(`Room ${roomId} full. Starting WebRTC handshake.`);
+                        console.log(`[WebRTC] Room ${roomId} ready with 2 peers. Assigning roles...`);
 
-                        // Deterministically pick initiator
+                        // Sort to deterministically pick initiator (alphabetically)
+                        clients.sort();
                         const initiator = clients[0];
                         const receiver = clients[1];
 
-                        io.to(initiator).emit('is-initiator', true);
-                        io.to(receiver).emit('is-initiator', false);
+                        console.log(`[WebRTC] Initiator: ${initiator}, Receiver: ${receiver}`);
+
+                        // Emit to both peers with a small delay to ensure they're ready
+                        setTimeout(() => {
+                            io.to(initiator).emit('is-initiator', true);
+                            io.to(receiver).emit('is-initiator', false);
+                            console.log(`[WebRTC] Roles assigned for room ${roomId}`);
+                        }, 500);
 
                         // Mark this room as having assigned initiators
                         roomsWithInitiator.add(roomId);
                     } else {
-                        console.log(`Room ${roomId} already has initiators, skipping`);
+                        console.log(`[WebRTC] Room ${roomId} already has initiators, skipping`);
                     }
+                } else if (room && room.size > 2) {
+                    // Room is full, notify the new joiner
+                    console.log(`[Room ${roomId}] Room is full (${room.size} users)`);
+                    socket.emit('room-full', { message: 'Room is already full' });
+                } else {
+                    console.log(`[Room ${roomId}] Waiting for peer... (${room?.size || 0}/2)`);
                 }
             }
         });

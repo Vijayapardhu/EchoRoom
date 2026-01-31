@@ -65,27 +65,43 @@ class WebRTCManager {
             iceRestart: []
         };
 
-        // Optimized ICE servers configuration - prioritize faster options
+        // Optimized ICE servers configuration - using reliable free TURN servers
         this.iceServers = iceServers || [
             // Google's public STUN servers (most reliable)
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
             // Twilio's STUN server
             { urls: 'stun:global.stun.twilio.com:3478' },
-            // Free TURN servers for NAT traversal
+            // Metered.ca free TURN servers (reliable)
             {
-                urls: [
-                    'turn:openrelay.metered.ca:80',
-                    'turn:openrelay.metered.ca:443'
-                ],
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
+                urls: 'turn:a.relay.metered.ca:80',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
             },
             {
-                urls: [
-                    'turn:openrelay.metered.ca:80?transport=tcp',
-                    'turn:openrelay.metered.ca:443?transport=tcp'
-                ],
+                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:443',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            {
+                urls: 'turns:a.relay.metered.ca:443',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            // OpenRelay backup
+            {
+                urls: 'turn:openrelay.metered.ca:80',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             }

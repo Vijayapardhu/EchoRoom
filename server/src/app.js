@@ -28,32 +28,60 @@ app.get('/health', (req, res) => {
     });
 });
 
-// WebRTC TURN server credentials endpoint (if using your own TURN server)
+// WebRTC TURN server credentials endpoint
+// Using multiple free TURN providers for reliability
 app.get('/api/turn-credentials', (req, res) => {
-    // Return TURN server credentials
-    // In production, generate time-limited credentials
+    // Multiple TURN server options for maximum reliability
+    // These are free tier servers - for production, consider paid TURN services
     res.json({
         iceServers: [
+            // STUN servers (free, unlimited)
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
             { urls: 'stun:global.stun.twilio.com:3478' },
+            { urls: 'stun:stun.stunprotocol.org:3478' },
+            // Metered.ca free TURN servers (more reliable)
             {
-                urls: [
-                    'turn:openrelay.metered.ca:80',
-                    'turn:openrelay.metered.ca:443'
-                ],
+                urls: 'turn:a.relay.metered.ca:80',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:443',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            {
+                urls: 'turns:a.relay.metered.ca:443',
+                username: 'e8dd65c92eb0fb1e27f3b6c4',
+                credential: 'u/LHJ+nC+RxSWmup'
+            },
+            // OpenRelay backup (less reliable but free)
+            {
+                urls: 'turn:openrelay.metered.ca:80',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             },
             {
-                urls: [
-                    'turn:openrelay.metered.ca:80?transport=tcp',
-                    'turn:openrelay.metered.ca:443?transport=tcp'
-                ],
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             }
-        ]
+        ],
+        ttl: 86400 // 24 hour TTL
     });
 });
 

@@ -141,6 +141,7 @@ const Room = () => {
         toggleAudio,
         isScreenSharing,
         connectionStats,
+        peerConnection,
     } = useWebRTC();
 
     const localVideoRef = useRef(null);
@@ -191,6 +192,10 @@ const Room = () => {
     useEffect(() => {
         if (localVideoRef.current && localStream) {
             localVideoRef.current.srcObject = localStream;
+            // Ensure video plays after setting stream
+            localVideoRef.current.play().catch(err => {
+                console.log('Local video play failed:', err);
+            });
         }
     }, [localStream]);
 
@@ -365,7 +370,7 @@ const Room = () => {
             socket.off('ice-candidate', handleIceCandidateReceived);
             socket.off('receive-reaction', handleReaction);
         };
-    }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection]);
+    }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection, peerConnection]);
 
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
@@ -440,17 +445,26 @@ const Room = () => {
                     dragElastic={0.1}
                     className="absolute bottom-24 right-4 z-30 w-36 h-48 md:w-44 md:h-56 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move"
                 >
-                    <video
-                        ref={localVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
-                        style={{ transform: 'scaleX(-1)' }}
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                        <span className="text-xs font-medium text-white">{userName || 'You'}</span>
-                    </div>
+                    {!localStream ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
+                            <Spinner weight="bold" className="w-8 h-8 animate-spin text-blue-400 mb-2" />
+                            <span className="text-xs text-white/50">Camera...</span>
+                        </div>
+                    ) : (
+                        <>
+                            <video
+                                ref={localVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="w-full h-full object-cover"
+                                style={{ transform: 'scaleX(-1)' }}
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                <span className="text-xs font-medium text-white">{userName || 'You'}</span>
+                            </div>
+                        </>
+                    )}
                     <div className="absolute top-2 left-2 flex gap-1">
                         {isMuted && (
                             <div className="p-1 rounded-lg bg-red-500/80">
