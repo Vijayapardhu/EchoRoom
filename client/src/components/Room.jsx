@@ -22,14 +22,21 @@ const Room = () => {
         remoteStream,
         startLocalStream,
         createPeerConnection,
+        createPeerConnectionForPeer,
         createOffer,
+        createOfferForPeer,
         handleOffer,
+        handleOfferFromPeer,
         handleAnswer,
+        handleAnswerFromPeer,
         addIceCandidate,
+        addIceCandidateForPeer,
+        removePeerConnection,
         closeConnection,
         resetPeerConnection,
-        cleanup, // Get cleanup from context
+        cleanup,
         peerConnection,
+        peerConnections,
         startScreenShare,
         stopScreenShare,
         toggleScreenShare,
@@ -41,7 +48,8 @@ const Room = () => {
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
-    const initiatorHandledRef = useRef(false); // Prevent duplicate is-initiator handling
+    const remoteVideoRefs = useRef(new Map()); // For group calls
+    const initiatorHandledRef = useRef(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [remoteVideoOff, setRemoteVideoOff] = useState(false);
@@ -54,21 +62,31 @@ const Room = () => {
     const [permissionError, setPermissionError] = useState(null);
     const [isNextDisabled, setIsNextDisabled] = useState(false);
     
+    // Group call state
+    const [isGroupCall, setIsGroupCall] = useState(false);
+    const [groupPeers, setGroupPeers] = useState([]); // Array of { peerId, stream }
+    
     // Video aspect ratio control
     const [videoFit, setVideoFit] = useState('cover'); // 'cover' | 'contain'
 
     const preferences = location.state || {};
+
+    // Check if this is a group room
+    useEffect(() => {
+        if (roomId && roomId.startsWith('group-')) {
+            setIsGroupCall(true);
+        }
+    }, [roomId]);
 
     // Initialize local media stream
     useEffect(() => {
         const initMedia = async () => {
             try {
                 await startLocalStream();
-                setPermissionError(null); // Clear any previous errors
+                setPermissionError(null);
             } catch (err) {
                 console.error("Failed to start local stream:", err);
 
-                // Show permission error UI for permission-related errors
                 if (err.type === 'permission') {
                     setPermissionError(err);
                 } else {
@@ -112,19 +130,80 @@ const Room = () => {
         if (!socket || !roomId) return;
 
         // Handle match found (from queue)
-        const handleMatchFound = ({ roomId: newRoomId }) => {
-            console.log("Match found! Room:", newRoomId);
+        const handleMatchFound = ({ roomId: newRoomId, isGroup }) => {
+            console.log("Match found! Room:", newRoomId, "isGroup:", isGroup);
+            if (isGroup) {
+                setIsGroupCall(true);
+            }
             navigate(`/room/${newRoomId}`, { state: preferences, replace: true });
         };
 
         // Join room and signal readiness
         socket.emit('join-room', { roomId });
 
-        // Handle WebRTC initiator role
+        // ==================== GROUP CALL HANDLERS ====================
+        
+        // Handle list of existing peers when joining a group room
+        const handleExistingPeers = async ({ peers }) => {
+            console.log("Existing peers in room:", peers);
+            if (!localStream) {
+                setTimeout(() => handleExistingPeers({ peers }), 100);
+                return;
+            }
+            
+            for (const peerId of peers) {
+                // Create a connection for each existing peer and send offer
+                const onIceCandidate = (candidate, targetPeerId) => {
+                    socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
+                };
+                const onRemoteStream = (stream, peerId) => {
+                    setGroupPeers(prev => {
+                        const existing = prev.find(p => p.peerId === peerId);
+                        if (existing) {
+                            return prev.map(p => p.peerId === peerId ? { ...p, stream } : p);
+                        }
+                        return [...prev, { peerId, stream }];
+                    });
+                };
+                
+                createPeerConnectionForPeer(peerId, onIceCandidate, onRemoteStream);
+                
+                try {
+                    const offer = await createOfferForPeer(peerId);
+                    socket.emit('offer', { roomId, offer, targetPeerId: peerId });
+                } catch (err) {
+                    console.error("Error creating offer for peer:", peerId, err);
+                }
+            }
+        };
+        
+        // Handle new peer joining the group
+        const handlePeerJoined = async ({ peerId }) => {
+            console.log("New peer joined:", peerId);
+            toast.success("A new person joined!");
+            playJoinSound();
+            
+            // Don't create connection here - wait for their offer
+        };
+        
+        // Handle peer leaving the group
+        const handlePeerLeft = ({ peerId }) => {
+            console.log("Peer left:", peerId);
+            toast("Someone left the room", { icon: '👋' });
+            playLeaveSound();
+            
+            removePeerConnection(peerId);
+            setGroupPeers(prev => prev.filter(p => p.peerId !== peerId));
+        };
+
+        // ==================== 1-ON-1 CALL HANDLERS ====================
+
+        // Handle WebRTC initiator role (1-on-1 only)
         const handleIsInitiator = async (isInitiator) => {
+            if (isGroupCall) return; // Skip for group calls
+            
             console.log("Is initiator:", isInitiator);
 
-            // Prevent duplicate handling
             if (initiatorHandledRef.current) {
                 console.log("Initiator already handled, skipping");
                 return;
@@ -132,7 +211,6 @@ const Room = () => {
 
             setIsSearching(false);
 
-            // Only skip if we're already connected or connecting
             if (peerConnection.current) {
                 const state = peerConnection.current.connectionState;
                 if (state === 'connected' || state === 'connecting') {
@@ -141,15 +219,12 @@ const Room = () => {
                 }
             }
 
-            // Wait for local stream to be ready - reduced delay for faster connection
             if (!localStream) {
                 console.log("Waiting for local stream before creating peer connection...");
-                // Wait a bit and retry - reduced to 100ms for faster connection
                 setTimeout(() => handleIsInitiator(isInitiator), 100);
                 return;
             }
 
-            // Mark as handled
             initiatorHandledRef.current = true;
             console.log("Local stream ready, proceeding with peer connection");
 
@@ -169,17 +244,48 @@ const Room = () => {
             }
         };
 
+        // ==================== SHARED SIGNALING HANDLERS ====================
+
         // Handle receiving WebRTC offer
         const handleOfferReceived = async ({ offer, sender }) => {
             console.log("Received offer from:", sender);
 
-            // Create peer connection if needed
-            if (!peerConnection.current) {
-                const handleIceCandidate = (candidate) => {
-                    socket.emit('ice-candidate', { roomId, candidate });
+            if (isGroupCall) {
+                // Group call - create peer connection for this specific peer
+                if (!localStream) {
+                    setTimeout(() => handleOfferReceived({ offer, sender }), 100);
+                    return;
+                }
+                
+                const onIceCandidate = (candidate, targetPeerId) => {
+                    socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
                 };
-                createPeerConnection(handleIceCandidate);
-            }
+                const onRemoteStream = (stream, peerId) => {
+                    setGroupPeers(prev => {
+                        const existing = prev.find(p => p.peerId === peerId);
+                        if (existing) {
+                            return prev.map(p => p.peerId === peerId ? { ...p, stream } : p);
+                        }
+                        return [...prev, { peerId, stream }];
+                    });
+                };
+                
+                createPeerConnectionForPeer(sender, onIceCandidate, onRemoteStream);
+                
+                try {
+                    const answer = await handleOfferFromPeer(offer, sender);
+                    socket.emit('answer', { roomId, answer, targetPeerId: sender });
+                } catch (err) {
+                    console.error("Error handling offer from peer:", sender, err);
+                }
+            } else {
+                // 1-on-1 call
+                if (!peerConnection.current) {
+                    const handleIceCandidate = (candidate) => {
+                        socket.emit('ice-candidate', { roomId, candidate });
+                    };
+                    createPeerConnection(handleIceCandidate);
+                }
 
             try {
                 const answer = await handleOffer(offer);
@@ -187,31 +293,52 @@ const Room = () => {
             } catch (err) {
                 console.error("Error handling offer:", err);
             }
+            }
         };
 
         // Handle receiving WebRTC answer
         const handleAnswerReceived = async ({ answer, sender }) => {
             console.log("Received answer from:", sender);
 
-            if (!peerConnection.current) {
-                console.warn("No peer connection for answer");
-                return;
-            }
+            if (isGroupCall) {
+                // Group call - handle answer for specific peer
+                try {
+                    await handleAnswerFromPeer(answer, sender);
+                    console.log("Answer handled for peer:", sender);
+                } catch (err) {
+                    console.error("Error handling answer from peer:", sender, err);
+                }
+            } else {
+                // 1-on-1 call
+                if (!peerConnection.current) {
+                    console.warn("No peer connection for answer");
+                    return;
+                }
 
-            try {
-                await handleAnswer(answer);
-                console.log("Answer handled successfully");
-            } catch (err) {
-                console.error("Error handling answer:", err);
+                try {
+                    await handleAnswer(answer);
+                    console.log("Answer handled successfully");
+                } catch (err) {
+                    console.error("Error handling answer:", err);
+                }
             }
         };
 
         // Handle receiving ICE candidates
         const handleIceCandidateReceived = async ({ candidate, sender }) => {
-            if (!peerConnection.current) {
-                console.warn("No peer connection for ICE candidate");
-                return;
-            }
+            if (isGroupCall) {
+                // Group call - add ICE candidate for specific peer
+                try {
+                    await addIceCandidateForPeer(candidate, sender);
+                } catch (err) {
+                    console.error("Error adding ICE candidate for peer:", sender, err);
+                }
+            } else {
+                // 1-on-1 call
+                if (!peerConnection.current) {
+                    console.warn("No peer connection for ICE candidate");
+                    return;
+                }
 
             // DO NOT filter by remoteDescription here. 
             // The WebRTCManager handles queuing if remoteDescription is missing.
@@ -219,6 +346,7 @@ const Room = () => {
                 await addIceCandidate(candidate);
             } catch (err) {
                 console.error("Error adding ICE candidate:", err);
+            }
             }
         };
 
@@ -246,6 +374,9 @@ const Room = () => {
 
         // Register all socket listeners
         socket.on('match-found', handleMatchFound);
+        socket.on('existing-peers', handleExistingPeers);
+        socket.on('peer-joined', handlePeerJoined);
+        socket.on('peer-left', handlePeerLeft);
         socket.on('is-initiator', handleIsInitiator);
         socket.on('offer', handleOfferReceived);
         socket.on('answer', handleAnswerReceived);
@@ -259,6 +390,9 @@ const Room = () => {
 
         return () => {
             socket.off('match-found', handleMatchFound);
+            socket.off('existing-peers', handleExistingPeers);
+            socket.off('peer-joined', handlePeerJoined);
+            socket.off('peer-left', handlePeerLeft);
             socket.off('is-initiator', handleIsInitiator);
             socket.off('offer', handleOfferReceived);
             socket.off('answer', handleAnswerReceived);
@@ -267,7 +401,7 @@ const Room = () => {
             socket.off('connect', handleConnect);
             socket.off('connect_error', handleConnectError);
         };
-    }, [socket, roomId, createPeerConnection, navigate, preferences, peerConnection, closeConnection]);
+    }, [socket, roomId, createPeerConnection, navigate, preferences, peerConnection, closeConnection, isGroupCall, localStream]);
 
     // Handle video toggle from peer
     useEffect(() => {
@@ -426,17 +560,49 @@ const Room = () => {
 
             {/* Main Video Area */}
             <div className="flex-1 relative w-full h-full bg-black">
-                {/* Remote Video */}
-                <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    muted={false}
-                    className={`w-full h-full ${videoFit === 'cover' ? 'object-cover' : 'object-contain'} transition-all duration-300 ${remoteVideoOff || mode === 'text' ? 'hidden' : ''}`}
-                />
+                {/* Group Call Grid Layout */}
+                {isGroupCall && groupPeers.length > 0 ? (
+                    <div className={`w-full h-full grid gap-2 p-2 ${
+                        groupPeers.length === 1 ? 'grid-cols-1' :
+                        groupPeers.length === 2 ? 'grid-cols-2' :
+                        groupPeers.length <= 4 ? 'grid-cols-2 grid-rows-2' :
+                        'grid-cols-3 grid-rows-2'
+                    }`}>
+                        {groupPeers.map(({ peerId, stream }) => (
+                            <div key={peerId} className="relative rounded-xl overflow-hidden bg-neutral-900">
+                                <video
+                                    ref={el => {
+                                        if (el && stream) {
+                                            el.srcObject = stream;
+                                            el.play().catch(() => {});
+                                        }
+                                    }}
+                                    autoPlay
+                                    playsInline
+                                    muted={false}
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white">
+                                    Peer {peerId.slice(0, 6)}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <>
+                        {/* 1-on-1 Remote Video */}
+                        <video
+                            ref={remoteVideoRef}
+                            autoPlay
+                            playsInline
+                            muted={false}
+                            className={`w-full h-full ${videoFit === 'cover' ? 'object-cover' : 'object-contain'} transition-all duration-300 ${remoteVideoOff || mode === 'text' ? 'hidden' : ''}`}
+                        />
+                    </>
+                )}
 
                 {/* Video Fit Toggle (Overlay on Remote Video) */}
-                {!remoteVideoOff && mode === 'video' && (
+                {!isGroupCall && !remoteVideoOff && mode === 'video' && (
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
@@ -449,14 +615,25 @@ const Room = () => {
                     </button>
                 )}
 
-                {/* Remote Video Placeholder */}
-                {(remoteVideoOff || mode === 'text') && (
+                {/* Remote Video Placeholder (1-on-1 only) */}
+                {!isGroupCall && (remoteVideoOff || mode === 'text') && (
                     <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
                         <div className="flex flex-col items-center gap-4">
                             <div className="p-6 rounded-full bg-neutral-800">
                                 {mode === 'text' ? <MessageSquare className="w-12 h-12 text-purple-500" /> : <VideoOff className="w-12 h-12 text-neutral-500" />}
                             </div>
                             <p className="text-neutral-400 font-medium">{mode === 'text' ? 'Text Mode Active' : 'Camera Paused'}</p>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Waiting for peers in group call */}
+                {isGroupCall && groupPeers.length === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                        <div className="flex flex-col items-center gap-4">
+                            <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
+                            <p className="text-neutral-400 font-medium">Waiting for others to join...</p>
+                            <p className="text-neutral-500 text-sm">Share the room to invite friends!</p>
                         </div>
                     </div>
                 )}

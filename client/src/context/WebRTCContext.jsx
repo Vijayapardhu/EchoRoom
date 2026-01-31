@@ -20,6 +20,7 @@ export const WebRTCProvider = ({ children }) => {
 
     const webrtcManagerRef = useRef(null);
     const peerConnection = useRef(null);
+    const peerConnections = useRef(new Map()); // For group calls: peerId -> RTCPeerConnection
     const managerInitialized = useRef(false);
 
     // Initialize WebRTC Manager - only once
@@ -90,6 +91,110 @@ export const WebRTCProvider = ({ children }) => {
 
         console.log('[WebRTCContext] Peer connection created');
         return pc;
+    }, []);
+
+    /**
+     * Create peer connection for a specific peer (group calls)
+     */
+    const createPeerConnectionForPeer = useCallback((peerId, onIceCandidate, onRemoteStream) => {
+        console.log('[WebRTCContext] Creating peer connection for peer:', peerId);
+
+        const config = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+            ],
+            iceCandidatePoolSize: 10,
+        };
+
+        const pc = new RTCPeerConnection(config);
+
+        // Add local tracks
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                pc.addTrack(track, localStream);
+            });
+        }
+
+        // Handle ICE candidates
+        pc.onicecandidate = (event) => {
+            if (event.candidate && onIceCandidate) {
+                onIceCandidate(event.candidate, peerId);
+            }
+        };
+
+        // Handle remote stream
+        pc.ontrack = (event) => {
+            console.log('[WebRTCContext] Remote track received from peer:', peerId);
+            if (onRemoteStream) {
+                onRemoteStream(event.streams[0], peerId);
+            }
+        };
+
+        peerConnections.current.set(peerId, pc);
+        return pc;
+    }, [localStream]);
+
+    /**
+     * Create offer for a specific peer (group calls)
+     */
+    const createOfferForPeer = useCallback(async (peerId) => {
+        const pc = peerConnections.current.get(peerId);
+        if (!pc) throw new Error('No peer connection for ' + peerId);
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        return offer;
+    }, []);
+
+    /**
+     * Handle offer from a specific peer (group calls)
+     */
+    const handleOfferFromPeer = useCallback(async (offer, peerId) => {
+        const pc = peerConnections.current.get(peerId);
+        if (!pc) throw new Error('No peer connection for ' + peerId);
+
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        return answer;
+    }, []);
+
+    /**
+     * Handle answer from a specific peer (group calls)
+     */
+    const handleAnswerFromPeer = useCallback(async (answer, peerId) => {
+        const pc = peerConnections.current.get(peerId);
+        if (!pc) throw new Error('No peer connection for ' + peerId);
+
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    }, []);
+
+    /**
+     * Add ICE candidate for a specific peer (group calls)
+     */
+    const addIceCandidateForPeer = useCallback(async (candidate, peerId) => {
+        const pc = peerConnections.current.get(peerId);
+        if (!pc) return;
+
+        try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+            console.error('[WebRTCContext] Error adding ICE candidate for peer:', peerId, e);
+        }
+    }, []);
+
+    /**
+     * Remove peer connection (when peer leaves group)
+     */
+    const removePeerConnection = useCallback((peerId) => {
+        const pc = peerConnections.current.get(peerId);
+        if (pc) {
+            pc.close();
+            peerConnections.current.delete(peerId);
+            console.log('[WebRTCContext] Removed peer connection for:', peerId);
+        }
     }, []);
 
     /**
@@ -278,10 +383,14 @@ export const WebRTCProvider = ({ children }) => {
         console.log('[WebRTCContext] Cleaning up...');
         if (webrtcManagerRef.current) {
             webrtcManagerRef.current.cleanup();
-            // Re-initialize manager for next use? No, wait for mount.
-            // But we need to make sure the ref is ready if we remount.
-            // For now, cleanup stops tracks.
         }
+        
+        // Clean up all group peer connections
+        peerConnections.current.forEach((pc) => {
+            pc.close();
+        });
+        peerConnections.current.clear();
+        
         setLocalStream(null);
         setRemoteStream(null);
         setConnectionState(ConnectionState.IDLE);
@@ -296,14 +405,21 @@ export const WebRTCProvider = ({ children }) => {
         connectionState,
         isScreenSharing,
         peerConnection,
+        peerConnections, // For group calls
 
         // Methods
         startLocalStream,
         createPeerConnection,
+        createPeerConnectionForPeer,
         createOffer,
+        createOfferForPeer,
         handleOffer,
+        handleOfferFromPeer,
         handleAnswer,
+        handleAnswerFromPeer,
         addIceCandidate,
+        addIceCandidateForPeer,
+        removePeerConnection,
         toggleVideo,
         toggleAudio,
         switchCamera,
