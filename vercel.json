@@ -5,14 +5,13 @@
             "src": "client/package.json",
             "use": "@vercel/static-build",
             "config": {
-                "distDir": "client/dist"
+                "distDir": "dist"
             }
         }
     ],
     "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "/index.html"
-        }
+        { "src": "/(.*)\\.(?:js|css|ico|png|jpg|jpeg|svg|webp|woff|woff2|ttf|eot|json|txt|xml)", "dest": "/$1.$2" },
+        { "src": "/assets/(.*)", "dest": "/assets/$1" },
+        { "src": "/(.*)", "dest": "/index.html" }
     ]
 }
