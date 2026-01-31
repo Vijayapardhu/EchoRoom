@@ -75,6 +75,19 @@ const Room = () => {
     const [floatingReactions, setFloatingReactions] = useState([]);
     const [showShareModal, setShowShareModal] = useState(false);
     const [remoteReaction, setRemoteReaction] = useState(null);
+    
+    // User name state
+    const [userName, setUserName] = useState(() => {
+        return localStorage.getItem('echoroom_username') || '';
+    });
+    const [showNameModal, setShowNameModal] = useState(false);
+    const [tempName, setTempName] = useState('');
+    
+    // Reconnection state
+    const [isReconnecting, setIsReconnecting] = useState(false);
+    const [reconnectAttempts, setReconnectAttempts] = useState(0);
+    const maxReconnectAttempts = 5;
+    const reconnectTimeoutRef = useRef(null);
 
     const preferences = location.state || {};
 
@@ -132,6 +145,68 @@ const Room = () => {
         }
     }, [remoteStream]);
 
+    // Save username to localStorage
+    const saveUserName = (name) => {
+        const trimmedName = name.trim();
+        if (trimmedName) {
+            setUserName(trimmedName);
+            localStorage.setItem('echoroom_username', trimmedName);
+            setShowNameModal(false);
+            toast.success(`Name set to "${trimmedName}"`);
+            
+            // Broadcast name to peers
+            if (socket && roomId) {
+                socket.emit('user-name-update', { roomId, userName: trimmedName });
+            }
+        }
+    };
+
+    // Reconnection logic
+    const attemptReconnect = async () => {
+        if (reconnectAttempts >= maxReconnectAttempts) {
+            toast.error("Failed to reconnect after multiple attempts");
+            setIsReconnecting(false);
+            return;
+        }
+
+        setIsReconnecting(true);
+        setReconnectAttempts(prev => prev + 1);
+        
+        try {
+            console.log(`Reconnect attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}`);
+            
+            // Clean up existing connections
+            cleanup();
+            
+            // Reinitialize media stream
+            await startLocalStream();
+            
+            // Rejoin the room
+            if (socket && roomId) {
+                socket.emit('join-room', { roomId, userName });
+                toast.success("Reconnected successfully!");
+                setIsReconnecting(false);
+                setReconnectAttempts(0);
+            }
+        } catch (err) {
+            console.error("Reconnect failed:", err);
+            toast.error(`Reconnect attempt ${reconnectAttempts + 1} failed`);
+            
+            // Schedule next attempt with exponential backoff
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+            reconnectTimeoutRef.current = setTimeout(attemptReconnect, delay);
+        }
+    };
+
+    // Cleanup reconnect timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+        };
+    }, []);
+
     // Socket event listeners for WebRTC signaling and room management
     useEffect(() => {
         if (!socket || !roomId) return;
@@ -165,10 +240,13 @@ const Room = () => {
                 };
                 const onRemoteStream = (stream, peerId) => {
                     setGroupPeers(prev => {
+                        console.log("Updating groupPeers state. Current peers:", prev);
                         const existing = prev.find(p => p.peerId === peerId);
                         if (existing) {
+                            console.log("Updating stream for peer:", peerId);
                             return prev.map(p => p.peerId === peerId ? { ...p, stream } : p);
                         }
+                        console.log("Adding new peer to groupPeers:", peerId);
                         return [...prev, { peerId, stream }];
                     });
                 };
@@ -189,9 +267,25 @@ const Room = () => {
             console.log("New peer joined:", peerId);
             toast.success("A new person joined!");
             playJoinSound();
-            
-            // Don't create connection here - wait for their offer
+
+            // Create a connection for the new peer
+            const onIceCandidate = (candidate, targetPeerId) => {
+                socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
+            };
+            const onRemoteStream = (stream, peerId) => {
+                setGroupPeers(prev => {
+                    const existing = prev.find(p => p.peerId === peerId);
+                    if (existing) {
+                        return prev.map(p => p.peerId === peerId ? { ...p, stream } : p);
+                    }
+                    return [...prev, { peerId, stream }];
+                });
+            };
+
+            createPeerConnectionForPeer(peerId, onIceCandidate, onRemoteStream);
         };
+
+        socket.on('peer-joined', handlePeerJoined);
         
         // Handle peer leaving the group
         const handlePeerLeft = ({ peerId }) => {
@@ -538,497 +632,444 @@ const Room = () => {
     }, [socket]);
 
     return (
-        <div className="h-[100dvh] bg-black relative overflow-hidden flex flex-col">
-            <Toaster position="top-center" toastOptions={{
-                style: {
-                    background: 'rgba(20, 20, 20, 0.9)',
-                    color: '#fff',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    backdropFilter: 'blur(10px)',
-                },
-            }} />
-
-            {/* Floating Reactions */}
-            <AnimatePresence>
-                {floatingReactions.map(({ id, emoji }) => (
-                    <motion.div
-                        key={id}
-                        initial={{ opacity: 1, y: 0, x: Math.random() * 100 - 50, scale: 0, rotate: Math.random() * 30 - 15 }}
-                        animate={{ opacity: 0, y: -300, scale: 1.5, rotate: Math.random() * 60 - 30 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 2.5, ease: "easeOut" }}
-                        className="absolute bottom-32 right-8 text-5xl z-50 pointer-events-none drop-shadow-lg"
-                    >
-                        {emoji}
-                    </motion.div>
-                ))}
-            </AnimatePresence>
-
-            {/* Remote Peer Reaction - Enhanced */}
-            <AnimatePresence>
-                {remoteReaction && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                        exit={{ opacity: 0, scale: 2, rotate: 180 }}
-                        transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-9xl z-40 pointer-events-none drop-shadow-2xl"
-                        style={{ filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.3))' }}
-                    >
-                        {remoteReaction}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Searching Overlay */}
-            <AnimatePresence>
-                {isSearching && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center"
-                    >
-                        <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mb-4" />
-                        <h3 className="text-xl font-medium text-white tracking-wide">Scanning Frequencies...</h3>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+        <div className="room-container relative flex flex-col h-screen w-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
+            {/* Animated Background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-1/4 -left-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+            </div>
 
             {/* Header */}
-            <AnimatePresence>
-                {showControls && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="absolute top-0 left-0 right-0 p-4 md:p-6 z-20 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent pointer-events-none"
-                    >
-                        <div className="flex items-center gap-3 pointer-events-auto">
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md">
-                                <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)] ${mode === 'video' ? 'bg-cyan-500' : 'bg-purple-500'}`} />
-                                <span className={`text-xs font-bold tracking-wider uppercase ${mode === 'video' ? 'text-cyan-400' : 'text-purple-400'}`}>
-                                    {mode === 'video' ? 'Live Video' : 'Text Mode'}
-                                </span>
-                            </div>
-                            <ConnectionIndicator />
-                        </div>
-
-                        <div className="flex gap-2 pointer-events-auto">
-                            {/* Share Room Button (Group calls) */}
-                            {isGroupCall && (
-                                <button
-                                    onClick={() => setShowShareModal(true)}
-                                    className="p-3 rounded-full text-neutral-400 hover:text-green-400 hover:bg-green-500/10 transition-all duration-300"
-                                    title="Share Room"
-                                >
-                                    <Share2 className="w-5 h-5" />
-                                </button>
-                            )}
-                            <button
-                                onClick={() => setIsChatOpen(!isChatOpen)}
-                                className={`p-3 rounded-full transition-all duration-300 ${isChatOpen ? 'text-cyan-400 bg-cyan-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/5'}`}
-                            >
-                                <MessageSquare className="w-5 h-5" />
-                            </button>
-                            <button
-                                onClick={() => setIsReportOpen(true)}
-                                className="p-3 rounded-full text-neutral-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300"
-                            >
-                                <Flag className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Share Room Modal */}
-            <AnimatePresence>
-                {showShareModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-                        onClick={() => setShowShareModal(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-xl font-bold text-white">Share Room</h3>
-                                <button onClick={() => setShowShareModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                                    <X className="w-5 h-5 text-neutral-400" />
-                                </button>
-                            </div>
-                            <p className="text-neutral-400 text-sm mb-4">Invite friends to join this group call!</p>
-                            <div className="flex items-center gap-2 p-3 bg-black/50 rounded-xl border border-white/10 mb-4">
-                                <input 
-                                    type="text" 
-                                    readOnly 
-                                    value={window.location.href}
-                                    className="flex-1 bg-transparent text-white text-sm truncate outline-none"
-                                />
-                                <button
-                                    onClick={handleShareRoom}
-                                    className="p-2 bg-cyan-500 hover:bg-cyan-400 rounded-lg transition-colors"
-                                >
-                                    <Copy className="w-4 h-4 text-black" />
-                                </button>
-                            </div>
-                            <button
-                                onClick={handleShareRoom}
-                                className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity"
-                            >
-                                Copy Link
-                            </button>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Main Video Area */}
-            <div className="flex-1 relative w-full h-full bg-black">
-                {/* Group Call Grid Layout */}
-                {isGroupCall && groupPeers.length > 0 ? (
-                    <>
-                        {/* Fullscreen Peer View */}
-                        {fullscreenPeer && (
-                            <div 
-                                className="absolute inset-0 z-40 bg-black cursor-pointer"
-                                onClick={() => setFullscreenPeer(null)}
-                            >
-                                {groupPeers.filter(p => p.peerId === fullscreenPeer).map(({ peerId, stream }) => (
-                                    <div key={peerId} className="w-full h-full relative">
-                                        <video
-                                            ref={el => {
-                                                if (el && stream) {
-                                                    el.srcObject = stream;
-                                                    el.play().catch(() => {});
-                                                }
-                                            }}
-                                            autoPlay
-                                            playsInline
-                                            muted={false}
-                                            className="w-full h-full object-contain"
-                                        />
-                                        <div className="absolute top-4 left-4 px-3 py-1.5 bg-black/60 rounded-lg text-sm text-white flex items-center gap-2">
-                                            <span>Peer {peerId.slice(0, 6)}</span>
-                                            <span className="text-xs text-white/60">• Tap to exit fullscreen</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        
-                        {/* Grid Layout - Responsive */}
-                        <div className={`w-full h-full p-2 ${
-                            fullscreenPeer ? 'hidden' : ''
-                        } ${
-                            /* Mobile: Stack vertically, Desktop: Use grid */
-                            groupPeers.length === 1 
-                                ? 'flex items-center justify-center' 
-                                : groupPeers.length === 2 
-                                    ? 'flex flex-col md:flex-row gap-2' 
-                                    : groupPeers.length === 3 
-                                        ? 'flex flex-col gap-2'
-                                        : 'grid grid-cols-1 md:grid-cols-2 grid-rows-4 md:grid-rows-2 gap-2'
-                        }`}>
-                            {groupPeers.length === 3 ? (
-                                /* 3 users: 1 on top, 2 on bottom */
-                                <>
-                                    <div 
-                                        className="flex-1 md:flex-[2] relative rounded-xl overflow-hidden bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-cyan-500 transition-all"
-                                        onClick={() => setFullscreenPeer(groupPeers[0].peerId)}
-                                    >
-                                        <video
-                                            ref={el => {
-                                                if (el && groupPeers[0].stream) {
-                                                    el.srcObject = groupPeers[0].stream;
-                                                    el.play().catch(() => {});
-                                                }
-                                            }}
-                                            autoPlay
-                                            playsInline
-                                            muted={false}
-                                            className="w-full h-full object-cover"
-                                        />
-                                        <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white">
-                                            Peer {groupPeers[0].peerId.slice(0, 6)}
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 flex flex-col md:flex-row gap-2">
-                                        {groupPeers.slice(1).map(({ peerId, stream }) => (
-                                            <div 
-                                                key={peerId} 
-                                                className="flex-1 relative rounded-xl overflow-hidden bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-cyan-500 transition-all"
-                                                onClick={() => setFullscreenPeer(peerId)}
-                                            >
-                                                <video
-                                                    ref={el => {
-                                                        if (el && stream) {
-                                                            el.srcObject = stream;
-                                                            el.play().catch(() => {});
-                                                        }
-                                                    }}
-                                                    autoPlay
-                                                    playsInline
-                                                    muted={false}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white">
-                                                    Peer {peerId.slice(0, 6)}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            ) : (
-                                /* 1, 2, 4+ users: Regular grid */
-                                groupPeers.map(({ peerId, stream }) => (
-                                    <div 
-                                        key={peerId} 
-                                        className={`relative rounded-xl overflow-hidden bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-cyan-500 transition-all ${
-                                            groupPeers.length === 1 ? 'w-full h-full max-w-4xl max-h-[80vh]' : 
-                                            groupPeers.length === 2 ? 'flex-1 min-h-0' : ''
-                                        }`}
-                                        onClick={() => setFullscreenPeer(peerId)}
-                                    >
-                                        <video
-                                            ref={el => {
-                                                if (el && stream) {
-                                                    el.srcObject = stream;
-                                                    el.play().catch(() => {});
-                                                }
-                                            }}
-                                            autoPlay
-                                            playsInline
-                                            muted={false}
-                                            className="w-full h-full object-cover"
-                                        />
-                                        <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white">
-                                            Peer {peerId.slice(0, 6)}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        {/* 1-on-1 Remote Video */}
-                        <video
-                            ref={remoteVideoRef}
-                            autoPlay
-                            playsInline
-                            muted={false}
-                            className={`w-full h-full ${videoFit === 'cover' ? 'object-cover' : 'object-contain'} transition-all duration-300 ${remoteVideoOff || mode === 'text' ? 'hidden' : ''}`}
-                        />
-                    </>
-                )}
-
-                {/* Video Fit Toggle (Overlay on Remote Video) */}
-                {!isGroupCall && !remoteVideoOff && mode === 'video' && (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setVideoFit(prev => prev === 'cover' ? 'contain' : 'cover');
-                        }}
-                        className="absolute bottom-6 left-6 p-2 rounded-full bg-black/40 backdrop-blur-md text-white/70 hover:text-white hover:bg-black/60 transition-all z-20"
-                        title={videoFit === 'cover' ? "Show Full Video" : "Fill Screen"}
-                    >
-                        {videoFit === 'cover' ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-                    </button>
-                )}
-
-                {/* Remote Video Placeholder (1-on-1 only) */}
-                {!isGroupCall && (remoteVideoOff || mode === 'text') && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="p-6 rounded-full bg-neutral-800">
-                                {mode === 'text' ? <MessageSquare className="w-12 h-12 text-purple-500" /> : <VideoOff className="w-12 h-12 text-neutral-500" />}
-                            </div>
-                            <p className="text-neutral-400 font-medium">{mode === 'text' ? 'Text Mode Active' : 'Camera Paused'}</p>
-                        </div>
+            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/30 backdrop-blur-md border-b border-white/10">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4 text-white" />
                     </div>
-                )}
+                    <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                        EchoRoom
+                    </h1>
+                </div>
                 
-                {/* Waiting for peers in group call */}
-                {isGroupCall && groupPeers.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-                        <div className="flex flex-col items-center gap-4">
-                            <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
-                            <p className="text-neutral-400 font-medium">Waiting for others to join...</p>
-                            <p className="text-neutral-500 text-sm">Share the room to invite friends!</p>
-                        </div>
-                    </div>
-                )}
+                <div className="flex items-center gap-2">
+                    {/* Reconnect Button */}
+                    {isReconnecting ? (
+                        <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="p-2"
+                        >
+                            <Loader2 className="w-5 h-5 text-cyan-400" />
+                        </motion.div>
+                    ) : (
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={attemptReconnect}
+                            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                            title="Reconnect"
+                        >
+                            <RefreshCcw className="w-5 h-5 text-cyan-400" />
+                        </motion.button>
+                    )}
+                    
+                    {/* Share Button */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleShareRoom}
+                        className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                        title="Share Room"
+                    >
+                        <Share2 className="w-5 h-5 text-purple-400" />
+                    </motion.button>
 
-                {/* Cinematic Vignette */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] pointer-events-none" />
+                    {/* Leave Button */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowExitConfirm(true)}
+                        className="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium transition-colors"
+                    >
+                        <PhoneOff className="w-5 h-5" />
+                    </motion.button>
+                </div>
+            </header>
 
-                {/* Local Video - Mobile Optimized Position - Enhanced */}
-                <motion.div
-                    drag
-                    dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                    whileHover={{ scale: 1.02 }}
-                    whileDrag={{ scale: 1.05 }}
-                    className={`absolute top-20 right-4 w-28 md:w-56 aspect-[3/4] md:aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/20 cursor-grab active:cursor-grabbing z-30 group video-glow ${mode === 'text' ? 'hidden' : ''}`}
-                    style={{
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)'
-                    }}
+            {/* Main Video Section */}
+            <div className="relative z-10 flex-1 flex flex-col lg:flex-row gap-3 p-3 overflow-hidden">
+                {/* Self Preview - Floating on mobile, sidebar on desktop */}
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={`
+                        ${isGroupCall 
+                            ? 'absolute bottom-24 right-4 w-32 h-44 md:w-48 md:h-64 z-20' 
+                            : 'lg:w-1/4 lg:min-w-[280px] w-full h-48 lg:h-auto'
+                        }
+                        bg-black/50 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/10
+                        shadow-2xl transition-all duration-300 hover:border-cyan-500/50
+                    `}
                 >
                     <video
                         ref={localVideoRef}
                         autoPlay
                         playsInline
                         muted
-                        className={`w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity scale-x-[-1] ${isVideoOff ? 'hidden' : ''}`}
+                        className="w-full h-full object-cover"
                     />
-                    {/* Local Video Placeholder */}
-                    {isVideoOff && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-900">
-                            <motion.div
-                                animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
+                    
+                    {/* Name Badge */}
+                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs md:text-sm font-medium text-white truncate">
+                                {userName || 'You'}
+                            </span>
+                            <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => {
+                                    setTempName(userName);
+                                    setShowNameModal(true);
+                                }}
+                                className="p-1 rounded bg-white/20 hover:bg-white/30 transition-colors"
+                                title="Edit name"
                             >
-                                <VideoOff className="w-6 h-6 text-neutral-500" />
-                            </motion.div>
+                                <UserPlus className="w-3 h-3 md:w-4 md:h-4" />
+                            </motion.button>
                         </div>
-                    )}
-                    {/* Local Status Icons */}
-                    <div className="absolute bottom-2 right-2 flex gap-1">
-                        {isMuted && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="p-1 bg-red-500/90 rounded-full shadow-lg"><MicOff className="w-3 h-3 text-white" /></motion.div>}
-                        {isVideoOff && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="p-1 bg-red-500/90 rounded-full shadow-lg"><VideoOff className="w-3 h-3 text-white" /></motion.div>}
                     </div>
-                    {/* Gradient overlay for local video */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
-                </motion.div>
-            </div>
 
-            {/* Bottom Controls - Mobile Optimized - Enhanced */}
-            <AnimatePresence>
-                {showControls && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 20 }}
-                        className="absolute bottom-6 left-0 right-0 z-30 px-4 flex justify-center"
-                    >
-                        <div className="w-full max-w-md glass-panel rounded-2xl p-2 flex items-center justify-between shadow-2xl gap-2" style={{ boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 0 60px rgba(6, 182, 212, 0.1)' }}>
-
-                            <div className="flex gap-1">
-                                <ControlButton onClick={handleToggleMute} isActive={!isMuted} activeIcon={<Mic />} inactiveIcon={<MicOff />} />
-                                <ControlButton onClick={handleToggleVideo} isActive={!isVideoOff} activeIcon={<Video />} inactiveIcon={<VideoOff />} />
-                                <button
-                                    onClick={switchCamera}
-                                    className="p-3 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
-                                    title="Switch Camera"
-                                >
-                                    <RefreshCcw className="w-5 h-5" />
-                                </button>
+                    {/* Video/Audio Status Indicators */}
+                    <div className="absolute top-2 left-2 flex gap-1">
+                        {isMuted && (
+                            <div className="p-1 rounded bg-red-500/80">
+                                <MicOff className="w-3 h-3" />
                             </div>
+                        )}
+                        {isVideoOff && (
+                            <div className="p-1 rounded bg-red-500/80">
+                                <VideoOff className="w-3 h-3" />
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
 
-                            {/* Reactions Button */}
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowReactions(!showReactions)}
-                                    className={`p-3 rounded-xl transition-all duration-300 ${showReactions ? 'text-pink-400 bg-pink-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/10'}`}
-                                    title="Send Reaction"
+                {/* Remote Videos Grid */}
+                <div className={`
+                    flex-1 grid gap-3 
+                    ${isGroupCall 
+                        ? groupPeers.length <= 1 
+                            ? 'grid-cols-1' 
+                            : groupPeers.length <= 4 
+                                ? 'grid-cols-1 md:grid-cols-2' 
+                                : 'grid-cols-2 md:grid-cols-3'
+                        : 'grid-cols-1'
+                    }
+                `}>
+                    {isGroupCall ? (
+                        groupPeers.length > 0 ? (
+                            groupPeers.map(({ peerId, stream, peerName }) => (
+                                <motion.div 
+                                    key={peerId}
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="relative rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 cursor-pointer hover:border-cyan-500/50 transition-all"
+                                    onClick={() => setFullscreenPeer(peerId)}
                                 >
-                                    <Heart className="w-5 h-5" />
-                                </button>
-                                
-                                {/* Reaction Picker */}
-                                <AnimatePresence>
-                                    {showReactions && (
+                                    <video
+                                        ref={el => {
+                                            if (el && stream) {
+                                                el.srcObject = stream;
+                                                el.play().catch(() => {});
+                                            }
+                                        }}
+                                        autoPlay
+                                        playsInline
+                                        className="w-full h-full object-cover min-h-[200px]"
+                                    />
+                                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                        <span className="text-xs md:text-sm font-medium text-white">
+                                            {peerName || `User ${peerId.slice(0, 6)}`}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            ))
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-neutral-400">
+                                <Loader2 className="w-12 h-12 animate-spin mb-4" />
+                                <p className="text-lg font-medium">Waiting for others to join...</p>
+                                <p className="text-sm mt-2">Share the room link to invite friends</p>
+                            </div>
+                        )
+                    ) : (
+                        /* 1-on-1 Remote Video */
+                        <div className="relative rounded-2xl overflow-hidden bg-neutral-900/50 backdrop-blur-sm border border-white/10 h-full">
+                            {remoteStream ? (
+                                <>
+                                    <video
+                                        ref={remoteVideoRef}
+                                        autoPlay
+                                        playsInline
+                                        className="w-full h-full object-cover"
+                                    />
+                                    {remoteReaction && (
                                         <motion.div
-                                            initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                                            className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex gap-1 shadow-2xl"
+                                            initial={{ scale: 0, opacity: 0 }}
+                                            animate={{ scale: 1.5, opacity: 1 }}
+                                            exit={{ scale: 0, opacity: 0 }}
+                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl"
                                         >
-                                            {reactions.map((reaction) => (
-                                                <button
-                                                    key={reaction.name}
-                                                    onClick={() => sendReaction(reaction)}
-                                                    className="p-2 hover:bg-white/10 rounded-xl transition-all hover:scale-125 text-2xl"
-                                                >
-                                                    {reaction.emoji}
-                                                </button>
-                                            ))}
+                                            {remoteReaction}
                                         </motion.div>
                                     )}
-                                </AnimatePresence>
-                            </div>
-
-                            {/* Prominent Next Button */}
-                            <button
-                                onClick={handleNextMatchRequest}
-                                className="flex-1 bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:from-cyan-400 hover:to-cyan-300 transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
-                            >
-                                <SkipForward className="w-5 h-5" />
-                                <span>Next</span>
-                            </button>
-
-                            <div className="flex gap-1">
-                                <button
-                                    onClick={handleModeSwitch}
-                                    className={`p-3 rounded-xl transition-all duration-300 ${mode === 'text' ? 'text-purple-400 bg-purple-500/10' : 'text-neutral-400 hover:text-white hover:bg-white/10'}`}
-                                >
-                                    {mode === 'text' ? <MessageSquare className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-                                </button>
-                                <button
-                                    onClick={handleLeaveRoomRequest}
-                                    className="p-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all"
-                                >
-                                    <PhoneOff className="w-5 h-5" />
-                                </button>
-                            </div>
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-neutral-400 min-h-[300px]">
+                                    <Loader2 className="w-12 h-12 animate-spin mb-4" />
+                                    <p className="text-lg font-medium">Connecting...</p>
+                                </div>
+                            )}
                         </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Floating Controls */}
+            <motion.div 
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="relative z-20 flex items-center justify-center gap-2 md:gap-4 p-3 md:p-4 bg-black/40 backdrop-blur-md border-t border-white/10"
+            >
+                {/* Mic Toggle */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                        toggleAudio();
+                        setIsMuted(!isMuted);
+                    }}
+                    className={`p-3 md:p-4 rounded-2xl transition-all ${
+                        isMuted 
+                            ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/50' 
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                >
+                    {isMuted ? <MicOff className="w-5 h-5 md:w-6 md:h-6" /> : <Mic className="w-5 h-5 md:w-6 md:h-6" />}
+                </motion.button>
+
+                {/* Video Toggle */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                        toggleVideo();
+                        setIsVideoOff(!isVideoOff);
+                    }}
+                    className={`p-3 md:p-4 rounded-2xl transition-all ${
+                        isVideoOff 
+                            ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/50' 
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                >
+                    {isVideoOff ? <VideoOff className="w-5 h-5 md:w-6 md:h-6" /> : <Video className="w-5 h-5 md:w-6 md:h-6" />}
+                </motion.button>
+
+                {/* Screen Share */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={toggleScreenShare}
+                    className={`p-3 md:p-4 rounded-2xl transition-all hidden md:flex ${
+                        isScreenSharing 
+                            ? 'bg-cyan-500/20 text-cyan-400 ring-2 ring-cyan-500/50' 
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                >
+                    {isScreenSharing ? <MonitorOff className="w-5 h-5 md:w-6 md:h-6" /> : <Monitor className="w-5 h-5 md:w-6 md:h-6" />}
+                </motion.button>
+
+                {/* Chat Toggle */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsChatOpen(!isChatOpen)}
+                    className={`p-3 md:p-4 rounded-2xl transition-all ${
+                        isChatOpen 
+                            ? 'bg-purple-500/20 text-purple-400 ring-2 ring-purple-500/50' 
+                            : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                >
+                    <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
+                </motion.button>
+
+                {/* Reactions */}
+                <div className="relative">
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowReactions(!showReactions)}
+                        className="p-3 md:p-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all"
+                    >
+                        <Heart className="w-5 h-5 md:w-6 md:h-6" />
+                    </motion.button>
+                    
+                    <AnimatePresence>
+                        {showReactions && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                                className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 flex gap-2 p-2 bg-black/80 backdrop-blur-md rounded-xl"
+                            >
+                                {[
+                                    { emoji: '❤️', name: 'heart' },
+                                    { emoji: '👍', name: 'thumbsup' },
+                                    { emoji: '😂', name: 'laugh' },
+                                    { emoji: '🔥', name: 'fire' },
+                                    { emoji: '👏', name: 'clap' }
+                                ].map(reaction => (
+                                    <motion.button
+                                        key={reaction.name}
+                                        whileHover={{ scale: 1.2 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={() => sendReaction(reaction)}
+                                        className="text-2xl hover:bg-white/10 p-2 rounded-lg transition-colors"
+                                    >
+                                        {reaction.emoji}
+                                    </motion.button>
+                                ))}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+                {/* End Call */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowExitConfirm(true)}
+                    className="p-3 md:p-4 rounded-2xl bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/30"
+                >
+                    <PhoneOff className="w-5 h-5 md:w-6 md:h-6" />
+                </motion.button>
+            </motion.div>
+
+            {/* Name Edit Modal */}
+            <AnimatePresence>
+                {showNameModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                            className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full border border-white/10"
+                        >
+                            <h3 className="text-xl font-bold text-white mb-4">Set Your Display Name</h3>
+                            <input
+                                type="text"
+                                value={tempName}
+                                onChange={(e) => setTempName(e.target.value)}
+                                placeholder="Enter your name..."
+                                maxLength={20}
+                                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 mb-4"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        saveUserName(tempName);
+                                    }
+                                }}
+                            />
+                            <div className="flex gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowNameModal(false)}
+                                    className="flex-1 py-3 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors font-medium border border-white/10"
+                                >
+                                    Cancel
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => saveUserName(tempName)}
+                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold transition-all shadow-lg shadow-cyan-500/30"
+                                >
+                                    Save
+                                </motion.button>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Confirmation Modals */}
-            <ConfirmationModal
-                isOpen={showNextConfirm}
-                title="Skip to Next?"
-                message="Are you sure you want to leave this conversation and find a new match?"
-                confirmText="Yes, Skip"
-                cancelText="Cancel"
-                onConfirm={confirmNextMatch}
-                onCancel={() => setShowNextConfirm(false)}
-            />
-
+            {/* Exit Confirmation Modal */}
             <ConfirmationModal
                 isOpen={showExitConfirm}
                 title="Leave Room?"
-                message="Are you sure you want to exit the room and return to home?"
-                confirmText="Yes, Leave"
+                message="Are you sure you want to leave this room? You'll be disconnected from the call."
+                confirmText="Leave"
                 cancelText="Stay"
-                onConfirm={confirmLeaveRoom}
+                onConfirm={() => {
+                    cleanup();
+                    navigate('/');
+                }}
                 onCancel={() => setShowExitConfirm(false)}
-                isDanger
+                isDanger={true}
             />
 
-            <PanicButton roomId={roomId} />
+            {/* Chat Panel */}
+            <AnimatePresence>
+                {isChatOpen && (
+                    <motion.div
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="absolute right-0 top-0 bottom-0 w-full md:w-96 z-30 bg-gray-900/95 backdrop-blur-md border-l border-white/10"
+                    >
+                        <Chat 
+                            socket={socket} 
+                            roomId={roomId} 
+                            userName={userName}
+                            onClose={() => setIsChatOpen(false)} 
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            <ReportModal
-                isOpen={isReportOpen}
-                onClose={() => setIsReportOpen(false)}
-                onSubmit={handleReportSubmit}
-            />
+            {/* Floating Reactions */}
+            <AnimatePresence>
+                {floatingReactions.map(reaction => (
+                    <motion.div
+                        key={reaction.id}
+                        initial={{ opacity: 1, y: 0, x: '-50%' }}
+                        animate={{ opacity: 0, y: -200 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 2 }}
+                        className="absolute bottom-32 left-1/2 text-4xl pointer-events-none z-40"
+                    >
+                        {reaction.emoji}
+                    </motion.div>
+                ))}
+            </AnimatePresence>
 
-            <Chat
-                roomId={roomId}
-                isOpen={isChatOpen}
-                onClose={() => setIsChatOpen(false)}
+            {/* Toast Notifications */}
+            <Toaster 
+                position="top-center" 
+                reverseOrder={false}
+                toastOptions={{
+                    style: {
+                        background: '#1f2937',
+                        color: '#fff',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                    },
+                }}
             />
         </div>
     );
