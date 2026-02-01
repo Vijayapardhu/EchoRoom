@@ -35,7 +35,9 @@ import {
     UserSquare,
     GenderMale,
     GenderFemale,
-    Tag
+    Tag,
+    CornersOut,
+    CornersIn
 } from '@phosphor-icons/react';
 import Chat from './Chat';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
@@ -303,6 +305,11 @@ const Room = () => {
     const [showReactions, setShowReactions] = useState(false);
     const [floatingReactions, setFloatingReactions] = useState([]);
     const [remoteReaction, setRemoteReaction] = useState(null);
+    
+    // Fullscreen state
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showFullscreenControls, setShowFullscreenControls] = useState(false);
+    const fullscreenTimeoutRef = useRef(null);
 
     const reactions = [
         { icon: Heart, color: 'red', name: 'heart' },
@@ -620,6 +627,51 @@ const Room = () => {
         setRemotePeerInfo(null);
         setRemoteReaction(null);
         setFloatingReactions([]);
+        setIsFullscreen(false);
+    }, []);
+
+    // Fullscreen handlers
+    const toggleFullscreen = useCallback(async () => {
+        try {
+            if (!document.fullscreenElement) {
+                await document.documentElement.requestFullscreen();
+                setIsFullscreen(true);
+                // Auto-hide controls after 3 seconds
+                setShowFullscreenControls(true);
+                if (fullscreenTimeoutRef.current) clearTimeout(fullscreenTimeoutRef.current);
+                fullscreenTimeoutRef.current = setTimeout(() => {
+                    setShowFullscreenControls(false);
+                }, 3000);
+            } else {
+                await document.exitFullscreen();
+                setIsFullscreen(false);
+                setShowFullscreenControls(false);
+            }
+        } catch (err) {
+            console.error('Fullscreen error:', err);
+            toast.error('Fullscreen not supported');
+        }
+    }, []);
+
+    const handleFullscreenTap = useCallback(() => {
+        if (!isFullscreen) return;
+        setShowFullscreenControls(true);
+        if (fullscreenTimeoutRef.current) clearTimeout(fullscreenTimeoutRef.current);
+        fullscreenTimeoutRef.current = setTimeout(() => {
+            setShowFullscreenControls(false);
+        }, 3000);
+    }, [isFullscreen]);
+
+    // Listen for fullscreen change events
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+            if (!document.fullscreenElement) {
+                setShowFullscreenControls(false);
+            }
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
     const handleLeaveRoom = useCallback(() => {
@@ -667,45 +719,47 @@ const Room = () => {
         <div className="relative flex flex-col h-screen w-screen bg-slate-950 text-white overflow-hidden">
             <Toaster position="top-center" />
             
-            {/* Header */}
-            <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-md border-b border-white/5">
-                <div className="flex items-center gap-3">
-                    <button 
-                        onClick={() => setShowExitConfirm(true)}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-                    >
-                        <ArrowLeft weight="bold" className="w-5 h-5" />
-                    </button>
-                    <div>
-                        <h1 className="text-lg font-bold"><span className="text-white">echo</span><span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">room</span></h1>
-                        <div className="flex items-center gap-2 text-xs text-white/40">
-                            {isGroupCall ? <><Users weight="fill" className="w-3 h-3" /> Group</> : 'Private Room'}
+            {/* Header - Hidden in fullscreen */}
+            {!isFullscreen && (
+                <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-md border-b border-white/5">
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setShowExitConfirm(true)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                        >
+                            <ArrowLeft weight="bold" className="w-5 h-5" />
+                        </button>
+                        <div>
+                            <h1 className="text-lg font-bold"><span className="text-white">echo</span><span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">room</span></h1>
+                            <div className="flex items-center gap-2 text-xs text-white/40">
+                                {isGroupCall ? <><Users weight="fill" className="w-3 h-3" /> Group</> : 'Private Room'}
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                    <ConnectionQuality stats={connectionStats} />
                     
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowPeerInfoModal(true)}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-                    >
-                        <Tag weight="fill" className="w-5 h-5 text-violet-400" />
-                    </motion.button>
-                    
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleShareRoom}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-                    >
-                        <ShareNetwork weight="fill" className="w-5 h-5 text-blue-400" />
-                    </motion.button>
-                </div>
-            </header>
+                    <div className="flex items-center gap-3">
+                        <ConnectionQuality stats={connectionStats} />
+                        
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowPeerInfoModal(true)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                        >
+                            <Tag weight="fill" className="w-5 h-5 text-violet-400" />
+                        </motion.button>
+                        
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleShareRoom}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                        >
+                            <ShareNetwork weight="fill" className="w-5 h-5 text-blue-400" />
+                        </motion.button>
+                    </div>
+                </header>
+            )}
 
             {/* Video Area - Old UI for 1-on-1, Zoom Gallery for Groups */}
             {isGroupCall ? (
@@ -723,63 +777,68 @@ const Room = () => {
             ) : (
                 /* Old UI for 1-on-1 Calls */
                 <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
-                    {/* Local Video - Floating */}
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        drag
-                        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                        dragElastic={0.1}
-                        className="absolute bottom-24 right-4 z-30 w-36 h-48 md:w-44 md:h-56 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move"
-                    >
-                        {!localStream ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
-                                <Spinner weight="bold" className="w-8 h-8 animate-spin text-blue-400 mb-2" />
-                                <span className="text-xs text-white/50">Camera...</span>
+                    {/* Local Video - Floating (Hidden in Fullscreen) */}
+                    {!isFullscreen && (
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            drag
+                            dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                            dragElastic={0.1}
+                            className="absolute bottom-24 right-4 z-30 w-36 h-48 md:w-44 md:h-56 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move"
+                        >
+                            {!localStream ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
+                                    <Spinner weight="bold" className="w-8 h-8 animate-spin text-blue-400 mb-2" />
+                                    <span className="text-xs text-white/50">Camera...</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <video
+                                        ref={localVideoRef}
+                                        autoPlay
+                                        playsInline
+                                        muted
+                                        className="w-full h-full object-cover"
+                                        style={{ transform: 'scaleX(-1)' }}
+                                    />
+                                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                                        <span className="text-xs font-medium text-white">{userName || 'You'}</span>
+                                    </div>
+                                </>
+                            )}
+                            <div className="absolute top-2 left-2 flex gap-1">
+                                {isMuted && (
+                                    <div className="p-1 rounded-lg bg-red-500/80">
+                                        <MicrophoneSlash weight="fill" className="w-3 h-3 text-white" />
+                                    </div>
+                                )}
+                                {isVideoOff && (
+                                    <div className="p-1 rounded-lg bg-red-500/80">
+                                        <VideoCameraSlash weight="fill" className="w-3 h-3 text-white" />
+                                    </div>
+                                )}
                             </div>
-                        ) : (
-                            <>
-                                <video
-                                    ref={localVideoRef}
-                                    autoPlay
-                                    playsInline
-                                    muted
-                                    className="w-full h-full object-cover"
-                                    style={{ transform: 'scaleX(-1)' }}
-                                />
-                                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                                    <span className="text-xs font-medium text-white">{userName || 'You'}</span>
-                                </div>
-                            </>
-                        )}
-                        <div className="absolute top-2 left-2 flex gap-1">
-                            {isMuted && (
-                                <div className="p-1 rounded-lg bg-red-500/80">
-                                    <MicrophoneSlash weight="fill" className="w-3 h-3 text-white" />
-                                </div>
-                            )}
-                            {isVideoOff && (
-                                <div className="p-1 rounded-lg bg-red-500/80">
-                                    <VideoCameraSlash weight="fill" className="w-3 h-3 text-white" />
-                                </div>
-                            )}
-                        </div>
-                    </motion.div>
+                        </motion.div>
+                    )}
 
                     {/* Remote Video - Full Screen with Original Aspect Ratio */}
-                    <div className="flex-1 h-full flex items-center justify-center">
-                        <div className="relative w-full h-full max-w-full max-h-full flex items-center justify-center rounded-2xl overflow-hidden bg-neutral-900/50 border border-white/10">
+                    <div 
+                        className={`flex-1 h-full flex items-center justify-center ${isFullscreen ? 'fixed inset-0 z-0' : ''}`}
+                        onClick={handleFullscreenTap}
+                    >
+                        <div className={`relative flex items-center justify-center overflow-hidden bg-black ${isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full max-w-full max-h-full rounded-2xl bg-neutral-900/50 border border-white/10'}`}>
                             {remoteStream ? (
                                 <>
                                     <video
                                         ref={remoteVideoRef}
                                         autoPlay
                                         playsInline
-                                        className="w-full h-full object-contain"
+                                        className={`${isFullscreen ? 'w-full h-full object-contain' : 'w-full h-full object-contain'}`}
                                     />
-                                    {/* Peer Info Overlay */}
-                                    {remotePeerInfo && (
-                                        <div className="absolute top-4 left-4 right-4">
+                                    {/* Peer Info Overlay - Hidden in fullscreen unless controls showing */}
+                                    {remotePeerInfo && (!isFullscreen || showFullscreenControls) && (
+                                        <div className={`absolute top-4 left-4 right-4 transition-opacity duration-300 ${isFullscreen ? 'bg-black/40 backdrop-blur-sm p-3 rounded-xl' : ''}`}>
                                             {/* Name Banner */}
                                             {remotePeerInfo.name && (
                                                 <div className="mb-2">
@@ -857,12 +916,12 @@ const Room = () => {
                     {isVideoOff ? <VideoCameraSlash weight="fill" className="w-6 h-6" /> : <VideoCamera weight="fill" className="w-6 h-6" />}
                 </motion.button>
 
-                {/* Screen Share */}
+                {/* Screen Share - Hidden on mobile */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={toggleScreenShare}
-                    className={`p-4 rounded-2xl transition-all ${isScreenSharing ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    className={`hidden md:flex p-4 rounded-2xl transition-all ${isScreenSharing ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                 >
                     <Monitor weight="fill" className="w-6 h-6" />
                 </motion.button>
@@ -894,7 +953,7 @@ const Room = () => {
                                 initial={{ opacity: 0, y: 10, scale: 0.9 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 flex gap-2 p-3 bg-black/90 backdrop-blur-xl rounded-2xl border border-white/10"
+                                className="fixed md:absolute bottom-24 md:bottom-full left-1/2 -translate-x-1/2 md:mb-4 flex gap-2 p-3 bg-black/90 backdrop-blur-xl rounded-2xl border border-white/10 z-50"
                             >
                                 {reactions.map(reaction => (
                                     <motion.button
