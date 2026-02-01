@@ -779,19 +779,29 @@ const Room = () => {
                                     />
                                     {/* Peer Info Overlay */}
                                     {remotePeerInfo && (
-                                        <div className="absolute top-4 left-4 flex items-center gap-2">
-                                            {remotePeerInfo.gender && (
-                                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${remotePeerInfo.gender === 'male' ? 'bg-blue-500/20 text-blue-400' : 'bg-pink-500/20 text-pink-400'} text-xs font-medium`}>
-                                                    {remotePeerInfo.gender === 'male' ? <GenderMale weight="fill" className="w-3.5 h-3.5" /> : <GenderFemale weight="fill" className="w-3.5 h-3.5" />}
-                                                    {remotePeerInfo.gender}
+                                        <div className="absolute top-4 left-4 right-4">
+                                            {/* Name Banner */}
+                                            {remotePeerInfo.name && (
+                                                <div className="mb-2">
+                                                    <span className="text-lg font-bold text-white drop-shadow-lg">
+                                                        {remotePeerInfo.name}
+                                                    </span>
                                                 </div>
                                             )}
-                                            {remotePeerInfo.interests?.slice(0, 2).map((interest, i) => (
-                                                <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium">
-                                                    <Tag weight="fill" className="w-3.5 h-3.5" />
-                                                    {interest}
-                                                </div>
-                                            ))}
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                {remotePeerInfo.gender && (
+                                                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${remotePeerInfo.gender === 'male' ? 'bg-blue-500/20 text-blue-400' : 'bg-pink-500/20 text-pink-400'} text-xs font-medium`}>
+                                                        {remotePeerInfo.gender === 'male' ? <GenderMale weight="fill" className="w-3.5 h-3.5" /> : <GenderFemale weight="fill" className="w-3.5 h-3.5" />}
+                                                        {remotePeerInfo.gender}
+                                                    </div>
+                                                )}
+                                                {remotePeerInfo.interests?.slice(0, 3).map((interest, i) => (
+                                                    <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium">
+                                                        <Tag weight="fill" className="w-3.5 h-3.5" />
+                                                        {interest}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                     {remoteReaction && (
