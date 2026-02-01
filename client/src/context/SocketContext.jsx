@@ -20,8 +20,6 @@ export const SocketProvider = ({ children }) => {
         const serverUrl = import.meta.env.VITE_SERVER_URL || 
                          (import.meta.env.PROD ? 'https://echoroom-server.onrender.com' : 'http://localhost:5000');
         
-        console.log('[Socket] Connecting to:', serverUrl);
-        
         const newSocket = io(serverUrl, {
             transports: ['websocket', 'polling'],
             reconnection: true,
@@ -37,22 +35,16 @@ export const SocketProvider = ({ children }) => {
         socketRef.current = newSocket;
         setSocket(newSocket);
 
-        newSocket.on('connect', () => {
-            console.log('[Socket] Connected:', newSocket.id);
-        });
+        newSocket.on('connect', () => {});
 
         newSocket.on('connect_error', (err) => {
-            console.error('[Socket] Connection error:', err.message);
             // Try polling if websocket fails
             if (newSocket.io.opts.transports[0] === 'websocket') {
-                console.log('[Socket] Retrying with polling...');
                 newSocket.io.opts.transports = ['polling', 'websocket'];
             }
         });
         
-        newSocket.on('disconnect', (reason) => {
-            console.log('[Socket] Disconnected:', reason);
-        });
+        newSocket.on('disconnect', (reason) => {});
 
         return () => {
             newSocket.close();

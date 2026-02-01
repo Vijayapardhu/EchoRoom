@@ -260,6 +260,7 @@ const Room = () => {
     const {
         localStream,
         remoteStream,
+        setRemoteStream,
         startLocalStream,
         createPeerConnection,
         createPeerConnectionForPeer,

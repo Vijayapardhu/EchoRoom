@@ -33,21 +33,18 @@ export const WebRTCProvider = ({ children }) => {
         
         webrtcManagerRef.current = new WebRTCManager();
         managerInitialized.current = true;
-        console.log('[WebRTCContext] WebRTCManager initialized');
 
         // Set up event listeners
         webrtcManagerRef.current.on('stateChange', ({ newState }) => {
-            console.log('[WebRTCContext] State changed to:', newState);
             setConnectionState(newState);
         });
 
         webrtcManagerRef.current.on('remoteStream', (stream) => {
-            console.log('[WebRTCContext] Remote stream received');
             setRemoteStream(stream);
         });
 
         webrtcManagerRef.current.on('error', (error) => {
-            console.error('[WebRTCContext] Error:', error);
+            // Error handled silently in production
         });
 
         webrtcManagerRef.current.on('stats', (stats) => {
@@ -75,24 +72,19 @@ export const WebRTCProvider = ({ children }) => {
         const timeout = 10000; // 10 second timeout
         
         try {
-            console.log('[WebRTCContext] Starting local stream...');
-            
             // Check if we already have an active stream
             if (localStream) {
                 const tracks = localStream.getTracks();
                 const allActive = tracks.every(track => track.readyState === 'live');
                 if (allActive && tracks.length > 0) {
-                    console.log('[WebRTCContext] Reusing existing active stream');
                     return localStream;
                 }
                 // Clean up dead stream
-                console.log('[WebRTCContext] Existing stream is dead, getting new stream');
                 tracks.forEach(track => track.stop());
                 setLocalStream(null);
             }
             
             if (!webrtcManagerRef.current) {
-                console.error('[WebRTCContext] WebRTC manager not initialized');
                 throw new Error('WebRTC manager not initialized');
             }
             
@@ -104,16 +96,12 @@ export const WebRTCProvider = ({ children }) => {
             
             const stream = await Promise.race([streamPromise, timeoutPromise]);
             setLocalStream(stream);
-            console.log('[WebRTCContext] Local stream started with', stream.getTracks().length, 'tracks');
             return stream;
         } catch (error) {
-            console.error('[WebRTCContext] Failed to start local stream:', error);
-            
             // Retry logic for transient errors
             if (retryCount < maxRetries && 
                 error.message === 'Media initialization timeout' || 
                 error.type === 'inuse') {
-                console.log(`[WebRTCContext] Retrying... (${retryCount + 1}/${maxRetries})`);
                 await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
                 return startLocalStream(constraints, retryCount + 1);
             }
@@ -126,8 +114,6 @@ export const WebRTCProvider = ({ children }) => {
      * Create peer connection for 1-on-1 call
      */
     const createPeerConnection = useCallback((onIceCandidate) => {
-        console.log('[WebRTCContext] Creating peer connection...');
-
         const pc = webrtcManagerRef.current.createPeerConnection();
         peerConnection.current = pc;
 
@@ -136,7 +122,6 @@ export const WebRTCProvider = ({ children }) => {
             webrtcManagerRef.current.on('iceCandidate', onIceCandidate);
         }
 
-        console.log('[WebRTCContext] Peer connection created');
         return pc;
     }, []);
 
@@ -144,7 +129,6 @@ export const WebRTCProvider = ({ children }) => {
      * Create peer connection for a specific peer (group calls)
      */
     const createPeerConnectionForPeer = useCallback((peerId, onIceCandidate, onRemoteStream) => {
-        console.log('[WebRTCContext] Creating peer connection for peer:', peerId);
 
         // Close existing connection if any
         if (peerConnections.current.has(peerId)) {
@@ -160,7 +144,6 @@ export const WebRTCProvider = ({ children }) => {
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 pc.addTrack(track, localStream);
-                console.log('[WebRTCContext] Added track to peer connection:', track.kind);
             });
         }
 
@@ -172,17 +155,12 @@ export const WebRTCProvider = ({ children }) => {
         };
 
         // Handle connection state changes
-        pc.onconnectionstatechange = () => {
-            console.log(`[WebRTCContext] Peer ${peerId} connection state:`, pc.connectionState);
-        };
+        pc.onconnectionstatechange = () => {};
 
-        pc.oniceconnectionstatechange = () => {
-            console.log(`[WebRTCContext] Peer ${peerId} ICE state:`, pc.iceConnectionState);
-        };
+        pc.oniceconnectionstatechange = () => {};
 
         // Handle remote stream with proper track management
         pc.ontrack = (event) => {
-            console.log('[WebRTCContext] Remote track received from peer:', peerId, event.track.kind);
             
             if (event.streams && event.streams[0]) {
                 const stream = event.streams[0];
@@ -257,13 +235,11 @@ export const WebRTCProvider = ({ children }) => {
         
         if (!queue || !pc) return;
         
-        console.log(`[WebRTCContext] Processing ${queue.length} queued candidates for peer:`, peerId);
-        
         for (const candidate of queue) {
             try {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (e) {
-                console.warn('[WebRTCContext] Failed to add queued candidate:', e);
+                // Failed to add candidate, continue
             }
         }
         
@@ -304,7 +280,6 @@ export const WebRTCProvider = ({ children }) => {
             peerConnections.current.delete(peerId);
             candidateQueues.current.delete(peerId);
             remoteStreams.current.delete(peerId);
-            console.log('[WebRTCContext] Removed peer connection for:', peerId);
         }
     }, []);
 
@@ -312,7 +287,6 @@ export const WebRTCProvider = ({ children }) => {
      * Create offer
      */
     const createOffer = useCallback(async () => {
-        console.log('[WebRTCContext] Creating offer...');
         return await webrtcManagerRef.current.createOffer();
     }, []);
 
@@ -320,7 +294,6 @@ export const WebRTCProvider = ({ children }) => {
      * Handle offer
      */
     const handleOffer = useCallback(async (offer) => {
-        console.log('[WebRTCContext] Handling offer...');
         return await webrtcManagerRef.current.handleOffer(offer);
     }, []);
 
@@ -328,7 +301,6 @@ export const WebRTCProvider = ({ children }) => {
      * Handle answer
      */
     const handleAnswer = useCallback(async (answer) => {
-        console.log('[WebRTCContext] Handling answer...');
         await webrtcManagerRef.current.handleAnswer(answer);
     }, []);
 
@@ -448,7 +420,6 @@ export const WebRTCProvider = ({ children }) => {
 
             return newTrack;
         } catch (error) {
-            console.error('[WebRTCContext] Failed to switch camera:', error);
             throw error;
         }
     }, [localStream]);
@@ -484,7 +455,6 @@ export const WebRTCProvider = ({ children }) => {
             }
 
             setIsScreenSharing(true);
-            console.log('[WebRTCContext] Screen sharing started');
 
             screenTrack.onended = async () => {
                 await stopScreenShare();
@@ -492,7 +462,6 @@ export const WebRTCProvider = ({ children }) => {
 
             return screenStream;
         } catch (error) {
-            console.error('[WebRTCContext] Failed to start screen share:', error);
             throw error;
         }
     }, [localStream]);
@@ -519,7 +488,6 @@ export const WebRTCProvider = ({ children }) => {
         }
 
         setIsScreenSharing(false);
-        console.log('[WebRTCContext] Screen sharing stopped');
     }, [localStream]);
 
     /**
@@ -537,7 +505,6 @@ export const WebRTCProvider = ({ children }) => {
      * Close connection
      */
     const closeConnection = useCallback(() => {
-        console.log('[WebRTCContext] Closing connection...');
         if (webrtcManagerRef.current) {
             webrtcManagerRef.current.closePeerConnection();
         }
@@ -550,7 +517,6 @@ export const WebRTCProvider = ({ children }) => {
      * Reset peer connection
      */
     const resetPeerConnection = useCallback(() => {
-        console.log('[WebRTCContext] Resetting peer connection...');
         closeConnection();
         candidateQueues.current.clear();
         remoteStreams.current.clear();
@@ -560,7 +526,6 @@ export const WebRTCProvider = ({ children }) => {
      * Cleanup
      */
     const cleanup = useCallback(() => {
-        console.log('[WebRTCContext] Cleaning up...');
         if (webrtcManagerRef.current) {
             webrtcManagerRef.current.cleanup();
         }
@@ -581,6 +546,7 @@ export const WebRTCProvider = ({ children }) => {
         // State
         localStream,
         remoteStream,
+        setRemoteStream,
         connectionState,
         isScreenSharing,
         connectionStats,
