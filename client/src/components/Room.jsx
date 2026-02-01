@@ -347,6 +347,15 @@ const Room = () => {
         setRemotePeerInfo(null);
         setIsMuted(false);
         setIsVideoOff(false);
+        setRemoteStream(null); // Clear remote stream on room change
+        
+        // Force cleanup of any existing peer connections
+        if (peerConnection.current) {
+            peerConnection.current.close();
+            peerConnection.current = null;
+        }
+        peerConnections.current.forEach(pc => pc.close());
+        peerConnections.current.clear();
     }, [roomId]);
 
     useEffect(() => {
@@ -372,8 +381,15 @@ const Room = () => {
     }, [localStream]);
 
     useEffect(() => {
-        if (remoteVideoRef.current && remoteStream) {
-            remoteVideoRef.current.srcObject = remoteStream;
+        if (remoteVideoRef.current) {
+            if (remoteStream) {
+                remoteVideoRef.current.srcObject = remoteStream;
+                remoteVideoRef.current.play().catch(err => {
+                    console.log('Remote video play failed:', err);
+                });
+            } else {
+                remoteVideoRef.current.srcObject = null;
+            }
         }
     }, [remoteStream]);
 
@@ -580,6 +596,31 @@ const Room = () => {
             }
         };
 
+        // Handle peer reconnection (when other user refreshes and rejoins)
+        const handlePeerReconnected = ({ peerId }) => {
+            console.log('[Room] Peer reconnected:', peerId);
+            toast('Partner reconnected', { 
+                icon: <Info weight="fill" className="w-5 h-5 text-blue-400" />,
+                duration: 2000 
+            });
+            
+            // Reset connection state for new handshake
+            initiatorHandledRef.current = false;
+            setRemoteStream(null);
+            
+            // Close existing peer connection
+            if (peerConnection.current) {
+                peerConnection.current.close();
+                peerConnection.current = null;
+            }
+            
+            // Close any group peer connections
+            peerConnections.current.forEach((pc, id) => {
+                pc.close();
+                peerConnections.current.delete(id);
+            });
+        };
+
         const handlePeerDisconnected = () => {
             toast('Partner disconnected', { icon: '⚠️', duration: 3000 });
             playLeaveSound();
@@ -608,6 +649,7 @@ const Room = () => {
         socket.on('ice-candidate', handleIceCandidateReceived);
         socket.on('receive-reaction', handleReaction);
         socket.on('peer-info', handlePeerInfo);
+        socket.on('peer-reconnected', handlePeerReconnected);
 
         // THEN emit join-room AFTER listeners are ready
         console.log('[Room] Emitting join-room for:', roomId);
@@ -627,6 +669,7 @@ const Room = () => {
             socket.off('ice-candidate', handleIceCandidateReceived);
             socket.off('receive-reaction', handleReaction);
             socket.off('peer-info', handlePeerInfo);
+            socket.off('peer-reconnected', handlePeerReconnected);
         };
     }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, localPeerInfo, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection, peerConnection, cleanup, navigate]);
 
@@ -780,6 +823,17 @@ const Room = () => {
                     <div className="flex items-center gap-3">
                         <ConnectionQuality stats={connectionStats} />
                         
+                        {/* Next/Refresh - Moved from bottom */}
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleNext}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            title="Next person"
+                        >
+                            <ArrowClockwise weight="bold" className="w-5 h-5 text-emerald-400" />
+                        </motion.button>
+                        
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -813,53 +867,53 @@ const Room = () => {
                     remotePeerInfo={remotePeerInfo}
                     isScreenSharing={isScreenSharing}
                     connectionStats={connectionStats}
+                    isVideoOff={isVideoOff}
                 />
             ) : (
                 /* Old UI for 1-on-1 Calls */
                 <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
-                    {/* Local Video - Floating (Hidden in Fullscreen) */}
-                    {!isFullscreen && (
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            drag
-                            dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                            dragElastic={0.1}
-                            className="absolute bottom-24 right-4 z-30 w-36 h-48 md:w-44 md:h-56 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move"
-                        >
-                            {!localStream ? (
-                                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
-                                    <Spinner weight="bold" className="w-8 h-8 animate-spin text-blue-400 mb-2" />
-                                    <span className="text-xs text-white/50">Camera...</span>
-                                </div>
-                            ) : (
-                                <>
-                                    <video
-                                        ref={localVideoRef}
-                                        autoPlay
-                                        playsInline
-                                        muted
-                                        className="w-full h-full object-cover"
-                                        style={{ transform: 'scaleX(-1)' }}
-                                    />
-                                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                                        <span className="text-xs font-medium text-white">{userName || 'You'}</span>
-                                    </div>
-                                </>
-                            )}
-                            <div className="absolute top-2 left-2 flex gap-1">
-                                {isMuted && (
-                                    <div className="p-1 rounded-lg bg-red-500/80">
-                                        <MicrophoneSlash weight="fill" className="w-3 h-3 text-white" />
-                                    </div>
-                                )}
-                                {isVideoOff && (
-                                    <div className="p-1 rounded-lg bg-red-500/80">
-                                        <VideoCameraSlash weight="fill" className="w-3 h-3 text-white" />
-                                    </div>
-                                )}
+                    {/* Local Video - Floating (Hidden when video is off) */}
+                    {!isVideoOff && (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        drag={!isFullscreen}
+                        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                        dragElastic={0.1}
+                        className={`absolute z-30 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move transition-all duration-300 ${
+                            isFullscreen 
+                                ? 'bottom-20 right-4 w-24 h-32 md:w-32 md:h-44' 
+                                : 'bottom-24 right-4 w-36 h-48 md:w-44 md:h-56'
+                        }`}
+                    >
+                        {!localStream ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
+                                <Spinner weight="bold" className="w-6 h-6 animate-spin text-blue-400 mb-1" />
+                                <span className="text-[10px] text-white/50">Camera...</span>
                             </div>
-                        </motion.div>
+                        ) : (
+                            <>
+                                <video
+                                    ref={localVideoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    className="w-full h-full object-cover"
+                                    style={{ transform: 'scaleX(-1)' }}
+                                />
+                                <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent">
+                                    <span className="text-[10px] font-medium text-white">{userName || 'You'}</span>
+                                </div>
+                            </>
+                        )}
+                        <div className="absolute top-1.5 left-1.5 flex gap-1">
+                            {isMuted && (
+                                <div className="p-1 rounded bg-red-500/80">
+                                    <MicrophoneSlash weight="fill" className="w-2.5 h-2.5 text-white" />
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
                     )}
 
                     {/* Remote Video - Full Screen with Original Aspect Ratio */}
@@ -1029,16 +1083,6 @@ const Room = () => {
                     className={`p-3 md:p-4 rounded-2xl transition-all ${isFullscreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                 >
                     {isFullscreen ? <CornersIn weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <CornersOut weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
-                </motion.button>
-
-                {/* Next/Skip */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleNext}
-                    className="p-3 md:p-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all"
-                >
-                    <ArrowClockwise weight="bold" className="w-5 h-5 md:w-6 md:h-6" />
                 </motion.button>
 
                 {/* End Call */}

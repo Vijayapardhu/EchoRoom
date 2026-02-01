@@ -1,0 +1,19 @@
+[[redirects]]
+  from = "/matching"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/room/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/post-chat"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

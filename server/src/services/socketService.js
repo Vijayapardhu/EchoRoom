@@ -234,13 +234,24 @@ const socketService = (io) => {
                     const clients = Array.from(room);
                     const otherPeerId = clients.find(id => id !== socket.id);
                     
+                    // If there's already an existing peer, notify them about the new/reconnected peer
+                    // This handles the reconnection case where User A refreshes but User B stays
+                    if (otherPeerId) {
+                        // Notify existing peer to reset their connection
+                        io.to(otherPeerId).emit('peer-reconnected', { peerId: socket.id });
+                    }
+                    
                     // Exchange peer info between the two peers
                     if (otherPeerId && peerInfoMap.has(otherPeerId)) {
                         socket.emit('peer-info', { peerId: otherPeerId, info: peerInfoMap.get(otherPeerId) });
                         io.to(otherPeerId).emit('peer-info', { peerId: socket.id, info: peerInfoMap.get(socket.id) });
                     }
                     
-                    // Only emit is-initiator if not already done for this room
+                    // Reset initiator flag for reconnection scenarios
+                    // Remove old initiator assignment so new one can be made
+                    roomsWithInitiator.delete(roomId);
+                    
+                    // Always reassign roles when someone joins (handles reconnection)
                     if (!roomsWithInitiator.has(roomId)) {
                         console.log(`[WebRTC] Room ${roomId} ready with 2 peers. Assigning roles...`);
 
@@ -531,6 +542,10 @@ const socketService = (io) => {
                     }
                 }
             }
+            
+            // Clean up peer info
+            peerInfoMap.delete(socket.id);
+            
             updateActiveUsers();
         });
     });
