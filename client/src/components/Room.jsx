@@ -890,20 +890,24 @@ const Room = () => {
                 </div>
             )}
 
-            {/* Controls */}
+            {/* Controls - Auto-hide in fullscreen */}
             <motion.div 
                 initial={{ y: 100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                className="relative z-20 flex items-center justify-center gap-3 p-4 bg-black/40 backdrop-blur-md border-t border-white/5"
+                animate={{ 
+                    y: (!isFullscreen || showFullscreenControls) ? 0 : 100, 
+                    opacity: (!isFullscreen || showFullscreenControls) ? 1 : 0 
+                }}
+                transition={{ duration: 0.3 }}
+                className={`relative z-50 flex items-center justify-center gap-2 md:gap-3 p-3 md:p-4 ${isFullscreen ? 'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent border-none' : 'bg-black/40 backdrop-blur-md border-t border-white/5'}`}
             >
                 {/* Mute */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleToggleMute}
-                    className={`p-4 rounded-2xl transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    className={`p-3 md:p-4 rounded-2xl transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                 >
-                    {isMuted ? <MicrophoneSlash weight="fill" className="w-6 h-6" /> : <Microphone weight="fill" className="w-6 h-6" />}
+                    {isMuted ? <MicrophoneSlash weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <Microphone weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
                 </motion.button>
 
                 {/* Video */}
@@ -911,9 +915,9 @@ const Room = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleToggleVideo}
-                    className={`p-4 rounded-2xl transition-all ${isVideoOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    className={`p-3 md:p-4 rounded-2xl transition-all ${isVideoOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                 >
-                    {isVideoOff ? <VideoCameraSlash weight="fill" className="w-6 h-6" /> : <VideoCamera weight="fill" className="w-6 h-6" />}
+                    {isVideoOff ? <VideoCameraSlash weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <VideoCamera weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
                 </motion.button>
 
                 {/* Screen Share - Hidden on mobile */}
@@ -921,9 +925,9 @@ const Room = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={toggleScreenShare}
-                    className={`hidden md:flex p-4 rounded-2xl transition-all ${isScreenSharing ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    className={`hidden md:flex p-3 md:p-4 rounded-2xl transition-all ${isScreenSharing ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                 >
-                    <Monitor weight="fill" className="w-6 h-6" />
+                    <Monitor weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                 </motion.button>
 
                 {/* Chat */}
@@ -931,9 +935,9 @@ const Room = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setIsChatOpen(!isChatOpen)}
-                    className={`p-4 rounded-2xl transition-all ${isChatOpen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    className={`p-3 md:p-4 rounded-2xl transition-all ${isChatOpen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                 >
-                    <ChatCircle weight="fill" className="w-6 h-6" />
+                    <ChatCircle weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                 </motion.button>
 
                 {/* Reactions */}
@@ -942,9 +946,9 @@ const Room = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setShowReactions(!showReactions)}
-                        className={`p-4 rounded-2xl transition-all ${showReactions ? 'bg-violet-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                        className={`p-3 md:p-4 rounded-2xl transition-all ${showReactions ? 'bg-violet-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                     >
-                        <Smiley weight="fill" className="w-6 h-6" />
+                        <Smiley weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                     </motion.button>
                     
                     <AnimatePresence>
@@ -971,14 +975,24 @@ const Room = () => {
                     </AnimatePresence>
                 </div>
 
+                {/* Fullscreen Toggle */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={toggleFullscreen}
+                    className={`p-3 md:p-4 rounded-2xl transition-all ${isFullscreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                >
+                    {isFullscreen ? <CornersIn weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <CornersOut weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
+                </motion.button>
+
                 {/* Next/Skip */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleNext}
-                    className="p-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all"
+                    className="p-3 md:p-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all"
                 >
-                    <ArrowClockwise weight="bold" className="w-6 h-6" />
+                    <ArrowClockwise weight="bold" className="w-5 h-5 md:w-6 md:h-6" />
                 </motion.button>
 
                 {/* End Call */}
@@ -986,9 +1000,9 @@ const Room = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowExitConfirm(true)}
-                    className="p-4 rounded-2xl bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
+                    className="p-3 md:p-4 rounded-2xl bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
                 >
-                    <PhoneDisconnect weight="fill" className="w-6 h-6" />
+                    <PhoneDisconnect weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                 </motion.button>
             </motion.div>
 
