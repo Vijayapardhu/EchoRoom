@@ -938,12 +938,12 @@ const Room = () => {
                     {isVideoOff ? <VideoCameraSlash weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <VideoCamera weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
                 </motion.button>
 
-                {/* Screen Share - Hidden on mobile */}
+                {/* Screen Share - Hidden on mobile and in fullscreen */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={toggleScreenShare}
-                    className={`hidden md:flex p-3 md:p-4 rounded-2xl transition-all ${isScreenSharing ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    className={`hidden md:flex p-3 md:p-4 rounded-2xl transition-all ${isFullscreen ? 'md:hidden' : ''} ${isScreenSharing ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                 >
                     <Monitor weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
                 </motion.button>
