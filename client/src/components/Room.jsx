@@ -286,6 +286,8 @@ const Room = () => {
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const initiatorHandledRef = useRef(false);
+    const roomJoinedRef = useRef(null); // Track which room we've joined to prevent duplicate join-room emissions
+    const localStreamRef = useRef(null); // Ref to always get latest localStream
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -350,6 +352,7 @@ const Room = () => {
         setIsMuted(false);
         setIsVideoOff(false);
         setRemoteStream(null); // Clear remote stream on room change
+        roomJoinedRef.current = null; // Reset room join tracking
         
         // Force cleanup of any existing peer connections
         if (peerConnection.current) {
@@ -384,6 +387,8 @@ const Room = () => {
             localVideoRef.current.srcObject = localStream;
             localVideoRef.current.play().catch(() => {});
         }
+        // Keep ref in sync with state
+        localStreamRef.current = localStream;
     }, [localStream]);
 
     useEffect(() => {
@@ -433,8 +438,9 @@ const Room = () => {
         if (!socket || !roomId) return;
 
         // Define all handlers FIRST before emitting join-room
+        // Use localStreamRef.current to always get the latest stream value
         const handleExistingPeers = async ({ peers }) => {
-            if (!localStream) {
+            if (!localStreamRef.current) {
                 setTimeout(() => handleExistingPeers({ peers }), 100);
                 return;
             }
@@ -492,7 +498,7 @@ const Room = () => {
                 return;
             }
             
-            if (!localStream) {
+            if (!localStreamRef.current) {
                 setPendingInitiatorRole(isInitiator);
                 return;
             }
@@ -504,7 +510,7 @@ const Room = () => {
         const handleOfferReceived = async ({ offer, sender }) => {
             
             if (isGroupCall) {
-                if (!localStream) {
+                if (!localStreamRef.current) {
                     setTimeout(() => handleOfferReceived({ offer, sender }), 100);
                     return;
                 }
@@ -523,7 +529,7 @@ const Room = () => {
                     const answer = await handleOfferFromPeer(offer, sender);
                     socket.emit('answer', { roomId, answer, targetPeerId: sender });
                 } catch (err) {
-                    // Error handling offer
+                    console.error('[Room] Error handling offer from peer:', err);
                 }
             } else {
                 if (!peerConnection.current) {
@@ -537,17 +543,24 @@ const Room = () => {
                     socket.emit('answer', { roomId, answer });
                     initiatorHandledRef.current = true;
                 } catch (err) {
-                    // Error handling offer
+                    console.error('[Room] Error handling offer:', err);
                 }
             }
         };
 
         const handleAnswerReceived = async ({ answer, sender }) => {
             if (isGroupCall) {
-                try { await handleAnswerFromPeer(answer, sender); } catch (err) {}
+                try { await handleAnswerFromPeer(answer, sender); } catch (err) {
+                    console.error('[Room] Error handling answer from peer:', err);
+                }
             } else {
-                if (!peerConnection.current) return;
-                try { await handleAnswer(answer); } catch (err) {}
+                if (!peerConnection.current) {
+                    console.warn('[Room] Received answer but no peer connection exists');
+                    return;
+                }
+                try { await handleAnswer(answer); } catch (err) {
+                    console.error('[Room] Error handling answer:', err);
+                }
             }
         };
 
@@ -617,6 +630,14 @@ const Room = () => {
             navigate('/matching');
         };
 
+        const handleRoomFull = () => {
+            toast.error('Room is full. Redirecting to matching...', { duration: 2000 });
+            cleanup();
+            setTimeout(() => {
+                navigate('/matching');
+            }, 1500);
+        };
+
         // IMPORTANT: Set up ALL listeners FIRST
         socket.on('existing-peers', handleExistingPeers);
         socket.on('peer-joined', handlePeerJoined);
@@ -630,11 +651,14 @@ const Room = () => {
         socket.on('receive-reaction', handleReaction);
         socket.on('peer-info', handlePeerInfo);
         socket.on('peer-reconnected', handlePeerReconnected);
+        socket.on('room-full', handleRoomFull);
 
-        // THEN emit join-room AFTER listeners are ready
-        socket.emit('join-room', { roomId, userName, peerInfo: localPeerInfo });
-
-        playJoinSound();
+        // THEN emit join-room AFTER listeners are ready - but only once per room
+        if (roomJoinedRef.current !== roomId) {
+            roomJoinedRef.current = roomId;
+            socket.emit('join-room', { roomId, userName, peerInfo: localPeerInfo });
+            playJoinSound();
+        }
 
         return () => {
             socket.off('existing-peers', handleExistingPeers);
@@ -649,8 +673,10 @@ const Room = () => {
             socket.off('receive-reaction', handleReaction);
             socket.off('peer-info', handlePeerInfo);
             socket.off('peer-reconnected', handlePeerReconnected);
+            socket.off('room-full', handleRoomFull);
         };
-    }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, localPeerInfo, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection, peerConnection, cleanup, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [socket, roomId, isGroupCall, userName, localPeerInfo]);
 
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();

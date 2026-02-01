@@ -117,6 +117,8 @@ const Matching = () => {
             toast.success('Match found! Connecting...', { 
                 icon: <CheckCircle weight="fill" className="w-5 h-5 text-emerald-400" /> 
             });
+            // Leave the queue before navigating to prevent double matching
+            socket.emit('leave-queue');
             navigate(`/room/${roomId}`, { 
                 state: { 
                     ...preferences, 
@@ -133,6 +135,8 @@ const Matching = () => {
 
         return () => {
             socket.off('match-found', handleMatchFound);
+            // Clean up queue on unmount if not matched
+            socket.emit('leave-queue');
         };
     }, [socket, navigate, preferences, isMatching, userName, gender, selectedInterests]);
 

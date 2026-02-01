@@ -238,26 +238,27 @@ const socketService = (io) => {
                         io.to(otherPeerId).emit('peer-info', { peerId: socket.id, info: peerInfoMap.get(socket.id) });
                     }
                     
-                    // Reset initiator flag for reconnection scenarios
-                    // Remove old initiator assignment so new one can be made
+                    // Always reassign roles when both peers are present
+                    // Reset initiator flag first to ensure clean assignment
                     roomsWithInitiator.delete(roomId);
                     
-                    // Always reassign roles when someone joins (handles reconnection)
-                    if (!roomsWithInitiator.has(roomId)) {
-                        // Sort to deterministically pick initiator (alphabetically)
-                        clients.sort();
-                        const initiator = clients[0];
-                        const receiver = clients[1];
+                    // Sort to deterministically pick initiator (alphabetically)
+                    clients.sort();
+                    const initiator = clients[0];
+                    const receiver = clients[1];
 
-                        // Emit to both peers with a small delay to ensure they're ready
-                        setTimeout(() => {
-                            io.to(initiator).emit('is-initiator', true);
-                            io.to(receiver).emit('is-initiator', false);
-                        }, 500);
+                    // Emit to both peers with a small delay to ensure they're ready
+                    setTimeout(() => {
+                        io.to(initiator).emit('is-initiator', true);
+                        io.to(receiver).emit('is-initiator', false);
+                    }, 300);
 
-                        // Mark this room as having assigned initiators
-                        roomsWithInitiator.add(roomId);
-                    }
+                    // Mark this room as having assigned initiators
+                    roomsWithInitiator.add(roomId);
+                } else if (room && room.size === 1) {
+                    // First user joined, wait for the second user
+                    // The initiator assignment will happen when the second user joins
+                    console.log(`[Room ${roomId}] Waiting for peer to join...`);
                 } else if (room && room.size > 2) {
                     // Room is full, notify the new joiner
                     socket.emit('room-full', { message: 'Room is already full' });
