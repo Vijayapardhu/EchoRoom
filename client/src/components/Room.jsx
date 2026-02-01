@@ -359,6 +359,14 @@ const Room = () => {
     }, [roomId]);
 
     useEffect(() => {
+        // Redirect to matching if no username (direct access without going through matching)
+        const savedUserName = localStorage.getItem('echoroom_username');
+        if (!savedUserName && !location.state?.userName) {
+            console.log('[Room] No username found, redirecting to matching');
+            navigate('/matching');
+            return;
+        }
+        
         const initMedia = async () => {
             try {
                 await startLocalStream();

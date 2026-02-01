@@ -4,3 +4,4 @@ node_modules
 dist
 coverage
 service-account.json
+.vercel
