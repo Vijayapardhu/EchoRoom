@@ -11,22 +11,19 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
         try {
             const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
             credential = admin.credential.cert(serviceAccount);
-            console.log('Firebase Admin initialized with JSON string credentials');
         } catch (error) {
-            console.error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS JSON:', error);
+            // Failed to parse credentials
         }
     } else {
         // Assume it's a file path
         credential = admin.credential.applicationDefault();
-        console.log('Firebase Admin initialized with application default credentials (file path)');
     }
 
     if (credential) {
         admin.initializeApp({ credential });
     }
 } else {
-    console.warn('WARNING: GOOGLE_APPLICATION_CREDENTIALS not found. Firebase Admin not initialized. Auth verification will fail.');
-    // For development without credentials, we might want to mock or just warn
+    // No credentials provided, Firebase Admin not initialized
 }
 
 const db = process.env.GOOGLE_APPLICATION_CREDENTIALS ? admin.firestore() : null;

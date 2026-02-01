@@ -14,8 +14,6 @@ class SignalingService {
         this.messageIdCounter = 0;
         this.pendingAcks = new Map();
         this.ackTimeout = 5000; // 5 seconds
-
-        console.log('[SignalingService] Initialized');
     }
 
     /**
@@ -37,8 +35,6 @@ class SignalingService {
             timestamp: Date.now()
         };
 
-        console.log(`[SignalingService] Sending ${event}:`, messageId);
-
         if (this.socket && this.socket.connected) {
             this.socket.emit(event, { ...data, _msgId: messageId });
 
@@ -46,7 +42,6 @@ class SignalingService {
                 this.waitForAck(messageId, event, data);
             }
         } else {
-            console.warn('[SignalingService] Socket not connected, queuing message');
             this.messageQueue.push(message);
         }
 
@@ -58,7 +53,6 @@ class SignalingService {
      */
     waitForAck(messageId, event, data) {
         const timeout = setTimeout(() => {
-            console.warn(`[SignalingService] Message ${messageId} not acknowledged, retrying`);
             this.pendingAcks.delete(messageId);
             // Retry logic could go here
         }, this.ackTimeout);
@@ -74,7 +68,6 @@ class SignalingService {
         if (pending) {
             clearTimeout(pending.timeout);
             this.pendingAcks.delete(messageId);
-            console.log(`[SignalingService] Message ${messageId} acknowledged`);
         }
     }
 
@@ -85,8 +78,6 @@ class SignalingService {
         if (!this.socket || !this.socket.connected) {
             return;
         }
-
-        console.log(`[SignalingService] Processing ${this.messageQueue.length} queued messages`);
 
         while (this.messageQueue.length > 0) {
             const message = this.messageQueue.shift();
@@ -99,7 +90,6 @@ class SignalingService {
      */
     isDuplicate(messageId) {
         if (this.processedMessages.has(messageId)) {
-            console.warn(`[SignalingService] Duplicate message detected: ${messageId}`);
             return true;
         }
 
@@ -190,8 +180,6 @@ class SignalingService {
      * Clean up
      */
     cleanup() {
-        console.log('[SignalingService] Cleaning up...');
-
         // Clear pending acks
         this.pendingAcks.forEach(pending => clearTimeout(pending.timeout));
         this.pendingAcks.clear();

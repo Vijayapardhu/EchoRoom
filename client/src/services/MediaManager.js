@@ -71,26 +71,14 @@ class MediaManager {
         
         for (const strategy of strategies) {
             try {
-                console.log(`[MediaManager] Trying ${strategy.name} strategy...`);
                 this.localStream = await navigator.mediaDevices.getUserMedia(strategy.constraints);
-                
-                console.log('[MediaManager] Stream initialized:', {
-                    strategy: strategy.name,
-                    id: this.localStream.id,
-                    tracks: this.localStream.getTracks().map(t => ({
-                        kind: t.kind,
-                        label: t.label,
-                        enabled: t.enabled
-                    }))
-                });
 
                 // Update available devices asynchronously
-                this.updateDevices().catch(console.warn);
+                this.updateDevices().catch(() => {});
 
                 this.initializationAttempts = 0;
                 return this.localStream;
             } catch (error) {
-                console.warn(`[MediaManager] ${strategy.name} strategy failed:`, error.name);
                 lastError = error;
                 
                 // If permission denied, don't try other strategies
@@ -114,8 +102,6 @@ class MediaManager {
     async handleStreamError(error) {
         const errorType = this.categorizeError(error);
 
-        console.warn('[MediaManager] Error type:', errorType);
-
         // Try fallback strategies
         if (errorType === 'permission') {
             throw {
@@ -127,7 +113,6 @@ class MediaManager {
 
         if (errorType === 'constraints') {
             // Try with lower quality constraints
-            console.log('[MediaManager] Attempting lower quality fallback');
             try {
                 this.localStream = await navigator.mediaDevices.getUserMedia({
                     video: {
@@ -139,7 +124,6 @@ class MediaManager {
                 });
                 return this.localStream;
             } catch (lowerQualityError) {
-                console.warn('[MediaManager] Lower quality also failed, trying basic');
                 try {
                     this.localStream = await navigator.mediaDevices.getUserMedia({
                         video: true,
@@ -154,7 +138,6 @@ class MediaManager {
 
         if (errorType === 'notfound') {
             // Try audio-only
-            console.log('[MediaManager] Attempting audio-only fallback');
             try {
                 this.localStream = await navigator.mediaDevices.getUserMedia({
                     video: false,
@@ -213,13 +196,8 @@ class MediaManager {
             const devices = await navigator.mediaDevices.enumerateDevices();
             this.devices.video = devices.filter(d => d.kind === 'videoinput');
             this.devices.audio = devices.filter(d => d.kind === 'audioinput');
-
-            console.log('[MediaManager] Available devices:', {
-                video: this.devices.video.length,
-                audio: this.devices.audio.length
-            });
         } catch (error) {
-            console.error('[MediaManager] Failed to enumerate devices:', error);
+            // Failed to enumerate devices
         }
     }
 
@@ -254,10 +232,8 @@ class MediaManager {
             this.localStream.removeTrack(videoTrack);
             this.localStream.addTrack(newVideoTrack);
 
-            console.log('[MediaManager] Camera switched to:', newFacingMode);
             return newVideoTrack;
         } catch (error) {
-            console.error('[MediaManager] Failed to switch camera:', error);
             throw error;
         }
     }
@@ -274,7 +250,6 @@ class MediaManager {
             // If enabled is undefined, toggle current state
             const newState = enabled !== undefined ? enabled : !videoTrack.enabled;
             videoTrack.enabled = newState;
-            console.log('[MediaManager] Video toggled:', newState);
             return videoTrack.enabled;
         }
         return false;
@@ -292,7 +267,6 @@ class MediaManager {
             // If enabled is undefined, toggle current state
             const newState = enabled !== undefined ? enabled : !audioTrack.enabled;
             audioTrack.enabled = newState;
-            console.log('[MediaManager] Audio toggled:', newState);
             return audioTrack.enabled;
         }
         return false;
@@ -305,7 +279,6 @@ class MediaManager {
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => {
                 track.stop();
-                console.log('[MediaManager] Stopped track:', track.kind);
             });
             this.localStream = null;
         }

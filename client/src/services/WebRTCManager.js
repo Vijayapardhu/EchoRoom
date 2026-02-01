@@ -33,7 +33,7 @@ const fetchTurnCredentials = async (serverUrl) => {
             return data.iceServers;
         }
     } catch (error) {
-        console.warn('[WebRTCManager] Failed to fetch TURN credentials, using defaults');
+        // Failed to fetch TURN credentials, using defaults
     }
     return null;
 };
@@ -68,8 +68,6 @@ class WebRTCManager {
 
         // Use centralized ICE servers configuration
         this.iceServers = iceServers || ICE_SERVERS;
-
-        console.log('[WebRTCManager] Initialized with enhanced ICE config');
     }
     
     /**
@@ -86,7 +84,6 @@ class WebRTCManager {
         const servers = await fetchTurnCredentials(serverUrl);
         if (servers) {
             this.iceServers = servers;
-            console.log('[WebRTCManager] Updated ICE servers from server');
         }
     }
     
@@ -112,17 +109,12 @@ class WebRTCManager {
      */
     async initializeMedia(constraints = null) {
         try {
-            console.log('[WebRTCManager] Initializing media with optimized constraints...');
-            
             // Use centralized media constraints
             const defaultConstraints = MEDIA_CONSTRAINTS;
 
             const stream = await this.mediaManager.initializeStream(constraints || defaultConstraints);
-            console.log('[WebRTCManager] Media initialized successfully with tracks:', 
-                stream.getTracks().map(t => `${t.kind}:${t.label}`));
             return stream;
         } catch (error) {
-            console.error('[WebRTCManager] Media initialization failed:', error);
             this.emit('error', error);
             throw error;
         }
@@ -133,7 +125,6 @@ class WebRTCManager {
      */
     createPeerConnection() {
         if (this.peerConnection) {
-            console.warn('[WebRTCManager] Closing existing peer connection');
             this.closePeerConnection();
         }
 
@@ -142,7 +133,6 @@ class WebRTCManager {
             this.statsInterval = null;
         }
 
-        console.log('[WebRTCManager] Creating new peer connection with optimized config');
         this.peerConnection = new RTCPeerConnection(this.getPeerConnectionConfig());
 
         // Add local tracks with proper transceiver configuration
@@ -150,15 +140,12 @@ class WebRTCManager {
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 const sender = this.peerConnection.addTrack(track, localStream);
-                console.log('[WebRTCManager] Added track:', track.kind, 'enabled:', track.enabled);
                 
                 // Configure encoding parameters for video
                 if (track.kind === 'video') {
                     this.configureVideoEncoding(sender);
                 }
             });
-        } else {
-            console.warn('[WebRTCManager] No local stream available');
         }
 
         this.setupPeerConnectionHandlers();
@@ -188,9 +175,8 @@ class WebRTCManager {
             params.encodings[0].minBitrate = 150000;  // 150 kbps min
             
             await sender.setParameters(params);
-            console.log('[WebRTCManager] Video encoding configured for adaptive bitrate');
         } catch (error) {
-            console.warn('[WebRTCManager] Could not configure video encoding:', error);
+            // Could not configure video encoding
         }
     }
 
@@ -201,32 +187,25 @@ class WebRTCManager {
         // ICE candidate handler
         this.peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('[WebRTCManager] New ICE candidate:', event.candidate.type, event.candidate.protocol);
                 this.emit('iceCandidate', event.candidate);
             }
         };
 
         // Track handler with stream validation
         this.peerConnection.ontrack = (event) => {
-            console.log('[WebRTCManager] Received remote track:', event.track.kind, 'enabled:', event.track.enabled);
-            
             if (event.streams && event.streams[0]) {
                 const stream = event.streams[0];
                 
                 // Validate stream has tracks
                 if (stream.getTracks().length === 0) {
-                    console.warn('[WebRTCManager] Received stream with no tracks');
                     return;
                 }
                 
                 this.hasReceivedStream = true;
-                console.log('[WebRTCManager] Remote stream received with tracks:', 
-                    stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
                 
                 // Ensure tracks are enabled
                 stream.getTracks().forEach(track => {
                     if (!track.enabled) {
-                        console.log('[WebRTCManager] Enabling disabled track:', track.kind);
                         track.enabled = true;
                     }
                 });
@@ -238,7 +217,6 @@ class WebRTCManager {
         // ICE connection state handler with faster detection
         this.peerConnection.oniceconnectionstatechange = () => {
             const iceState = this.peerConnection.iceConnectionState;
-            console.log('[WebRTCManager] ICE connection state:', iceState);
 
             switch (iceState) {
                 case 'connected':
@@ -265,7 +243,6 @@ class WebRTCManager {
         // Connection state handler
         this.peerConnection.onconnectionstatechange = () => {
             const connState = this.peerConnection.connectionState;
-            console.log('[WebRTCManager] Connection state:', connState);
             
             if (connState === 'connected') {
                 this.handleConnectionSuccess();
@@ -280,21 +257,15 @@ class WebRTCManager {
         };
 
         // Signaling state handler
-        this.peerConnection.onsignalingstatechange = () => {
-            console.log('[WebRTCManager] Signaling state:', this.peerConnection.signalingState);
-        };
+        this.peerConnection.onsignalingstatechange = () => {};
 
         // Negotiation needed handler
         this.peerConnection.onnegotiationneeded = async () => {
-            console.log('[WebRTCManager] Negotiation needed');
             this.emit('negotiationNeeded', {});
         };
 
         // ICE gathering state handler
-        this.peerConnection.onicegatheringstatechange = () => {
-            const gatheringState = this.peerConnection.iceGatheringState;
-            console.log('[WebRTCManager] ICE gathering state:', gatheringState);
-        };
+        this.peerConnection.onicegatheringstatechange = () => {};
     }
 
     /**
@@ -304,7 +275,6 @@ class WebRTCManager {
         if (this.state === ConnectionState.CONNECTED) return;
         
         const connectionTime = Date.now() - this.connectionStartTime;
-        console.log(`[WebRTCManager] Connection established in ${connectionTime}ms`);
         
         this.reconnectAttempts = 0;
         this.reconnectDelay = 500;
@@ -323,7 +293,6 @@ class WebRTCManager {
      * Handle disconnection with faster recovery
      */
     handleDisconnection() {
-        console.warn('[WebRTCManager] Connection disconnected');
 
         if (this.state === ConnectionState.CONNECTED) {
             setTimeout(() => {
@@ -340,7 +309,6 @@ class WebRTCManager {
      * Handle connection failure
      */
     handleConnectionFailure() {
-        console.error('[WebRTCManager] Connection failed');
         this.setState(ConnectionState.FAILED);
         this.attemptReconnection();
     }
@@ -350,7 +318,6 @@ class WebRTCManager {
      */
     attemptReconnection() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('[WebRTCManager] Max reconnection attempts reached');
             this.setState(ConnectionState.FAILED);
             this.emit('error', {
                 type: 'reconnection_failed',
@@ -361,8 +328,6 @@ class WebRTCManager {
 
         this.reconnectAttempts++;
         this.setState(ConnectionState.RECONNECTING);
-
-        console.log(`[WebRTCManager] Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${this.reconnectDelay}ms`);
 
         this.reconnectTimer = setTimeout(() => {
             this.restartIce();
@@ -376,8 +341,6 @@ class WebRTCManager {
      */
     async restartIce() {
         try {
-            console.log('[WebRTCManager] Restarting ICE...');
-
             if (this.peerConnection) {
                 const offer = await this.peerConnection.createOffer({ 
                     iceRestart: true,
@@ -386,12 +349,10 @@ class WebRTCManager {
                 });
                 await this.peerConnection.setLocalDescription(offer);
                 
-                console.log('[WebRTCManager] ICE restart offer created');
                 this.emit('iceRestart', { offer });
                 return offer;
             }
         } catch (error) {
-            console.error('[WebRTCManager] ICE restart failed:', error);
             this.emit('error', { type: 'ice_restart_failed', error });
         }
     }
@@ -416,10 +377,8 @@ class WebRTCManager {
             const offer = await this.peerConnection.createOffer(offerOptions);
             await this.peerConnection.setLocalDescription(offer);
 
-            console.log('[WebRTCManager] Offer created');
             return offer;
         } catch (error) {
-            console.error('[WebRTCManager] Failed to create offer:', error);
             this.setState(ConnectionState.FAILED);
             throw error;
         }
@@ -431,8 +390,6 @@ class WebRTCManager {
     async processCandidateQueue() {
         if (!this.peerConnection || !this.candidateQueue.length) return;
 
-        console.log(`[WebRTCManager] Processing ${this.candidateQueue.length} queued candidates`);
-
         while (this.candidateQueue.length > 0) {
             const candidate = this.candidateQueue.shift();
             try {
@@ -441,7 +398,7 @@ class WebRTCManager {
                 }
                 await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (error) {
-                console.error('[WebRTCManager] Failed to add queued ICE candidate:', error);
+                // Failed to add ICE candidate
             }
         }
     }
@@ -465,10 +422,8 @@ class WebRTCManager {
             });
             await this.peerConnection.setLocalDescription(answer);
 
-            console.log('[WebRTCManager] Answer created');
             return answer;
         } catch (error) {
-            console.error('[WebRTCManager] Failed to handle offer:', error);
             this.setState(ConnectionState.FAILED);
             throw error;
         }
@@ -485,9 +440,7 @@ class WebRTCManager {
         try {
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
             await this.processCandidateQueue();
-            console.log('[WebRTCManager] Answer set successfully');
         } catch (error) {
-            console.error('[WebRTCManager] Failed to handle answer:', error);
             throw error;
         }
     }
@@ -497,7 +450,6 @@ class WebRTCManager {
      */
     async addIceCandidate(candidate) {
         if (!this.peerConnection) {
-            console.warn('[WebRTCManager] No peer connection for ICE candidate');
             return;
         }
 
@@ -509,7 +461,7 @@ class WebRTCManager {
         try {
             await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (error) {
-            console.error('[WebRTCManager] Failed to add ICE candidate:', error);
+            // Failed to add ICE candidate
         }
     }
 
@@ -580,7 +532,6 @@ class WebRTCManager {
         if (this.peerConnection) {
             this.peerConnection.close();
             this.peerConnection = null;
-            console.log('[WebRTCManager] Peer connection closed');
         }
         this.clearReconnectTimer();
         this.candidateQueue = [];
@@ -591,7 +542,6 @@ class WebRTCManager {
      * Clean up all resources
      */
     cleanup() {
-        console.log('[WebRTCManager] Cleaning up...');
         this.closePeerConnection();
         this.mediaManager.cleanup();
         this.listeners = { 
@@ -616,7 +566,6 @@ class WebRTCManager {
         if (this.state !== newState) {
             const oldState = this.state;
             this.state = newState;
-            console.log(`[WebRTCManager] State: ${oldState} -> ${newState}`);
             this.emit('stateChange', { oldState, newState });
         }
     }

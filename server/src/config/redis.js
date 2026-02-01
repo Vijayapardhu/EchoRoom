@@ -9,9 +9,9 @@ client.on('error', (err) => {
     if (err.code === 'ECONNREFUSED') {
         return;
     }
-    console.log('Redis Client Error', err);
+    // Redis client error
 });
-client.on('connect', () => console.log('Redis Client Connected'));
+client.on('connect', () => {});
 
 (async () => {
     try {
@@ -19,8 +19,7 @@ client.on('connect', () => console.log('Redis Client Connected'));
             await client.connect();
         }
     } catch (err) {
-        console.warn('Redis Connection Failed (Is Redis running?):', err.message);
-        // We don't exit process here, allowing server to start without Redis (features will fail)
+        // Redis connection failed, allowing server to start without Redis
     }
 })();
 

@@ -51,8 +51,8 @@ const io = new Server(server, {
 });
 
 // Connection event logging
-io.engine.on('connection_error', (err) => {
-    console.error('[Socket.IO] Connection error:', err.message);
+io.engine.on('connection_error', () => {
+    // Connection error handled silently
 });
 
 // Initialize Socket Service
@@ -62,18 +62,14 @@ const PORT = process.env.PORT || 5000;
 
 // Graceful shutdown handler
 const gracefulShutdown = () => {
-    console.log('Received shutdown signal, closing connections...');
     io.close(() => {
-        console.log('Socket.IO server closed');
         server.close(() => {
-            console.log('HTTP server closed');
             process.exit(0);
         });
     });
     
     // Force close after 10 seconds
     setTimeout(() => {
-        console.log('Forcing shutdown...');
         process.exit(1);
     }, 10000);
 };
@@ -82,6 +78,5 @@ process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`WebRTC signaling server ready`);
+    // Server started
 });

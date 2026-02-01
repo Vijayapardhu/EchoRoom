@@ -280,6 +280,7 @@ const Room = () => {
         isScreenSharing,
         connectionStats,
         peerConnection,
+        peerConnections,
     } = useWebRTC();
 
     const localVideoRef = useRef(null);
@@ -363,7 +364,6 @@ const Room = () => {
         // Redirect to matching if no username (direct access without going through matching)
         const savedUserName = localStorage.getItem('echoroom_username');
         if (!savedUserName && !location.state?.userName) {
-            console.log('[Room] No username found, redirecting to matching');
             navigate('/matching');
             return;
         }
@@ -372,7 +372,6 @@ const Room = () => {
             try {
                 await startLocalStream();
             } catch (err) {
-                console.error('Failed to start local stream:', err);
                 toast.error('Please allow camera access');
             }
         };
@@ -383,9 +382,7 @@ const Room = () => {
     useEffect(() => {
         if (localVideoRef.current && localStream) {
             localVideoRef.current.srcObject = localStream;
-            localVideoRef.current.play().catch(err => {
-                console.log('Local video play failed:', err);
-            });
+            localVideoRef.current.play().catch(() => {});
         }
     }, [localStream]);
 
@@ -393,9 +390,7 @@ const Room = () => {
         if (remoteVideoRef.current) {
             if (remoteStream) {
                 remoteVideoRef.current.srcObject = remoteStream;
-                remoteVideoRef.current.play().catch(err => {
-                    console.log('Remote video play failed:', err);
-                });
+                remoteVideoRef.current.play().catch(() => {});
             } else {
                 remoteVideoRef.current.srcObject = null;
             }
@@ -404,42 +399,31 @@ const Room = () => {
 
     // Process initiator role - defined as callback so it can be used from multiple places
     const processInitiatorRole = useCallback(async (isInitiator) => {
-        console.log('[Room] Processing initiator role:', isInitiator);
-        
         if (initiatorHandledRef.current) {
-            console.log('[Room] Skipping - already handled');
             return;
         }
 
         initiatorHandledRef.current = true;
-        console.log('[Room] Creating peer connection, isInitiator:', isInitiator);
         
         const handleIceCandidate = (candidate) => {
-            console.log('[Room] Sending ICE candidate');
             socket.emit('ice-candidate', { roomId, candidate });
         };
         
         createPeerConnection(handleIceCandidate);
 
         if (isInitiator) {
-            console.log('[Room] I am initiator, creating offer...');
             try {
                 const offer = await createOffer();
-                console.log('[Room] Offer created, sending to room:', roomId);
                 socket.emit('offer', { roomId, offer });
             } catch (err) {
-                console.error('[Room] Error creating offer:', err);
                 toast.error('Failed to start video call');
             }
-        } else {
-            console.log('[Room] I am receiver, waiting for offer...');
         }
     }, [socket, roomId, createPeerConnection, createOffer]);
 
     // Process initiator role when both stream is ready AND we have a pending role
     useEffect(() => {
         if (localStream && pendingInitiatorRole !== null && !initiatorHandledRef.current) {
-            console.log('[Room] Processing pending initiator role:', pendingInitiatorRole);
             processInitiatorRole(pendingInitiatorRole);
             setPendingInitiatorRole(null);
         }
@@ -448,11 +432,8 @@ const Room = () => {
     useEffect(() => {
         if (!socket || !roomId) return;
 
-        console.log('[Room] Setting up socket listeners for room:', roomId);
-
         // Define all handlers FIRST before emitting join-room
         const handleExistingPeers = async ({ peers }) => {
-            console.log('[Room] Received existing peers:', peers);
             if (!localStream) {
                 setTimeout(() => handleExistingPeers({ peers }), 100);
                 return;
@@ -475,7 +456,7 @@ const Room = () => {
                     const offer = await createOfferForPeer(peerId);
                     socket.emit('offer', { roomId, offer, targetPeerId: peerId });
                 } catch (err) {
-                    console.error('Error creating offer:', err);
+                    // Error creating offer
                 }
             }
         };
@@ -504,19 +485,14 @@ const Room = () => {
         };
 
         const handleIsInitiator = (isInitiator) => {
-            console.log('[Room] Received is-initiator:', isInitiator, 'localStream:', !!localStream, 'handled:', initiatorHandledRef.current);
-            
             if (isGroupCall) {
-                console.log('[Room] Skipping - group call mode');
                 return;
             }
             if (initiatorHandledRef.current) {
-                console.log('[Room] Skipping - already handled');
                 return;
             }
             
             if (!localStream) {
-                console.log('[Room] Storing initiator role for later processing');
                 setPendingInitiatorRole(isInitiator);
                 return;
             }
@@ -526,7 +502,6 @@ const Room = () => {
         };
 
         const handleOfferReceived = async ({ offer, sender }) => {
-            console.log('[Room] Received offer from:', sender);
             
             if (isGroupCall) {
                 if (!localStream) {
@@ -548,7 +523,7 @@ const Room = () => {
                     const answer = await handleOfferFromPeer(offer, sender);
                     socket.emit('answer', { roomId, answer, targetPeerId: sender });
                 } catch (err) {
-                    console.error('Error handling offer:', err);
+                    // Error handling offer
                 }
             } else {
                 if (!peerConnection.current) {
@@ -562,13 +537,12 @@ const Room = () => {
                     socket.emit('answer', { roomId, answer });
                     initiatorHandledRef.current = true;
                 } catch (err) {
-                    console.error('Error handling offer:', err);
+                    // Error handling offer
                 }
             }
         };
 
         const handleAnswerReceived = async ({ answer, sender }) => {
-            console.log('[Room] Received answer from:', sender);
             if (isGroupCall) {
                 try { await handleAnswerFromPeer(answer, sender); } catch (err) {}
             } else {
@@ -578,7 +552,6 @@ const Room = () => {
         };
 
         const handleIceCandidateReceived = async ({ candidate, sender }) => {
-            console.log('[Room] Received ICE candidate from:', sender);
             if (isGroupCall) {
                 try { await addIceCandidateForPeer(candidate, sender); } catch (err) {}
             } else {
@@ -594,7 +567,6 @@ const Room = () => {
 
         // Handle peer info update
         const handlePeerInfo = ({ peerId, info }) => {
-            console.log('[Room] Received peer info:', info);
             setRemotePeerInfo(info);
             // Show toast notification about connected user
             if (info.name) {
@@ -607,7 +579,6 @@ const Room = () => {
 
         // Handle peer reconnection (when other user refreshes and rejoins)
         const handlePeerReconnected = ({ peerId }) => {
-            console.log('[Room] Peer reconnected:', peerId);
             toast('Partner reconnected', { 
                 icon: <Info weight="fill" className="w-5 h-5 text-blue-400" />,
                 duration: 2000 
@@ -661,7 +632,6 @@ const Room = () => {
         socket.on('peer-reconnected', handlePeerReconnected);
 
         // THEN emit join-room AFTER listeners are ready
-        console.log('[Room] Emitting join-room for:', roomId);
         socket.emit('join-room', { roomId, userName, peerInfo: localPeerInfo });
 
         playJoinSound();
@@ -694,7 +664,6 @@ const Room = () => {
     }, [toggleVideo, socket, roomId]);
 
     const resetRoomState = useCallback(() => {
-        console.log('[Room] Resetting room state...');
         initiatorHandledRef.current = false;
         setPendingInitiatorRole(null);
         setIsMuted(false);
@@ -724,7 +693,6 @@ const Room = () => {
                 setShowFullscreenControls(false);
             }
         } catch (err) {
-            console.error('Fullscreen error:', err);
             toast.error('Fullscreen not supported');
         }
     }, []);
@@ -767,7 +735,6 @@ const Room = () => {
     }, []);
 
     const handleLeaveRoom = useCallback(() => {
-        console.log('[Room] Leaving room...');
         cleanup();
         socket.emit('leave-room', roomId);
         resetRoomState();
@@ -775,7 +742,6 @@ const Room = () => {
     }, [cleanup, socket, roomId, navigate, resetRoomState]);
 
     const handleNext = useCallback(() => {
-        console.log('[Room] Next button clicked');
         cleanup();
         socket.emit('next', { roomId });
         resetRoomState();

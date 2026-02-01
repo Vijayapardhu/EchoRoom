@@ -95,7 +95,7 @@ const JoinModal = ({ isOpen, onClose, initialRoomId = '' }) => {
             const hasAudio = devices.some(d => d.kind === 'audioinput');
             setDeviceStatus({ video: hasVideo, audio: hasAudio });
         } catch (err) {
-            console.error('Device check failed:', err);
+            // Device check failed
         }
     };
 

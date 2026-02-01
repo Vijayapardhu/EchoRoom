@@ -20,7 +20,6 @@ export const useWebRTCConnection = (socket, roomId) => {
     useEffect(() => {
         if (!webrtcManagerRef.current) {
             webrtcManagerRef.current = new WebRTCManager();
-            console.log('[useWebRTC] WebRTCManager initialized');
 
             // Set up event listeners
             webrtcManagerRef.current.on('stateChange', ({ newState }) => {
@@ -28,12 +27,10 @@ export const useWebRTCConnection = (socket, roomId) => {
             });
 
             webrtcManagerRef.current.on('remoteStream', (stream) => {
-                console.log('[useWebRTC] Remote stream received');
                 setRemoteStream(stream);
             });
 
             webrtcManagerRef.current.on('error', (err) => {
-                console.error('[useWebRTC] Error:', err);
                 setError(err);
             });
         }
@@ -50,7 +47,6 @@ export const useWebRTCConnection = (socket, roomId) => {
     useEffect(() => {
         if (socket && !signalingServiceRef.current) {
             signalingServiceRef.current = new SignalingService(socket);
-            console.log('[useWebRTC] SignalingService initialized');
         }
 
         return () => {

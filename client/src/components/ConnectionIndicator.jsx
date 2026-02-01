@@ -15,7 +15,6 @@ const ConnectionIndicator = () => {
 
         const updateConnectionState = () => {
             const state = pc.iceConnectionState;
-            console.log('ICE Connection State:', state);
 
             if (state === 'connected' || state === 'completed') {
                 setQuality('good');
