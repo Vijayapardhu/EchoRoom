@@ -288,16 +288,33 @@ const Room = () => {
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
-    const [userName, setUserName] = useState(() => localStorage.getItem('echoroom_username') || '');
+    const [userName, setUserName] = useState(() => {
+        // Check location state first (from Matching screen)
+        const navName = location.state?.userName;
+        if (navName) {
+            localStorage.setItem('echoroom_username', navName);
+            return navName;
+        }
+        return localStorage.getItem('echoroom_username') || '';
+    });
     const [tempName, setTempName] = useState('');
     const [isGroupCall, setIsGroupCall] = useState(false);
     const [groupPeers, setGroupPeers] = useState([]);
     const [pendingInitiatorRole, setPendingInitiatorRole] = useState(null);
     
-    // Peer info (Omegle-style optional fields)
+    // Peer info (Omegle-style fields)
+    // Get from location state (if coming from Matching) or localStorage
     const [localPeerInfo, setLocalPeerInfo] = useState(() => {
+        // First check if we have peer info from navigation state (Matching screen)
+        const navPeerInfo = location.state?.peerInfo;
+        if (navPeerInfo) {
+            // Save to localStorage for future use
+            localStorage.setItem('echoroom_peer_info', JSON.stringify(navPeerInfo));
+            return navPeerInfo;
+        }
+        // Otherwise load from localStorage
         const saved = localStorage.getItem('echoroom_peer_info');
-        return saved ? JSON.parse(saved) : { gender: '', interests: [] };
+        return saved ? JSON.parse(saved) : { gender: '', interests: [], name: '' };
     });
     const [remotePeerInfo, setRemotePeerInfo] = useState(null);
     const [showPeerInfoModal, setShowPeerInfoModal] = useState(!localPeerInfo.gender);
@@ -554,6 +571,13 @@ const Room = () => {
         const handlePeerInfo = ({ peerId, info }) => {
             console.log('[Room] Received peer info:', info);
             setRemotePeerInfo(info);
+            // Show toast notification about connected user
+            if (info.name) {
+                toast.success(`Connected with ${info.name}`, { 
+                    icon: <Users weight="fill" className="w-5 h-5 text-blue-400" />,
+                    duration: 3000
+                });
+            }
         };
 
         const handlePeerDisconnected = () => {
@@ -854,32 +878,36 @@ const Room = () => {
                                         playsInline
                                         className={`${isFullscreen ? 'w-full h-full object-contain' : 'w-full h-full object-contain'}`}
                                     />
-                                    {/* Peer Info Overlay - Hidden in fullscreen unless controls showing */}
-                                    {remotePeerInfo && (!isFullscreen || showFullscreenControls) && (
-                                        <div className={`absolute top-4 left-4 right-4 transition-opacity duration-300 ${isFullscreen ? 'bg-black/40 backdrop-blur-sm p-3 rounded-xl' : ''}`}>
-                                            {/* Name Banner */}
-                                            {remotePeerInfo.name && (
-                                                <div className="mb-2">
-                                                    <span className="text-lg font-bold text-white drop-shadow-lg">
-                                                        {remotePeerInfo.name}
+                                    {/* Peer Info Overlay - Always show name, hide details in fullscreen unless active */}
+                                    {remotePeerInfo && (
+                                        <>
+                                            {/* Name - Always visible */}
+                                            <div className="absolute top-4 left-4 z-10">
+                                                <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                                                    <span className="text-lg font-bold text-white drop-shadow-md">
+                                                        {remotePeerInfo.name || 'Anonymous'}
                                                     </span>
                                                 </div>
-                                            )}
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                {remotePeerInfo.gender && (
-                                                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${remotePeerInfo.gender === 'male' ? 'bg-blue-500/20 text-blue-400' : 'bg-pink-500/20 text-pink-400'} text-xs font-medium`}>
-                                                        {remotePeerInfo.gender === 'male' ? <GenderMale weight="fill" className="w-3.5 h-3.5" /> : <GenderFemale weight="fill" className="w-3.5 h-3.5" />}
-                                                        {remotePeerInfo.gender}
-                                                    </div>
-                                                )}
-                                                {remotePeerInfo.interests?.slice(0, 3).map((interest, i) => (
-                                                    <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium">
-                                                        <Tag weight="fill" className="w-3.5 h-3.5" />
-                                                        {interest}
-                                                    </div>
-                                                ))}
                                             </div>
-                                        </div>
+                                            
+                                            {/* Gender & Interests - Hidden in fullscreen unless controls showing */}
+                                            {(!isFullscreen || showFullscreenControls) && (
+                                                <div className={`absolute top-16 left-4 right-4 flex items-center gap-2 flex-wrap transition-opacity duration-300`}>
+                                                    {remotePeerInfo.gender && (
+                                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${remotePeerInfo.gender === 'male' ? 'bg-blue-500/30 text-blue-300 border border-blue-500/30' : 'bg-pink-500/30 text-pink-300 border border-pink-500/30'} text-xs font-medium backdrop-blur-sm`}>
+                                                            {remotePeerInfo.gender === 'male' ? <GenderMale weight="fill" className="w-3.5 h-3.5" /> : <GenderFemale weight="fill" className="w-3.5 h-3.5" />}
+                                                            {remotePeerInfo.gender}
+                                                        </div>
+                                                    )}
+                                                    {remotePeerInfo.interests?.slice(0, 3).map((interest, i) => (
+                                                        <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/30 text-violet-300 text-xs font-medium border border-violet-500/30 backdrop-blur-sm">
+                                                            <Tag weight="fill" className="w-3.5 h-3.5" />
+                                                            {interest}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                     {remoteReaction && (
                                         <motion.div
