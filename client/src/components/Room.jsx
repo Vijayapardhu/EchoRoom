@@ -653,7 +653,7 @@ const Room = () => {
         }
     }, []);
 
-    const handleFullscreenTap = useCallback(() => {
+    const handleFullscreenActivity = useCallback(() => {
         if (!isFullscreen) return;
         setShowFullscreenControls(true);
         if (fullscreenTimeoutRef.current) clearTimeout(fullscreenTimeoutRef.current);
@@ -662,7 +662,7 @@ const Room = () => {
         }, 3000);
     }, [isFullscreen]);
 
-    // Listen for fullscreen change events
+    // Listen for fullscreen change events and mouse movement
     useEffect(() => {
         const handleFullscreenChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
@@ -671,7 +671,23 @@ const Room = () => {
             }
         };
         document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        
+        // Global mouse move listener for fullscreen
+        const handleMouseMove = () => {
+            if (document.fullscreenElement) {
+                setShowFullscreenControls(true);
+                if (fullscreenTimeoutRef.current) clearTimeout(fullscreenTimeoutRef.current);
+                fullscreenTimeoutRef.current = setTimeout(() => {
+                    setShowFullscreenControls(false);
+                }, 3000);
+            }
+        };
+        document.addEventListener('mousemove', handleMouseMove);
+        
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('mousemove', handleMouseMove);
+        };
     }, []);
 
     const handleLeaveRoom = useCallback(() => {
@@ -825,7 +841,9 @@ const Room = () => {
                     {/* Remote Video - Full Screen with Original Aspect Ratio */}
                     <div 
                         className={`flex-1 h-full flex items-center justify-center ${isFullscreen ? 'fixed inset-0 z-0' : ''}`}
-                        onClick={handleFullscreenTap}
+                        onClick={handleFullscreenActivity}
+                        onMouseMove={handleFullscreenActivity}
+                        onTouchStart={handleFullscreenActivity}
                     >
                         <div className={`relative flex items-center justify-center overflow-hidden bg-black ${isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full max-w-full max-h-full rounded-2xl bg-neutral-900/50 border border-white/10'}`}>
                             {remoteStream ? (
