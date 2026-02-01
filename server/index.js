@@ -22,13 +22,16 @@ const allowedOrigins = [
 const io = new Server(server, {
     cors: {
         origin: function (origin, callback) {
-            // Allow requests with no origin
+            // Allow requests with no origin (mobile apps, curl, etc)
             if (!origin) return callback(null, true);
-            // Allow all vercel.app and echoroom domains
-            if (origin.includes('vercel.app') || origin.includes('echoroom') || origin.includes('localhost')) {
+            
+            // Check against allowed origins
+            if (allowedOrigins.includes(origin) || 
+                origin.includes('vercel.app') || 
+                origin.includes('echoroom.online')) {
                 callback(null, true);
             } else {
-                callback(null, true); // Allow anyway for debugging
+                callback(new Error('Not allowed by CORS'));
             }
         },
         methods: ["GET", "POST"],

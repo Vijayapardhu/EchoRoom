@@ -7,7 +7,7 @@ class SafetyService {
             this.usersCollection = db.collection('users');
             this.bannedIpsCollection = db.collection('banned_ips');
         } else {
-            console.warn('SafetyService: Running in memory-only mode (No Firebase connection)');
+            // Running in memory-only mode
         }
     }
 
@@ -17,7 +17,6 @@ class SafetyService {
             const doc = await this.bannedIpsCollection.doc(ip).get();
             return doc.exists;
         } catch (error) {
-            console.error('Error checking ban status:', error);
             return false;
         }
     }
@@ -29,9 +28,8 @@ class SafetyService {
                 reason,
                 timestamp: new Date(),
             });
-            console.log(`IP ${ip} banned: ${reason}`);
         } catch (error) {
-            console.error('Error banning IP:', error);
+            // Error banning IP
         }
     }
 
@@ -50,7 +48,6 @@ class SafetyService {
             if (db) {
                 await this.reportsCollection.add(report);
             }
-            console.log(`Report filed against ${reportedId} (IP: ${reportedIp}): ${reason}`);
 
             // Decrement trust score
             await this.decrementTrustScore(reportedId, 10);
@@ -62,7 +59,7 @@ class SafetyService {
                 await this.banIp(reportedIp, 'Trust score too low');
             }
         } catch (error) {
-            console.error('Error saving report to Firestore:', error);
+            // Error saving report
         }
 
         return report;
@@ -70,7 +67,6 @@ class SafetyService {
 
     async handleBlock(blockerId, blockedId) {
         // In a real app, store this in a 'blocks' subcollection or similar
-        console.log(`Block established between ${blockerId} and ${blockedId} (Not persisted in MVP)`);
     }
 
     async getTrustScore(userId) {
@@ -81,7 +77,7 @@ class SafetyService {
                 return doc.data().trustScore || 100;
             }
         } catch (error) {
-            console.error('Error fetching trust score:', error);
+            // Error fetching trust score
         }
         return 100; // Default
     }
@@ -96,11 +92,9 @@ class SafetyService {
                 const currentScore = doc.exists ? (doc.data().trustScore || 100) : 100;
                 newScore = Math.max(0, currentScore - amount);
                 t.set(userRef, { trustScore: newScore }, { merge: true });
-                console.log(`User ${userId} trust score updated: ${newScore}`);
             });
-            return newScore; // Return the new score for immediate checking
+            return newScore;
         } catch (error) {
-            console.error('Error updating trust score:', error);
             return 100;
         }
     }

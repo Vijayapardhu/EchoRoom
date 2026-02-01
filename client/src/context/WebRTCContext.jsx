@@ -260,13 +260,12 @@ export const WebRTCProvider = ({ children }) => {
                     candidateQueues.current.set(peerId, []);
                 }
                 candidateQueues.current.get(peerId).push(candidate);
-                console.log('[WebRTCContext] Queued ICE candidate for peer:', peerId);
                 return;
             }
             
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {
-            console.error('[WebRTCContext] Error adding ICE candidate for peer:', peerId, e);
+            // Error adding ICE candidate
         }
     }, []);
 

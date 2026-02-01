@@ -48,10 +48,7 @@ const socketService = (io) => {
                 const key = iterator.next().value;
                 pendingMatches.delete(key);
             }
-            console.log(`[Cleanup] Trimmed pending matches queue by ${entriesToRemove}`);
         }
-        
-        console.log(`[Stats] Active: ${activeConnections.size}, Pending: ${pendingMatches.size}, Groups: ${groupRooms.size}`);
     }, cleanupInterval);
 
     // Periodic matching check for waiting users (optimized for high load)
@@ -77,10 +74,9 @@ const socketService = (io) => {
                     socket.join(roomId);
                     io.sockets.sockets.get(match.socketId)?.join(roomId);
                     io.to(roomId).emit('match-found', { roomId, isGroup: false });
-                    console.log(`[Periodic] Match found: ${socketId} <-> ${match.socketId}`);
                 }
             } catch (err) {
-                console.error('[Periodic] Match check error:', err);
+                // Match check error
             }
         }
     }, 2000); // Check every 2 seconds
@@ -88,7 +84,7 @@ const socketService = (io) => {
     io.on('connection', async (socket) => {
         const clientIp = socket.handshake.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
                          socket.handshake.address;
-        console.log('User connected:', socket.id, 'IP:', clientIp);
+
 
         // Rate limiting check
         const now = Date.now();
@@ -106,7 +102,6 @@ const socketService = (io) => {
             .filter(conn => conn.ip === clientIp).length;
         
         if (connectionsFromIp >= MAX_CONNECTIONS_PER_IP) {
-            console.log(`Rate limit exceeded for IP: ${clientIp} (${connectionsFromIp} connections)`);
             socket.emit('error', { message: 'Too many connections from your IP. Please try again later.' });
             socket.disconnect(true);
             return;
@@ -125,7 +120,6 @@ const socketService = (io) => {
         // Check for IP ban
         const isBanned = await safetyService.checkBanStatus(clientIp);
         if (isBanned) {
-            console.log(`Blocked banned IP: ${clientIp}`);
             socket.emit('banned', { reason: 'Your IP has been banned due to safety violations.' });
             socket.disconnect(true);
             return;
@@ -133,7 +127,6 @@ const socketService = (io) => {
 
         // Handle joining the matching queue
         socket.on('join-queue', async (preferences) => {
-            console.log(`User ${socket.id} joining queue with prefs:`, preferences);
             try {
                 // Check if group mode
                 if (preferences.groupMode === 'group') {
@@ -173,7 +166,6 @@ const socketService = (io) => {
                     const match = await matchingService.addUserToQueue(socket.id, preferences);
 
                     if (match) {
-                        console.log(`Match found: ${socket.id} <-> ${match.socketId}`);
                         const roomId = `${socket.id}-${match.socketId}`;
 
                         // Remove from pending matches
@@ -192,7 +184,7 @@ const socketService = (io) => {
                     }
                 }
             } catch (err) {
-                console.error('Error in join-queue:', err);
+                // Error in join-queue
             }
         });
 
@@ -201,14 +193,13 @@ const socketService = (io) => {
 
         // Handle joining a specific room (Handshake trigger)
         socket.on('join-room', ({ roomId, userName, peerInfo }) => {
-            console.log(`User ${socket.id} joining room ${roomId}`, peerInfo);
             socket.join(roomId);
             
             // Store peer info
             peerInfoMap.set(socket.id, { ...peerInfo, name: userName, socketId: socket.id });
 
             const room = io.sockets.adapter.rooms.get(roomId);
-            console.log(`[Room ${roomId}] Current size: ${room?.size || 0}`);
+
             
             // Check if this is a group room
             if (roomId.startsWith('group-')) {
@@ -253,40 +244,29 @@ const socketService = (io) => {
                     
                     // Always reassign roles when someone joins (handles reconnection)
                     if (!roomsWithInitiator.has(roomId)) {
-                        console.log(`[WebRTC] Room ${roomId} ready with 2 peers. Assigning roles...`);
-
                         // Sort to deterministically pick initiator (alphabetically)
                         clients.sort();
                         const initiator = clients[0];
                         const receiver = clients[1];
 
-                        console.log(`[WebRTC] Initiator: ${initiator}, Receiver: ${receiver}`);
-
                         // Emit to both peers with a small delay to ensure they're ready
                         setTimeout(() => {
                             io.to(initiator).emit('is-initiator', true);
                             io.to(receiver).emit('is-initiator', false);
-                            console.log(`[WebRTC] Roles assigned for room ${roomId}`);
                         }, 500);
 
                         // Mark this room as having assigned initiators
                         roomsWithInitiator.add(roomId);
-                    } else {
-                        console.log(`[WebRTC] Room ${roomId} already has initiators, skipping`);
                     }
                 } else if (room && room.size > 2) {
                     // Room is full, notify the new joiner
-                    console.log(`[Room ${roomId}] Room is full (${room.size} users)`);
                     socket.emit('room-full', { message: 'Room is already full' });
-                } else {
-                    console.log(`[Room ${roomId}] Waiting for peer... (${room?.size || 0}/2)`);
                 }
             }
         });
 
         // Handle "Next" button - skip to next match
         socket.on('next', ({ roomId }) => {
-            console.log(`User ${socket.id} clicked Next in room ${roomId}`);
             
             // Notify partner that user left
             socket.to(roomId).emit('partner-left', { reason: 'next' });
@@ -314,7 +294,6 @@ const socketService = (io) => {
 
         // Handle leaving a room
         socket.on('leave-room', (roomId) => {
-            console.log(`User ${socket.id} leaving room ${roomId}`);
             socket.leave(roomId);
             socket.to(roomId).emit('peer-disconnected');
             socket.to(roomId).emit('partner-left', { reason: 'leave' });
@@ -336,7 +315,6 @@ const socketService = (io) => {
         // Handle WebRTC Signaling with enhanced reliability
         socket.on('offer', (data) => {
             const { roomId, offer, targetPeerId } = data;
-            console.log(`[WebRTC] Offer from ${socket.id} to ${targetPeerId || 'room'}`);
             
             if (targetPeerId) {
                 // Group call - send to specific peer
@@ -359,7 +337,6 @@ const socketService = (io) => {
 
         socket.on('answer', (data) => {
             const { roomId, answer, targetPeerId } = data;
-            console.log(`[WebRTC] Answer from ${socket.id} to ${targetPeerId || 'room'}`);
             
             if (targetPeerId) {
                 io.to(targetPeerId).emit('answer', { answer, sender: socket.id });
@@ -390,18 +367,11 @@ const socketService = (io) => {
             
             // Notify peer about connection state
             socket.to(roomId).emit('peer-connection-state', { peerId: socket.id, state });
-            
-            if (state === 'connected') {
-                console.log(`[WebRTC] Connection established in room ${roomId}`);
-            } else if (state === 'failed') {
-                console.log(`[WebRTC] Connection failed in room ${roomId} for ${socket.id}`);
-            }
         });
         
         // Handle ICE restart requests
         socket.on('ice-restart', (data) => {
             const { roomId, offer, targetPeerId } = data;
-            console.log(`[WebRTC] ICE restart requested by ${socket.id}`);
             
             if (targetPeerId) {
                 io.to(targetPeerId).emit('ice-restart', { offer, sender: socket.id });
@@ -413,7 +383,6 @@ const socketService = (io) => {
         // Handle renegotiation needed (for adding/removing tracks)
         socket.on('renegotiate', (data) => {
             const { roomId, targetPeerId } = data;
-            console.log(`[WebRTC] Renegotiation requested by ${socket.id}`);
             
             if (targetPeerId) {
                 io.to(targetPeerId).emit('renegotiate', { sender: socket.id });
@@ -424,7 +393,6 @@ const socketService = (io) => {
 
         // Safety Events
         socket.on('panic', ({ roomId }) => {
-            console.log(`Panic triggered in room ${roomId} by ${socket.id}`);
             socket.to(roomId).emit('partner-panic');
             socket.leave(roomId);
             const clientIp = socket.handshake.address;
@@ -432,7 +400,6 @@ const socketService = (io) => {
         });
 
         socket.on('report', ({ roomId, reason, details }) => {
-            console.log(`Report received from ${socket.id} in room ${roomId}: ${reason}`);
             const room = io.sockets.adapter.rooms.get(roomId);
             let reportedIp = null;
             let reportedId = 'unknown-target';
@@ -495,7 +462,6 @@ const socketService = (io) => {
         });
 
         socket.on('disconnect', async () => {
-            console.log('User disconnected:', socket.id);
             await matchingService.removeUserFromQueue(socket.id);
             
             // Remove from pending matches

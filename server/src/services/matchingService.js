@@ -24,7 +24,6 @@ class MatchingService {
                 await redisClient.hSet(`${this.USER_PREFIX}${socketId}`, user);
                 await redisClient.rPush(this.QUEUE_KEY, socketId);
             } catch (e) {
-                console.error("Redis error, falling back to memory:", e);
                 this.localUsers.set(socketId, user);
                 this.localQueue.push(socketId);
             }
@@ -59,7 +58,6 @@ class MatchingService {
             try {
                 return await this.findMatchRedis(currentSocketId);
             } catch (e) {
-                console.error("Redis match error, using memory:", e);
                 return this.findMatchLocal(currentSocketId);
             }
         } else {
