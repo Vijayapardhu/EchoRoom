@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -98,8 +98,15 @@ const Matching = () => {
         };
     }, []);
 
+    // Ref to prevent duplicate queue joins
+    const hasJoinedQueueRef = useRef(false);
+
     useEffect(() => {
         if (!socket || !isMatching) return;
+        
+        // Prevent duplicate joins
+        if (hasJoinedQueueRef.current) return;
+        hasJoinedQueueRef.current = true;
 
         const peerInfo = {
             name: userName || 'Anonymous',
@@ -107,6 +114,7 @@ const Matching = () => {
             interests: selectedInterests
         };
 
+        console.log('[Matching] Joining queue...');
         socket.emit('join-queue', { 
             ...preferences, 
             peerInfo,
@@ -114,6 +122,10 @@ const Matching = () => {
         });
 
         const handleMatchFound = ({ roomId }) => {
+            console.log('[Matching] Match found, navigating to room:', roomId);
+            // Remove listener immediately to prevent duplicate navigation
+            socket.off('match-found', handleMatchFound);
+            
             toast.success('Match found! Connecting...', { 
                 icon: <CheckCircle weight="fill" className="w-5 h-5 text-emerald-400" /> 
             });
@@ -133,8 +145,11 @@ const Matching = () => {
 
         return () => {
             socket.off('match-found', handleMatchFound);
+            if (socket) {
+                socket.emit('leave-queue');
+            }
         };
-    }, [socket, navigate, preferences, isMatching, userName, gender, selectedInterests]);
+    }, [socket, isMatching]);  // Only re-run when socket or matching state changes
 
     const handleCancel = () => {
         if (socket) {

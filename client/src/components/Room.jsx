@@ -523,12 +523,59 @@ const Room = () => {
             processInitiatorRole(isInitiator);
         };
 
+        const handleOfferReceived = async ({ offer }) => {
+            console.log('[Room] Received offer');
+            try {
+                if (!peerConnection.current) {
+                    const handleIceCandidate = (candidate) => {
+                        if (candidate && socket) {
+                            socket.emit('ice-candidate', { roomId, candidate });
+                        }
+                    };
+                    createPeerConnection(handleIceCandidate);
+                }
+                const answer = await handleOffer(offer);
+                socket.emit('answer', { roomId, answer });
+                initiatorHandledRef.current = true;
+                console.log('[Room] Answer sent');
+            } catch (err) {
+                console.error('[Room] Error handling offer:', err);
+                toast.error('Connection failed');
+            }
+        };
+
+        const handleAnswerReceived = async ({ answer }) => {
+            console.log('[Room] Received answer');
+            try {
+                await handleAnswer(answer);
+                console.log('[Room] Answer processed');
+            } catch (err) {
+                console.error('[Room] Error handling answer:', err);
+            }
+        };
+
+        const handleIceCandidateReceived = async ({ candidate }) => {
+            if (!candidate) return;
+            try {
+                await addIceCandidate(candidate);
+                console.log('[Room] ICE candidate added');
+            } catch (err) {
+                console.error('[Room] Error adding ICE candidate:', err);
+            }
+        };
+
         socket.on('is-initiator', handleIsInitiator);
+        socket.on('offer', handleOfferReceived);
+        socket.on('answer', handleAnswerReceived);
+        socket.on('ice-candidate', handleIceCandidateReceived);
 
         return () => {
             socket.off('is-initiator', handleIsInitiator);
+            socket.off('offer', handleOfferReceived);
+            socket.off('answer', handleAnswerReceived);
+            socket.off('ice-candidate', handleIceCandidateReceived);
         };
-    }, [socket, roomId, userName, localPeerInfo]);
+    }, [socket, roomId, isGroupCall, localStream, processInitiatorRole, createPeerConnection, handleOffer, handleAnswer, addIceCandidate]);
 
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
