@@ -165,6 +165,10 @@ export const useWebRTCConnection = (socket, roomId) => {
         setError(null);
     }, []);
 
+    // Getters for managers (avoid accessing ref.current during render)
+    const getWebRTCManager = useCallback(() => webrtcManagerRef.current, []);
+    const getSignalingService = useCallback(() => signalingServiceRef.current, []);
+
     return {
         // State
         localStream,
@@ -185,9 +189,9 @@ export const useWebRTCConnection = (socket, roomId) => {
         closeConnection,
         cleanup,
 
-        // Managers (for advanced usage)
-        webrtcManager: webrtcManagerRef.current,
-        signalingService: signalingServiceRef.current
+        // Getters for managers (call these to get the current instance)
+        getWebRTCManager,
+        getSignalingService
     };
 };
 

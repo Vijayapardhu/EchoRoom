@@ -11,7 +11,7 @@ class ErrorBoundary extends React.Component {
         return { hasError: true, error };
     }
 
-    componentDidCatch(error, errorInfo) {
+    componentDidCatch() {
         // Error caught and handled silently
     }
 

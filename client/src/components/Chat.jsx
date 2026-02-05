@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
     Heart,
     Lightning,
@@ -27,6 +27,19 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const messageIdCounter = useRef(0);
+    const lastTimestamp = useRef(0);
+    
+    const generateMessageId = () => {
+        messageIdCounter.current += 1;
+        // Use a combination of counter and a stable timestamp reference
+        const now = performance.now();
+        if (now === lastTimestamp.current) {
+            return `msg-${now}-${messageIdCounter.current}`;
+        }
+        lastTimestamp.current = now;
+        return `msg-${now}`;
+    };
 
     const stickers = [
         { icon: Heart, label: 'Heart', color: 'text-red-400', bg: 'bg-red-400/20' },
@@ -70,8 +83,9 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
         e?.preventDefault();
         if (!input.trim()) return;
 
+        const messageId = generateMessageId();
         const message = {
-            id: Date.now(),
+            id: messageId,
             text: input.trim(),
             sender: userName || 'Anonymous',
             timestamp: new Date().toISOString(),
@@ -84,13 +98,13 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
         setInput('');
         
         setTimeout(() => {
-            setMessages(prev => prev.map(m => m.id === message.id ? { ...m, status: 'sent' } : m));
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, status: 'sent' } : m));
         }, 300);
     };
 
     const sendSticker = (sticker) => {
         const message = {
-            id: Date.now(),
+            id: generateMessageId(),
             type: 'sticker',
             sticker,
             sender: userName || 'Anonymous',
@@ -108,7 +122,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
         const reader = new FileReader();
         reader.onloadend = () => {
             const message = {
-                id: Date.now(),
+                id: generateMessageId(),
                 type: 'image',
                 image: reader.result,
                 sender: userName || 'Anonymous',

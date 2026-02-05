@@ -499,7 +499,7 @@ export const WebRTCProvider = ({ children }) => {
         } else {
             await startScreenShare();
         }
-    }, [isScreenSharing, startScreenShare, stopScreenShare]);
+    }, [isScreenSharing]);
 
     /**
      * Close connection

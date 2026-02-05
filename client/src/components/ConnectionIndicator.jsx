@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Wifi, WifiOff, Activity, Signal, SignalLow, SignalMedium, SignalHigh } from 'lucide-react';
 import { useWebRTC } from '../context/WebRTCContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
 const ConnectionIndicator = () => {
     const { peerConnection, connectionStats } = useWebRTC();

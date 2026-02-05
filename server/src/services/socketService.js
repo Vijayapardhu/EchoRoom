@@ -262,12 +262,10 @@ const socketService = (io) => {
 
                         console.log(`[WebRTC] Initiator: ${initiator}, Receiver: ${receiver}`);
 
-                        // Emit to both peers with a small delay to ensure they're ready
-                        setTimeout(() => {
-                            io.to(initiator).emit('is-initiator', true);
-                            io.to(receiver).emit('is-initiator', false);
-                            console.log(`[WebRTC] Roles assigned for room ${roomId}`);
-                        }, 500);
+                        // Emit to both peers immediately for faster connection
+                        io.to(initiator).emit('is-initiator', true);
+                        io.to(receiver).emit('is-initiator', false);
+                        console.log(`[WebRTC] Roles assigned for room ${roomId}`);
 
                         // Mark this room as having assigned initiators
                         roomsWithInitiator.add(roomId);
@@ -372,6 +370,9 @@ const socketService = (io) => {
             const { roomId, candidate, targetPeerId } = data;
             
             if (!candidate) return; // Ignore null candidates
+            
+            // Log ICE candidate transmission
+            console.log(`[WebRTC] ICE candidate from ${socket.id} to ${targetPeerId || 'room:' + roomId}`);
             
             if (targetPeerId) {
                 io.to(targetPeerId).emit('ice-candidate', { candidate, sender: socket.id });

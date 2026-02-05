@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { useWebRTC } from '../context/WebRTCContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
     Microphone, 
@@ -15,12 +15,6 @@ import {
     ArrowClockwise,
     Spinner,
     ShareNetwork,
-    Copy,
-    X,
-    WifiHigh,
-    WifiMedium,
-    WifiLow,
-    WifiSlash,
     CheckCircle,
     Info,
     Smiley,
@@ -31,50 +25,46 @@ import {
     HandsClapping,
     Users,
     ArrowLeft,
-    GridFour,
-    UserSquare,
     GenderMale,
     GenderFemale,
     Tag,
     CornersOut,
-    CornersIn
+    CornersIn,
+    WifiHigh,
+    WifiMedium,
+    WifiLow,
+    WifiSlash,
+    Warning,
+    DotsThree
 } from '@phosphor-icons/react';
 import Chat from './Chat';
 import { playJoinSound, playLeaveSound } from '../utils/soundEffects';
 
-// Connection quality indicator
+// Connection quality indicator with enhanced styling
 const ConnectionQuality = ({ stats }) => {
     const getQuality = () => {
-        if (!stats || stats.rtt === 0) return { icon: WifiSlash, color: 'text-red-400', label: 'Disconnected' };
-        if (stats.rtt < 50) return { icon: WifiHigh, color: 'text-emerald-400', label: 'Excellent' };
-        if (stats.rtt < 100) return { icon: WifiHigh, color: 'text-blue-400', label: 'Good' };
-        if (stats.rtt < 200) return { icon: WifiMedium, color: 'text-yellow-400', label: 'Fair' };
-        return { icon: WifiLow, color: 'text-orange-400', label: 'Poor' };
+        if (!stats || stats.rtt === 0) return { icon: WifiSlash, color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30', label: 'Disconnected' };
+        if (stats.rtt < 50) return { icon: WifiHigh, color: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/30', label: 'Excellent' };
+        if (stats.rtt < 100) return { icon: WifiHigh, color: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30', label: 'Good' };
+        if (stats.rtt < 200) return { icon: WifiMedium, color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', label: 'Fair' };
+        return { icon: WifiLow, color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/30', label: 'Poor' };
     };
 
     const quality = getQuality();
     const Icon = quality.icon;
 
     return (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/10">
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${quality.bg} backdrop-blur-md border ${quality.border} transition-all duration-300 hover:scale-105`}>
             <Icon weight="fill" className={`w-4 h-4 ${quality.color}`} />
-            <span className="text-xs text-white/60">{quality.label}</span>
+            <span className={`text-xs font-medium ${quality.color}`}>{quality.label}</span>
             {stats?.rtt > 0 && (
-                <span className="text-xs text-white/40 font-mono">{stats.rtt}ms</span>
+                <span className="text-xs text-white/50 font-mono">{stats.rtt}ms</span>
             )}
         </div>
     );
 };
 
-// Peer Info Badge (Omegle-style)
-const PeerInfoBadge = ({ label, value, icon: Icon, color = 'blue' }) => (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-${color}-500/20 border border-${color}-500/30 text-${color}-400 text-xs`}>
-        <Icon weight="fill" className="w-3.5 h-3.5" />
-        <span className="font-medium">{value || label}</span>
-    </div>
-);
-
-// Video Tile Component
+// Enhanced Video Tile Component
 const VideoTile = ({ 
     stream, 
     isLocal = false, 
@@ -83,7 +73,8 @@ const VideoTile = ({
     isScreenShare = false,
     isMuted = false,
     isVideoOff = false,
-    className = ''
+    className = '',
+    showOverlay = true
 }) => {
     const videoRef = useRef(null);
 
@@ -95,15 +86,35 @@ const VideoTile = ({
     }, [stream]);
 
     return (
-        <div className={`relative rounded-2xl overflow-hidden bg-slate-900 border border-white/10 ${className}`}>
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            className={`relative rounded-3xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 shadow-2xl ${className}`}
+        >
             {(!stream || isVideoOff) ? (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center mb-2">
-                        <span className="text-2xl font-bold text-white">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800/80 to-slate-900/80">
+                    <motion.div 
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center mb-4 shadow-2xl shadow-purple-500/30"
+                    >
+                        <span className="text-4xl font-bold text-white">
                             {(userName || 'U')[0].toUpperCase()}
                         </span>
-                    </div>
-                    <span className="text-white/60 text-sm">{userName || 'User'}</span>
+                    </motion.div>
+                    <span className="text-white/80 text-base font-medium">{userName || 'User'}</span>
+                    {isVideoOff && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mt-3 flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 text-red-400 text-sm border border-red-500/30"
+                        >
+                            <VideoCameraSlash weight="fill" className="w-4 h-4" />
+                            Camera Off
+                        </motion.div>
+                    )}
                 </div>
             ) : (
                 <>
@@ -117,51 +128,65 @@ const VideoTile = ({
                     />
                     {/* Screen share label */}
                     {isScreenShare && (
-                        <div className="absolute top-3 left-3 px-3 py-1.5 rounded-lg bg-emerald-500/90 text-white text-xs font-medium flex items-center gap-1.5">
+                        <motion.div 
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="absolute top-4 left-4 px-4 py-2 rounded-xl bg-emerald-500/90 backdrop-blur-md text-white text-sm font-semibold flex items-center gap-2 shadow-lg border border-emerald-400/30"
+                        >
                             <Monitor weight="fill" className="w-4 h-4" />
                             Screen Sharing
-                        </div>
+                        </motion.div>
                     )}
                 </>
             )}
             
             {/* User info overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-                <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-white">{userName || (isLocal ? 'You' : 'User')}</span>
-                    
-                    {/* Peer info badges */}
-                    {peerInfo && (
-                        <div className="flex items-center gap-1.5">
-                            {peerInfo.gender && (
-                                <PeerInfoBadge 
-                                    icon={peerInfo.gender === 'male' ? GenderMale : GenderFemale}
-                                    value={peerInfo.gender}
-                                    color={peerInfo.gender === 'male' ? 'blue' : 'pink'}
-                                />
+            {showOverlay && (
+                <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-base font-semibold text-white">{userName || (isLocal ? 'You' : 'User')}</span>
+                            
+                            {/* Peer info badges */}
+                            {peerInfo && (
+                                <div className="hidden sm:flex items-center gap-2">
+                                    {peerInfo.gender && (
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                            peerInfo.gender === 'male' 
+                                                ? 'bg-blue-500/30 text-blue-300 border border-blue-500/40' 
+                                                : 'bg-pink-500/30 text-pink-300 border border-pink-500/40'
+                                        }`}>
+                                            {peerInfo.gender === 'male' ? 'Male' : 'Female'}
+                                        </span>
+                                    )}
+                                    {peerInfo.interests?.slice(0, 2).map((interest, i) => (
+                                        <span key={i} className="px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-500/30 text-violet-300 border border-violet-500/40">
+                                            {interest}
+                                        </span>
+                                    ))}
+                                </div>
                             )}
-                            {peerInfo.interests?.slice(0, 2).map((interest, i) => (
-                                <PeerInfoBadge key={i} icon={Tag} value={interest} color="violet" />
-                            ))}
                         </div>
-                    )}
-                    
-                    {/* Status indicators */}
-                    <div className="flex items-center gap-1">
+                        
+                        {/* Status indicators */}
                         {isMuted && (
-                            <div className="p-1.5 rounded-full bg-red-500/80">
-                                <MicrophoneSlash weight="fill" className="w-3.5 h-3.5 text-white" />
-                            </div>
+                            <motion.div 
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="p-2.5 rounded-full bg-red-500/90 shadow-lg"
+                            >
+                                <MicrophoneSlash weight="fill" className="w-4 h-4 text-white" />
+                            </motion.div>
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+            )}
+        </motion.div>
     );
 };
 
 // Floating reaction animation
-const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
+const FloatingReaction = ({ icon: Icon, color, onComplete, offset }) => {
     useEffect(() => {
         const timer = setTimeout(onComplete, 2000);
         return () => clearTimeout(timer);
@@ -176,59 +201,47 @@ const FloatingReaction = ({ icon: Icon, color, onComplete }) => {
     };
 
     return (
-        <motion.div
-            initial={{ opacity: 1, y: 0, scale: 0.5, x: '-50%' }}
-            animate={{ opacity: 0, y: -150, scale: 1.2, x: '-50%' }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 2, ease: 'easeOut' }}
-            className="fixed bottom-32 left-1/2 pointer-events-none z-[100]"
-            style={{ marginLeft: `${(Math.random() - 0.5) * 100}px` }} // Random horizontal offset
+        <div
+            className="fixed bottom-32 left-1/2 pointer-events-none z-[100] animate-float-up"
+            style={{ marginLeft: `${offset}px` }}
         >
-            <Icon weight="fill" className={`w-12 h-12 md:w-16 md:h-16 ${colorClasses[color]}`} />
-        </motion.div>
+            <Icon weight="fill" className={`w-14 h-14 md:w-16 md:h-16 ${colorClasses[color]}`} />
+        </div>
     );
 };
 
-// Gallery View (Zoom-style)
-const GalleryView = ({ localStream, remoteStream, localUser, remoteUser, localPeerInfo, remotePeerInfo, isScreenSharing, connectionStats }) => {
-    const [layout, setLayout] = useState('auto'); // 'auto', 'grid', 'spotlight'
+// Gallery View for Group Calls
+const GalleryView = ({ localStream, remoteStream, localUser, remoteUser, localPeerInfo, remotePeerInfo, isScreenSharing, connectionStats, isVideoOff }) => {
+    const [layout, setLayout] = useState('grid');
     
     const hasRemote = !!remoteStream;
     
-    // Determine layout based on participant count
-    const getLayoutClass = () => {
-        if (layout === 'spotlight') return 'grid-cols-1';
-        if (!hasRemote) return 'grid-cols-1';
-        return 'grid-cols-1 md:grid-cols-2';
-    };
-
     return (
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 flex flex-col h-full p-4 gap-4">
             {/* Layout toggle */}
-            <div className="absolute top-20 right-4 z-20 flex items-center gap-2">
+            <div className="absolute top-20 right-4 z-20">
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setLayout(layout === 'auto' ? 'spotlight' : 'auto')}
-                    className="p-2 rounded-xl bg-black/60 backdrop-blur-sm border border-white/10 text-white/70 hover:text-white"
+                    onClick={() => setLayout(layout === 'grid' ? 'spotlight' : 'grid')}
+                    className="p-3 rounded-2xl bg-black/60 backdrop-blur-md border border-white/10 text-white/70 hover:text-white shadow-lg"
                 >
-                    {layout === 'spotlight' ? <GridFour weight="fill" className="w-5 h-5" /> : <UserSquare weight="fill" className="w-5 h-5" />}
+                    {layout === 'spotlight' ? <Users weight="fill" className="w-5 h-5" /> : <CornersOut weight="fill" className="w-5 h-5" />}
                 </motion.button>
             </div>
 
             {/* Video grid */}
-            <div className={`flex-1 grid ${getLayoutClass()} gap-3 p-4`}>
-                {/* Local video */}
+            <div className={`flex-1 grid ${layout === 'spotlight' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
                 <VideoTile 
                     stream={localStream}
                     isLocal
                     userName={localUser}
                     peerInfo={localPeerInfo}
                     isScreenShare={isScreenSharing}
-                    className={layout === 'spotlight' && hasRemote ? 'h-1/4' : 'h-full'}
+                    isVideoOff={isVideoOff}
+                    className="h-full"
                 />
                 
-                {/* Remote video */}
                 {hasRemote && (
                     <VideoTile 
                         stream={remoteStream}
@@ -240,17 +253,50 @@ const GalleryView = ({ localStream, remoteStream, localUser, remoteUser, localPe
                 
                 {/* Waiting state */}
                 {!hasRemote && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                            <Spinner weight="bold" className="w-12 h-12 animate-spin text-blue-400 mb-4 mx-auto" />
-                            <p className="text-lg text-white/50">Waiting for someone to join...</p>
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    >
+                        <div className="text-center bg-black/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10">
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                            >
+                                <Spinner weight="bold" className="w-12 h-12 text-blue-400 mb-4 mx-auto" />
+                            </motion.div>
+                            <p className="text-lg text-white/60 font-medium">Waiting for someone to join...</p>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
             </div>
         </div>
     );
 };
+
+// Control Button Component
+const ControlButton = ({ onClick, active, activeColor, children, label, disabled = false }) => (
+    <div className="flex flex-col items-center gap-1.5">
+        <motion.button
+            whileHover={disabled ? {} : { scale: 1.1 }}
+            whileTap={disabled ? {} : { scale: 0.95 }}
+            onClick={onClick}
+            disabled={disabled}
+            className={`
+                relative p-4 rounded-2xl transition-all duration-300 shadow-lg
+                ${disabled 
+                    ? 'bg-white/5 text-white/30 cursor-not-allowed' 
+                    : active 
+                        ? `${activeColor} text-white shadow-xl` 
+                        : 'bg-white/10 text-white hover:bg-white/20 hover:shadow-xl'
+                }
+            `}
+        >
+            {children}
+        </motion.button>
+        <span className="text-[10px] text-white/50 font-medium">{label}</span>
+    </div>
+);
 
 const Room = () => {
     const { roomId } = useParams();
@@ -290,8 +336,7 @@ const Room = () => {
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
-    const [userName, setUserName] = useState(() => {
-        // Check location state first (from Matching screen)
+    const [userName] = useState(() => {
         const navName = location.state?.userName;
         if (navName) {
             localStorage.setItem('echoroom_username', navName);
@@ -299,22 +344,16 @@ const Room = () => {
         }
         return localStorage.getItem('echoroom_username') || '';
     });
-    const [tempName, setTempName] = useState('');
     const [isGroupCall, setIsGroupCall] = useState(false);
     const [groupPeers, setGroupPeers] = useState([]);
     const [pendingInitiatorRole, setPendingInitiatorRole] = useState(null);
     
-    // Peer info (Omegle-style fields)
-    // Get from location state (if coming from Matching) or localStorage
     const [localPeerInfo, setLocalPeerInfo] = useState(() => {
-        // First check if we have peer info from navigation state (Matching screen)
         const navPeerInfo = location.state?.peerInfo;
         if (navPeerInfo) {
-            // Save to localStorage for future use
             localStorage.setItem('echoroom_peer_info', JSON.stringify(navPeerInfo));
             return navPeerInfo;
         }
-        // Otherwise load from localStorage
         const saved = localStorage.getItem('echoroom_peer_info');
         return saved ? JSON.parse(saved) : { gender: '', interests: [], name: '' };
     });
@@ -325,10 +364,10 @@ const Room = () => {
     const [floatingReactions, setFloatingReactions] = useState([]);
     const [remoteReaction, setRemoteReaction] = useState(null);
     
-    // Fullscreen state
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showFullscreenControls, setShowFullscreenControls] = useState(false);
     const fullscreenTimeoutRef = useRef(null);
+    const connectionTimeoutRef = useRef(null);
 
     const reactions = [
         { icon: Heart, color: 'red', name: 'heart' },
@@ -342,26 +381,39 @@ const Room = () => {
         if (roomId && roomId.startsWith('group-')) {
             setIsGroupCall(true);
         }
-        // Reset all state when room changes
         initiatorHandledRef.current = false;
         setPendingInitiatorRole(null);
         setGroupPeers([]);
         setRemotePeerInfo(null);
         setIsMuted(false);
         setIsVideoOff(false);
-        setRemoteStream(null); // Clear remote stream on room change
+        setRemoteStream(null);
         
-        // Force cleanup of any existing peer connections
+        if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+        }
+        
         if (peerConnection.current) {
             peerConnection.current.close();
-            peerConnection.current = null;
         }
         peerConnections.current.forEach(pc => pc.close());
         peerConnections.current.clear();
-    }, [roomId]);
+        
+        connectionTimeoutRef.current = setTimeout(() => {
+            if (!remoteStream && !isGroupCall) {
+                console.log('[Room] Connection timeout - no remote stream after 15s');
+            }
+        }, 15000);
+        
+        return () => {
+            if (connectionTimeoutRef.current) {
+                clearTimeout(connectionTimeoutRef.current);
+            }
+        };
+    }, [roomId, setRemoteStream, isGroupCall]);
 
     useEffect(() => {
-        // Redirect to matching if no username (direct access without going through matching)
         const savedUserName = localStorage.getItem('echoroom_username');
         if (!savedUserName && !location.state?.userName) {
             navigate('/matching');
@@ -371,13 +423,13 @@ const Room = () => {
         const initMedia = async () => {
             try {
                 await startLocalStream();
-            } catch (err) {
+            } catch {
                 toast.error('Please allow camera access');
             }
         };
         initMedia();
         return () => cleanup();
-    }, []);
+    }, [cleanup, navigate, startLocalStream]);
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -397,260 +449,86 @@ const Room = () => {
         }
     }, [remoteStream]);
 
-    // Process initiator role - defined as callback so it can be used from multiple places
     const processInitiatorRole = useCallback(async (isInitiator) => {
         if (initiatorHandledRef.current) {
+            console.log('[Room] Initiator role already handled, skipping');
             return;
         }
 
         initiatorHandledRef.current = true;
+        console.log('[Room] Processing initiator role:', isInitiator);
         
         const handleIceCandidate = (candidate) => {
-            socket.emit('ice-candidate', { roomId, candidate });
+            if (candidate && socket) {
+                socket.emit('ice-candidate', { roomId, candidate });
+            }
         };
         
         createPeerConnection(handleIceCandidate);
 
         if (isInitiator) {
             try {
+                console.log('[Room] Creating offer as initiator');
                 const offer = await createOffer();
                 socket.emit('offer', { roomId, offer });
+                console.log('[Room] Offer sent');
             } catch (err) {
+                console.error('[Room] Failed to create offer:', err);
                 toast.error('Failed to start video call');
             }
         }
     }, [socket, roomId, createPeerConnection, createOffer]);
 
-    // Process initiator role when both stream is ready AND we have a pending role
     useEffect(() => {
         if (localStream && pendingInitiatorRole !== null && !initiatorHandledRef.current) {
+            console.log('[Room] Stream ready, processing pending initiator role');
             processInitiatorRole(pendingInitiatorRole);
             setPendingInitiatorRole(null);
         }
     }, [localStream, pendingInitiatorRole, processInitiatorRole]);
 
     useEffect(() => {
+        if (remoteStream) {
+            console.log('[Room] Remote stream received');
+            if (connectionTimeoutRef.current) {
+                clearTimeout(connectionTimeoutRef.current);
+                connectionTimeoutRef.current = null;
+            }
+        }
+    }, [remoteStream]);
+
+    useEffect(() => {
         if (!socket || !roomId) return;
 
-        // Define all handlers FIRST before emitting join-room
-        const handleExistingPeers = async ({ peers }) => {
-            if (!localStream) {
-                setTimeout(() => handleExistingPeers({ peers }), 100);
-                return;
-            }
-            for (const peerId of peers) {
-                const onIceCandidate = (candidate, targetPeerId) => {
-                    socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
-                };
-                const onRemoteStream = (stream, pid) => {
-                    setGroupPeers(prev => {
-                        const existing = prev.find(p => p.peerId === pid);
-                        if (existing) {
-                            return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
-                        }
-                        return [...prev, { peerId: pid, stream }];
-                    });
-                };
-                createPeerConnectionForPeer(peerId, onIceCandidate, onRemoteStream);
-                try {
-                    const offer = await createOfferForPeer(peerId);
-                    socket.emit('offer', { roomId, offer, targetPeerId: peerId });
-                } catch (err) {
-                    // Error creating offer
-                }
-            }
-        };
-
-        const handlePeerJoined = async ({ peerId }) => {
-            toast.success('Someone joined the room');
-            playJoinSound();
-            const onIceCandidate = (candidate, targetPeerId) => {
-                socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
-            };
-            const onRemoteStream = (stream, pid) => {
-                setGroupPeers(prev => {
-                    const existing = prev.find(p => p.peerId === pid);
-                    if (existing) return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
-                    return [...prev, { peerId: pid, stream }];
-                });
-            };
-            createPeerConnectionForPeer(peerId, onIceCandidate, onRemoteStream);
-        };
-
-        const handlePeerLeft = ({ peerId }) => {
-            toast('Someone left', { icon: <Info weight="fill" className="w-5 h-5" /> });
-            playLeaveSound();
-            removePeerConnection(peerId);
-            setGroupPeers(prev => prev.filter(p => p.peerId !== peerId));
-        };
-
         const handleIsInitiator = (isInitiator) => {
+            console.log('[Room] Received is-initiator:', isInitiator);
+            
             if (isGroupCall) {
+                console.log('[Room] Skipping initiator role in group call');
                 return;
             }
+            
             if (initiatorHandledRef.current) {
+                console.log('[Room] Already handled initiator role');
                 return;
             }
             
             if (!localStream) {
+                console.log('[Room] Stream not ready, queuing initiator role');
                 setPendingInitiatorRole(isInitiator);
                 return;
             }
             
-            // Process immediately if stream is ready
+            console.log('[Room] Processing initiator role immediately');
             processInitiatorRole(isInitiator);
         };
 
-        const handleOfferReceived = async ({ offer, sender }) => {
-            
-            if (isGroupCall) {
-                if (!localStream) {
-                    setTimeout(() => handleOfferReceived({ offer, sender }), 100);
-                    return;
-                }
-                const onIceCandidate = (candidate, targetPeerId) => {
-                    socket.emit('ice-candidate', { roomId, candidate, targetPeerId });
-                };
-                const onRemoteStream = (stream, pid) => {
-                    setGroupPeers(prev => {
-                        const existing = prev.find(p => p.peerId === pid);
-                        if (existing) return prev.map(p => p.peerId === pid ? { ...p, stream } : p);
-                        return [...prev, { peerId: pid, stream }];
-                    });
-                };
-                createPeerConnectionForPeer(sender, onIceCandidate, onRemoteStream);
-                try {
-                    const answer = await handleOfferFromPeer(offer, sender);
-                    socket.emit('answer', { roomId, answer, targetPeerId: sender });
-                } catch (err) {
-                    // Error handling offer
-                }
-            } else {
-                if (!peerConnection.current) {
-                    const handleIceCandidate = (candidate) => {
-                        socket.emit('ice-candidate', { roomId, candidate });
-                    };
-                    createPeerConnection(handleIceCandidate);
-                }
-                try {
-                    const answer = await handleOffer(offer);
-                    socket.emit('answer', { roomId, answer });
-                    initiatorHandledRef.current = true;
-                } catch (err) {
-                    // Error handling offer
-                }
-            }
-        };
-
-        const handleAnswerReceived = async ({ answer, sender }) => {
-            if (isGroupCall) {
-                try { await handleAnswerFromPeer(answer, sender); } catch (err) {}
-            } else {
-                if (!peerConnection.current) return;
-                try { await handleAnswer(answer); } catch (err) {}
-            }
-        };
-
-        const handleIceCandidateReceived = async ({ candidate, sender }) => {
-            if (isGroupCall) {
-                try { await addIceCandidateForPeer(candidate, sender); } catch (err) {}
-            } else {
-                if (!peerConnection.current) return;
-                try { await addIceCandidate(candidate); } catch (err) {}
-            }
-        };
-
-        const handleReaction = ({ reaction }) => {
-            setRemoteReaction(reaction);
-            setTimeout(() => setRemoteReaction(null), 2000);
-        };
-
-        // Handle peer info update
-        const handlePeerInfo = ({ peerId, info }) => {
-            setRemotePeerInfo(info);
-            // Show toast notification about connected user
-            if (info.name) {
-                toast.success(`Connected with ${info.name}`, { 
-                    icon: <Users weight="fill" className="w-5 h-5 text-blue-400" />,
-                    duration: 3000
-                });
-            }
-        };
-
-        // Handle peer reconnection (when other user refreshes and rejoins)
-        const handlePeerReconnected = ({ peerId }) => {
-            toast('Partner reconnected', { 
-                icon: <Info weight="fill" className="w-5 h-5 text-blue-400" />,
-                duration: 2000 
-            });
-            
-            // Reset connection state for new handshake
-            initiatorHandledRef.current = false;
-            setRemoteStream(null);
-            
-            // Close existing peer connection
-            if (peerConnection.current) {
-                peerConnection.current.close();
-                peerConnection.current = null;
-            }
-            
-            // Close any group peer connections
-            peerConnections.current.forEach((pc, id) => {
-                pc.close();
-                peerConnections.current.delete(id);
-            });
-        };
-
-        const handlePeerDisconnected = () => {
-            toast('Partner disconnected', { icon: '⚠️', duration: 3000 });
-            playLeaveSound();
-            cleanup();
-            setTimeout(() => {
-                navigate('/matching');
-            }, 2000);
-        };
-
-        const handlePartnerLeft = () => {
-            toast('Partner left the chat', { icon: '👋', duration: 2000 });
-            playLeaveSound();
-            cleanup();
-            navigate('/matching');
-        };
-
-        // IMPORTANT: Set up ALL listeners FIRST
-        socket.on('existing-peers', handleExistingPeers);
-        socket.on('peer-joined', handlePeerJoined);
-        socket.on('peer-left', handlePeerLeft);
-        socket.on('peer-disconnected', handlePeerDisconnected);
-        socket.on('partner-left', handlePartnerLeft);
         socket.on('is-initiator', handleIsInitiator);
-        socket.on('offer', handleOfferReceived);
-        socket.on('answer', handleAnswerReceived);
-        socket.on('ice-candidate', handleIceCandidateReceived);
-        socket.on('receive-reaction', handleReaction);
-        socket.on('peer-info', handlePeerInfo);
-        socket.on('peer-reconnected', handlePeerReconnected);
-
-        // THEN emit join-room AFTER listeners are ready
-        socket.emit('join-room', { roomId, userName, peerInfo: localPeerInfo });
-
-        playJoinSound();
 
         return () => {
-            socket.off('existing-peers', handleExistingPeers);
-            socket.off('peer-joined', handlePeerJoined);
-            socket.off('peer-left', handlePeerLeft);
-            socket.off('peer-disconnected', handlePeerDisconnected);
-            socket.off('partner-left', handlePartnerLeft);
             socket.off('is-initiator', handleIsInitiator);
-            socket.off('offer', handleOfferReceived);
-            socket.off('answer', handleAnswerReceived);
-            socket.off('ice-candidate', handleIceCandidateReceived);
-            socket.off('receive-reaction', handleReaction);
-            socket.off('peer-info', handlePeerInfo);
-            socket.off('peer-reconnected', handlePeerReconnected);
         };
-    }, [socket, roomId, createPeerConnection, isGroupCall, localStream, userName, localPeerInfo, createOffer, handleOffer, handleAnswer, addIceCandidate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection, peerConnection, cleanup, navigate]);
+    }, [socket, roomId, userName, localPeerInfo]);
 
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
@@ -675,13 +553,11 @@ const Room = () => {
         setIsFullscreen(false);
     }, []);
 
-    // Fullscreen handlers
     const toggleFullscreen = useCallback(async () => {
         try {
             if (!document.fullscreenElement) {
                 await document.documentElement.requestFullscreen();
                 setIsFullscreen(true);
-                // Auto-hide controls after 3 seconds
                 setShowFullscreenControls(true);
                 if (fullscreenTimeoutRef.current) clearTimeout(fullscreenTimeoutRef.current);
                 fullscreenTimeoutRef.current = setTimeout(() => {
@@ -692,21 +568,11 @@ const Room = () => {
                 setIsFullscreen(false);
                 setShowFullscreenControls(false);
             }
-        } catch (err) {
+        } catch {
             toast.error('Fullscreen not supported');
         }
     }, []);
 
-    const handleFullscreenActivity = useCallback(() => {
-        if (!isFullscreen) return;
-        setShowFullscreenControls(true);
-        if (fullscreenTimeoutRef.current) clearTimeout(fullscreenTimeoutRef.current);
-        fullscreenTimeoutRef.current = setTimeout(() => {
-            setShowFullscreenControls(false);
-        }, 3000);
-    }, [isFullscreen]);
-
-    // Listen for fullscreen change events and mouse movement
     useEffect(() => {
         const handleFullscreenChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
@@ -716,7 +582,6 @@ const Room = () => {
         };
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         
-        // Global mouse move listener for fullscreen
         const handleMouseMove = () => {
             if (document.fullscreenElement) {
                 setShowFullscreenControls(true);
@@ -749,8 +614,9 @@ const Room = () => {
     }, [cleanup, socket, roomId, navigate, resetRoomState]);
 
     const sendReaction = useCallback((reaction) => {
-        const id = Date.now();
-        setFloatingReactions(prev => [...prev, { id, ...reaction }]);
+        const id = `${Date.now()}-${Math.random()}`;
+        const offset = (Math.random() - 0.5) * 100;
+        setFloatingReactions(prev => [...prev, { id, offset, ...reaction }]);
         socket.emit('send-reaction', { roomId, reaction: reaction.name });
         setShowReactions(false);
     }, [socket, roomId]);
@@ -765,45 +631,63 @@ const Room = () => {
         setLocalPeerInfo(info);
         localStorage.setItem('echoroom_peer_info', JSON.stringify(info));
         setShowPeerInfoModal(false);
-        // Send to peer if connected
         socket.emit('update-peer-info', { roomId, info });
     };
 
-    // Temp state for peer info modal
     const [tempGender, setTempGender] = useState(localPeerInfo.gender || '');
     const [tempInterests, setTempInterests] = useState(localPeerInfo.interests?.length ? localPeerInfo.interests : ['', '']);
 
     return (
-        <div className="relative flex flex-col h-screen w-screen bg-slate-950 text-white overflow-hidden">
-            <Toaster position="top-center" />
+        <div className="relative flex flex-col h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
+            <Toaster position="top-center" toastOptions={{
+                style: {
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(12px)',
+                    borderRadius: '16px',
+                    color: 'white'
+                }
+            }} />
             
-            {/* Header - Hidden in fullscreen */}
+            {/* Enhanced Header */}
             {!isFullscreen && (
-                <header className="relative z-10 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-md border-b border-white/5">
-                    <div className="flex items-center gap-3">
-                        <button 
+                <motion.header 
+                    initial={{ y: -100 }}
+                    animate={{ y: 0 }}
+                    className="relative z-50 flex items-center justify-between px-4 md:px-6 py-4 bg-black/30 backdrop-blur-xl border-b border-white/5"
+                >
+                    <div className="flex items-center gap-4">
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setShowExitConfirm(true)}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/10"
                         >
                             <ArrowLeft weight="bold" className="w-5 h-5" />
-                        </button>
+                        </motion.button>
                         <div>
-                            <h1 className="text-lg font-bold"><span className="text-white">echo</span><span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">room</span></h1>
-                            <div className="flex items-center gap-2 text-xs text-white/40">
-                                {isGroupCall ? <><Users weight="fill" className="w-3 h-3" /> Group</> : 'Private Room'}
+                            <h1 className="text-xl font-bold">
+                                <span className="text-white">echo</span>
+                                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">room</span>
+                            </h1>
+                            <div className="flex items-center gap-2 text-xs text-white/50">
+                                {isGroupCall ? (
+                                    <><Users weight="fill" className="w-3.5 h-3.5" /> Group Call</>
+                                ) : (
+                                    <><WifiHigh weight="fill" className="w-3.5 h-3.5" /> Private Room</>
+                                )}
                             </div>
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 md:gap-3">
                         <ConnectionQuality stats={connectionStats} />
                         
-                        {/* Next/Refresh - Moved from bottom */}
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={handleNext}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            className="hidden sm:flex p-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 transition-all border border-emerald-500/30"
                             title="Next person"
                         >
                             <ArrowClockwise weight="bold" className="w-5 h-5 text-emerald-400" />
@@ -813,7 +697,7 @@ const Room = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowPeerInfoModal(true)}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            className="hidden sm:flex p-3 rounded-2xl bg-violet-500/20 hover:bg-violet-500/30 transition-all border border-violet-500/30"
                         >
                             <Tag weight="fill" className="w-5 h-5 text-violet-400" />
                         </motion.button>
@@ -822,359 +706,320 @@ const Room = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={handleShareRoom}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                            className="p-3 rounded-2xl bg-blue-500/20 hover:bg-blue-500/30 transition-all border border-blue-500/30"
                         >
                             <ShareNetwork weight="fill" className="w-5 h-5 text-blue-400" />
                         </motion.button>
                     </div>
-                </header>
+                </motion.header>
             )}
 
-            {/* Video Area - Old UI for 1-on-1, Zoom Gallery for Groups */}
-            {isGroupCall ? (
-                /* Zoom-style Gallery for Group Calls */
-                <GalleryView 
-                    localStream={localStream}
-                    remoteStream={remoteStream}
-                    localUser={userName || 'You'}
-                    remoteUser={remotePeerInfo?.name || 'Stranger'}
-                    localPeerInfo={localPeerInfo}
-                    remotePeerInfo={remotePeerInfo}
-                    isScreenSharing={isScreenSharing}
-                    connectionStats={connectionStats}
-                    isVideoOff={isVideoOff}
-                />
-            ) : (
-                /* Old UI for 1-on-1 Calls */
-                <div className="relative z-10 flex-1 flex flex-col gap-3 p-3 overflow-hidden">
-                    {/* Local Video - Floating (Hidden when video is off) */}
-                    {!isVideoOff && (
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        drag={!isFullscreen}
-                        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                        dragElastic={0.1}
-                        className={`absolute z-30 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl cursor-move transition-all duration-300 ${
-                            isFullscreen 
-                                ? 'bottom-20 right-4 w-24 h-32 md:w-32 md:h-44' 
-                                : 'bottom-24 right-4 w-36 h-48 md:w-44 md:h-56'
-                        }`}
-                    >
-                        {!localStream ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
-                                <Spinner weight="bold" className="w-6 h-6 animate-spin text-blue-400 mb-1" />
-                                <span className="text-[10px] text-white/50">Camera...</span>
-                            </div>
-                        ) : (
-                            <>
-                                <video
-                                    ref={localVideoRef}
-                                    autoPlay
-                                    playsInline
-                                    muted
-                                    className="w-full h-full object-cover"
-                                    style={{ transform: 'scaleX(-1)' }}
-                                />
-                                <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent">
-                                    <span className="text-[10px] font-medium text-white">{userName || 'You'}</span>
-                                </div>
-                            </>
-                        )}
-                        <div className="absolute top-1.5 left-1.5 flex gap-1">
-                            {isMuted && (
-                                <div className="p-1 rounded bg-red-500/80">
-                                    <MicrophoneSlash weight="fill" className="w-2.5 h-2.5 text-white" />
-                                </div>
-                            )}
-                        </div>
-                    </motion.div>
-                    )}
-
-                    {/* Remote Video - Full Screen with Original Aspect Ratio */}
-                    <div 
-                        className={`flex-1 h-full flex items-center justify-center ${isFullscreen ? 'fixed inset-0 z-0' : ''}`}
-                        onClick={handleFullscreenActivity}
-                        onMouseMove={handleFullscreenActivity}
-                        onTouchStart={handleFullscreenActivity}
-                    >
-                        <div className={`relative flex items-center justify-center overflow-hidden bg-black ${isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full max-w-full max-h-full rounded-2xl bg-neutral-900/50 border border-white/10'}`}>
+            {/* Main Video Area */}
+            <div className="flex-1 relative overflow-hidden">
+                {isGroupCall ? (
+                    <GalleryView 
+                        localStream={localStream}
+                        remoteStream={remoteStream}
+                        localUser={userName || 'You'}
+                        remoteUser={remotePeerInfo?.name || 'Stranger'}
+                        localPeerInfo={localPeerInfo}
+                        remotePeerInfo={remotePeerInfo}
+                        isScreenSharing={isScreenSharing}
+                        connectionStats={connectionStats}
+                        isVideoOff={isVideoOff}
+                    />
+                ) : (
+                    <div className="relative h-full w-full p-4 md:p-6">
+                        {/* Remote Video */}
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5 }}
+                            className="relative h-full w-full rounded-3xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 shadow-2xl"
+                        >
                             {remoteStream ? (
                                 <>
                                     <video
                                         ref={remoteVideoRef}
                                         autoPlay
                                         playsInline
-                                        className={`${isFullscreen ? 'w-full h-full object-contain' : 'w-full h-full object-contain'}`}
+                                        className="w-full h-full object-cover"
                                     />
-                                    {/* Peer Info Overlay - Always show name, hide details in fullscreen unless active */}
+                                    
+                                    {/* Remote Peer Info Overlay */}
                                     {remotePeerInfo && (
-                                        <>
-                                            {/* Name - Always visible */}
-                                            <div className="absolute top-4 left-4 z-10">
-                                                <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
-                                                    <span className="text-lg font-bold text-white drop-shadow-md">
-                                                        {remotePeerInfo.name || 'Anonymous'}
-                                                    </span>
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: -20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="absolute top-6 left-6 right-6 flex items-start justify-between pointer-events-none"
+                                        >
+                                            <div className="space-y-3">
+                                                <div className="bg-black/50 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10">
+                                                    <span className="text-xl font-bold text-white">{remotePeerInfo.name || 'Anonymous'}</span>
                                                 </div>
-                                            </div>
-                                            
-                                            {/* Gender & Interests - Hidden in fullscreen unless controls showing */}
-                                            {(!isFullscreen || showFullscreenControls) && (
-                                                <div className={`absolute top-16 left-4 right-4 flex items-center gap-2 flex-wrap transition-opacity duration-300`}>
+                                                
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     {remotePeerInfo.gender && (
-                                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${remotePeerInfo.gender === 'male' ? 'bg-blue-500/30 text-blue-300 border border-blue-500/30' : 'bg-pink-500/30 text-pink-300 border border-pink-500/30'} text-xs font-medium backdrop-blur-sm`}>
-                                                            {remotePeerInfo.gender === 'male' ? <GenderMale weight="fill" className="w-3.5 h-3.5" /> : <GenderFemale weight="fill" className="w-3.5 h-3.5" />}
+                                                        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium backdrop-blur-sm ${
+                                                            remotePeerInfo.gender === 'male' 
+                                                                ? 'bg-blue-500/30 text-blue-300 border border-blue-500/40' 
+                                                                : 'bg-pink-500/30 text-pink-300 border border-pink-500/40'
+                                                        }`}>
+                                                            {remotePeerInfo.gender === 'male' ? <GenderMale weight="fill" className="w-4 h-4" /> : <GenderFemale weight="fill" className="w-4 h-4" />}
                                                             {remotePeerInfo.gender}
-                                                        </div>
+                                                        </span>
                                                     )}
                                                     {remotePeerInfo.interests?.slice(0, 3).map((interest, i) => (
-                                                        <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/30 text-violet-300 text-xs font-medium border border-violet-500/30 backdrop-blur-sm">
-                                                            <Tag weight="fill" className="w-3.5 h-3.5" />
+                                                        <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-violet-500/30 text-violet-300 border border-violet-500/40 backdrop-blur-sm">
+                                                            <Tag weight="fill" className="w-4 h-4" />
                                                             {interest}
-                                                        </div>
+                                                        </span>
                                                     ))}
                                                 </div>
-                                            )}
-                                        </>
+                                            </div>
+                                        </motion.div>
                                     )}
+                                    
+                                    {/* Remote Reaction */}
                                     {remoteReaction && (
                                         <motion.div
                                             initial={{ scale: 0, opacity: 0 }}
-                                            animate={{ scale: 2, opacity: 1 }}
+                                            animate={{ scale: 2.5, opacity: 1 }}
                                             exit={{ scale: 0, opacity: 0 }}
-                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                                         >
-                                            {reactions.find(r => r.name === remoteReaction)?.icon && 
-                                                React.createElement(reactions.find(r => r.name === remoteReaction).icon, {
-                                                    weight: 'fill',
-                                                    className: `w-20 h-20`
-                                                })
-                                            }
+                                            {React.createElement(reactions.find(r => r.name === remoteReaction)?.icon, {
+                                                weight: 'fill',
+                                                className: 'w-20 h-20'
+                                            })}
                                         </motion.div>
                                     )}
                                 </>
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-white/30">
-                                    <Spinner weight="bold" className="w-12 h-12 animate-spin mb-4 text-blue-400" />
-                                    <p className="text-lg">Connecting...</p>
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800/50 to-slate-900/50">
+                                    <motion.div
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                        className="mb-6"
+                                    >
+                                        <Spinner weight="bold" className="w-16 h-16 text-blue-400" />
+                                    </motion.div>
+                                    <p className="text-xl text-white/60 font-medium">Connecting...</p>
+                                    <p className="text-sm text-white/40 mt-2">Waiting for peer to join</p>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </div>
-            )}
+                        </motion.div>
 
-            {/* Controls - Auto-hide in fullscreen */}
-            <motion.div 
-                initial={{ y: 100, opacity: 0 }}
-                animate={{ 
-                    y: (!isFullscreen || showFullscreenControls) ? 0 : 100, 
-                    opacity: (!isFullscreen || showFullscreenControls) ? 1 : 0 
-                }}
-                transition={{ duration: 0.3 }}
-                className={`relative z-50 flex items-center justify-center gap-2 md:gap-3 p-3 md:p-4 ${isFullscreen ? 'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent border-none' : 'bg-black/40 backdrop-blur-md border-t border-white/5'}`}
-            >
-                {/* Mute */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleToggleMute}
-                    className={`p-3 md:p-4 rounded-2xl transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                >
-                    {isMuted ? <MicrophoneSlash weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <Microphone weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
-                </motion.button>
-
-                {/* Video */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleToggleVideo}
-                    className={`p-3 md:p-4 rounded-2xl transition-all ${isVideoOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                >
-                    {isVideoOff ? <VideoCameraSlash weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <VideoCamera weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
-                </motion.button>
-
-                {/* Screen Share - Hidden on mobile and in fullscreen */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={toggleScreenShare}
-                    className={`hidden md:flex p-3 md:p-4 rounded-2xl transition-all ${isFullscreen ? 'md:hidden' : ''} ${isScreenSharing ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                >
-                    <Monitor weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
-                </motion.button>
-
-                {/* Chat */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsChatOpen(!isChatOpen)}
-                    className={`p-3 md:p-4 rounded-2xl transition-all ${isChatOpen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                >
-                    <ChatCircle weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
-                </motion.button>
-
-                {/* Reactions */}
-                <div className="relative">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowReactions(!showReactions)}
-                        className={`p-3 md:p-4 rounded-2xl transition-all ${showReactions ? 'bg-violet-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                    >
-                        <Smiley weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
-                    </motion.button>
-                    
-                    <AnimatePresence>
-                        {showReactions && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                className="fixed md:absolute bottom-24 md:bottom-full left-1/2 -translate-x-1/2 md:mb-4 flex gap-2 p-3 bg-black/90 backdrop-blur-xl rounded-2xl border border-white/10 z-50"
+                        {/* Local Video - Picture in Picture */}
+                        {!isVideoOff && (
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.8, x: 100 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                transition={{ delay: 0.3, duration: 0.4 }}
+                                drag
+                                dragConstraints={{ left: -500, right: 50, top: -400, bottom: 50 }}
+                                dragElastic={0.1}
+                                className="absolute z-30 bottom-24 right-4 md:bottom-28 md:right-6 w-36 h-48 md:w-48 md:h-64 bg-black rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl cursor-move"
                             >
-                                {reactions.map(reaction => (
-                                    <motion.button
-                                        key={reaction.name}
-                                        whileHover={{ scale: 1.2 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        onClick={() => sendReaction(reaction)}
-                                        className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-                                    >
-                                        <reaction.icon weight="fill" className="w-6 h-6" />
-                                    </motion.button>
-                                ))}
+                                {!localStream ? (
+                                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
+                                        <Spinner weight="bold" className="w-8 h-8 animate-spin text-blue-400 mb-2" />
+                                        <span className="text-xs text-white/50">Starting camera...</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <video
+                                            ref={localVideoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-cover"
+                                            style={{ transform: 'scaleX(-1)' }}
+                                        />
+                                        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
+                                            <span className="text-xs font-semibold text-white">{userName || 'You'}</span>
+                                        </div>
+                                        {isMuted && (
+                                            <div className="absolute top-2 right-2 p-2 rounded-full bg-red-500/90">
+                                                <MicrophoneSlash weight="fill" className="w-3 h-3 text-white" />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </motion.div>
                         )}
-                    </AnimatePresence>
+                    </div>
+                )}
+            </div>
+
+            {/* Enhanced Controls */}
+            <motion.div 
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                className={`relative z-50 ${isFullscreen ? 'fixed bottom-0 left-0 right-0' : ''}`}
+            >
+                <div className={`
+                    flex items-center justify-center gap-3 md:gap-6 p-4 md:p-6
+                    ${isFullscreen 
+                        ? 'bg-gradient-to-t from-black/95 via-black/60 to-transparent' 
+                        : 'bg-black/40 backdrop-blur-xl border-t border-white/5'
+                    }
+                `}>
+                    <ControlButton 
+                        onClick={handleToggleMute} 
+                        active={isMuted} 
+                        activeColor="bg-red-500"
+                        label={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                        {isMuted ? <MicrophoneSlash weight="fill" className="w-6 h-6" /> : <Microphone weight="fill" className="w-6 h-6" />}
+                    </ControlButton>
+
+                    <ControlButton 
+                        onClick={handleToggleVideo} 
+                        active={isVideoOff} 
+                        activeColor="bg-red-500"
+                        label={isVideoOff ? 'Show Video' : 'Hide Video'}
+                    >
+                        {isVideoOff ? <VideoCameraSlash weight="fill" className="w-6 h-6" /> : <VideoCamera weight="fill" className="w-6 h-6" />}
+                    </ControlButton>
+
+                    {/* Screen Share - Desktop only */}
+                    <div className="hidden md:block">
+                        <ControlButton 
+                            onClick={toggleScreenShare} 
+                            active={isScreenSharing} 
+                            activeColor="bg-emerald-500"
+                            label={isScreenSharing ? 'Stop Share' : 'Share Screen'}
+                        >
+                            <Monitor weight="fill" className="w-6 h-6" />
+                        </ControlButton>
+                    </div>
+
+                    {/* Chat */}
+                    <ControlButton 
+                        onClick={() => setIsChatOpen(!isChatOpen)} 
+                        active={isChatOpen} 
+                        activeColor="bg-blue-500"
+                        label="Chat"
+                    >
+                        <ChatCircle weight="fill" className="w-6 h-6" />
+                    </ControlButton>
+
+                    {/* Reactions */}
+                    <div className="relative">
+                        <ControlButton 
+                            onClick={() => setShowReactions(!showReactions)} 
+                            active={showReactions} 
+                            activeColor="bg-violet-500"
+                            label="React"
+                        >
+                            <Smiley weight="fill" className="w-6 h-6" />
+                        </ControlButton>
+                        
+                        <AnimatePresence>
+                            {showReactions && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 flex gap-2 p-3 bg-black/90 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl"
+                                >
+                                    {reactions.map(reaction => (
+                                        <motion.button
+                                            key={reaction.name}
+                                            whileHover={{ scale: 1.2, y: -5 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={() => sendReaction(reaction)}
+                                            className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all"
+                                        >
+                                            <reaction.icon weight="fill" className="w-7 h-7" />
+                                        </motion.button>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Fullscreen */}
+                    <ControlButton 
+                        onClick={toggleFullscreen} 
+                        active={isFullscreen} 
+                        activeColor="bg-slate-600"
+                        label={isFullscreen ? 'Exit Full' : 'Fullscreen'}
+                    >
+                        {isFullscreen ? <CornersIn weight="fill" className="w-6 h-6" /> : <CornersOut weight="fill" className="w-6 h-6" />}
+                    </ControlButton>
+
+                    {/* End Call */}
+                    <ControlButton 
+                        onClick={() => setShowExitConfirm(true)} 
+                        active={true}
+                        activeColor="bg-red-600 hover:bg-red-700"
+                        label="End"
+                    >
+                        <PhoneDisconnect weight="fill" className="w-6 h-6" />
+                    </ControlButton>
                 </div>
-
-                {/* Fullscreen Toggle */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={toggleFullscreen}
-                    className={`p-3 md:p-4 rounded-2xl transition-all ${isFullscreen ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                >
-                    {isFullscreen ? <CornersIn weight="fill" className="w-5 h-5 md:w-6 md:h-6" /> : <CornersOut weight="fill" className="w-5 h-5 md:w-6 md:h-6" />}
-                </motion.button>
-
-                {/* End Call */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowExitConfirm(true)}
-                    className="p-3 md:p-4 rounded-2xl bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
-                >
-                    <PhoneDisconnect weight="fill" className="w-5 h-5 md:w-6 md:h-6" />
-                </motion.button>
             </motion.div>
 
-            {/* Peer Info Modal (Omegle-style) */}
+            {/* Chat Sidebar */}
             <AnimatePresence>
-                {showPeerInfoModal && (
+                {isChatOpen && (
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                        initial={{ x: 400, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 400, opacity: 0 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                        className="absolute top-16 right-0 bottom-0 w-full md:w-96 z-40 bg-black/60 backdrop-blur-2xl border-l border-white/10"
                     >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-slate-900 border border-white/10 rounded-3xl p-6 max-w-md w-full"
-                        >
-                            <h3 className="text-xl font-bold text-white mb-2">About You</h3>
-                            <p className="text-white/50 text-sm mb-6">Share optional info to find better matches (like Omegle)</p>
-                            
-                            <div className="space-y-4 mb-6">
-                                {/* Gender */}
-                                <div>
-                                    <label className="text-sm text-white/60 mb-2 block">Gender</label>
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={() => setTempGender('male')}
-                                            className={`flex-1 py-3 rounded-xl border transition-all ${tempGender === 'male' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-white/5 border-white/10 text-white/60'}`}
-                                        >
-                                            <GenderMale weight="bold" className="w-5 h-5 mx-auto" />
-                                        </button>
-                                        <button
-                                            onClick={() => setTempGender('female')}
-                                            className={`flex-1 py-3 rounded-xl border transition-all ${tempGender === 'female' ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/10 text-white/60'}`}
-                                        >
-                                            <GenderFemale weight="bold" className="w-5 h-5 mx-auto" />
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {/* Interests */}
-                                <div>
-                                    <label className="text-sm text-white/60 mb-2 block">Interests</label>
-                                    {tempInterests.map((interest, i) => (
-                                        <input
-                                            key={i}
-                                            type="text"
-                                            value={interest}
-                                            onChange={(e) => {
-                                                const newInterests = [...tempInterests];
-                                                newInterests[i] = e.target.value;
-                                                setTempInterests(newInterests);
-                                            }}
-                                            placeholder={`Interest ${i + 1}`}
-                                            className="w-full mb-2 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowPeerInfoModal(false)}
-                                    className="flex-1 py-3 rounded-xl bg-white/5 text-white/60 hover:text-white transition-colors"
-                                >
-                                    Skip
-                                </button>
-                                <button
-                                    onClick={savePeerInfo}
-                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-medium"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </motion.div>
+                        <Chat roomId={roomId} isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} userName={userName} />
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Exit Confirmation */}
+            {/* Floating Reactions */}
+            <AnimatePresence>
+                {floatingReactions.map(({ id, icon, color, offset }) => (
+                    <FloatingReaction
+                        key={id}
+                        icon={icon}
+                        color={color}
+                        offset={offset}
+                        onComplete={() => setFloatingReactions(prev => prev.filter(r => r.id !== id))}
+                    />
+                ))}
+            </AnimatePresence>
+
+            {/* Exit Confirmation Modal */}
             <AnimatePresence>
                 {showExitConfirm && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl"
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-slate-900 border border-white/10 rounded-3xl p-6 max-w-sm w-full"
+                            className="bg-slate-900/95 border border-white/10 rounded-3xl p-8 max-w-md w-full text-center"
                         >
-                            <h3 className="text-xl font-bold text-white mb-2">Leave Room?</h3>
-                            <p className="text-white/50 mb-6">Are you sure you want to end this call?</p>
+                            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                                <Warning weight="fill" className="w-8 h-8 text-red-400" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-white mb-2">Leave Room?</h3>
+                            <p className="text-white/60 mb-6">Are you sure you want to end this call?</p>
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setShowExitConfirm(false)}
-                                    className="flex-1 py-3 rounded-xl bg-white/5 text-white font-medium hover:bg-white/10 transition-colors"
+                                    className="flex-1 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium transition-all"
                                 >
                                     Stay
                                 </button>
                                 <button
                                     onClick={handleLeaveRoom}
-                                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
+                                    className="flex-1 px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-all"
                                 >
                                     Leave
                                 </button>
@@ -1184,19 +1029,84 @@ const Room = () => {
                 )}
             </AnimatePresence>
 
-            {/* Chat Panel */}
-            <Chat roomId={roomId} isOpen={isChatOpen} userName={userName} onClose={() => setIsChatOpen(false)} />
-
-            {/* Floating Reactions */}
+            {/* Peer Info Modal */}
             <AnimatePresence>
-                {floatingReactions.map(reaction => (
-                    <FloatingReaction
-                        key={reaction.id}
-                        icon={reaction.icon}
-                        color={reaction.color}
-                        onComplete={() => setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id))}
-                    />
-                ))}
+                {showPeerInfoModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-slate-900/95 border border-white/10 rounded-3xl p-8 max-w-md w-full"
+                        >
+                            <h3 className="text-2xl font-bold text-white mb-2">About You</h3>
+                            <p className="text-white/50 text-sm mb-6">Share optional info to find better matches</p>
+                            
+                            <div className="space-y-5 mb-6">
+                                {/* Gender */}
+                                <div>
+                                    <label className="block text-sm font-medium text-white mb-3">Gender</label>
+                                    <div className="flex gap-3">
+                                        {['male', 'female'].map(gender => (
+                                            <button
+                                                key={gender}
+                                                onClick={() => setTempGender(gender)}
+                                                className={`flex-1 py-3 rounded-xl border font-medium transition-all ${
+                                                    tempGender === gender 
+                                                        ? 'bg-blue-500 border-blue-500 text-white' 
+                                                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                                                }`}
+                                            >
+                                                {gender === 'male' ? 'Male' : 'Female'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                {/* Interests */}
+                                <div>
+                                    <label className="block text-sm font-medium text-white mb-3">Interests (optional)</label>
+                                    <div className="space-y-2">
+                                        {tempInterests.map((interest, idx) => (
+                                            <input
+                                                key={idx}
+                                                type="text"
+                                                value={interest}
+                                                onChange={(e) => {
+                                                    const newInterests = [...tempInterests];
+                                                    newInterests[idx] = e.target.value;
+                                                    setTempInterests(newInterests);
+                                                }}
+                                                placeholder={`Interest ${idx + 1}`}
+                                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20"
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowPeerInfoModal(false)}
+                                    className="flex-1 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={savePeerInfo}
+                                    className="flex-1 px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium transition-all"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
             </AnimatePresence>
         </div>
     );
