@@ -976,6 +976,7 @@ const Room = () => {
     useEffect(() => { addIceCandidateRef.current = addIceCandidate; }, [addIceCandidate]);
     useEffect(() => { isGroupCallRef.current = isGroupCall; }, [isGroupCall]);
 
+    // Register socket event handlers only once when socket/roomId changes
     useEffect(() => {
         if (!socket || !roomId) {
             console.log('[Room] Waiting for socket and roomId...', { socket: !!socket, roomId });
@@ -1220,7 +1221,9 @@ const Room = () => {
             socket.off('partner-left', handlePartnerLeft);
             socket.off('peer-info', handlePeerInfo);
         };
-    }, [socket, roomId, userName, localPeerInfo, cleanup, resetRoomState, navigate, createPeerConnectionForPeer, createOfferForPeer, handleOfferFromPeer, handleAnswerFromPeer, addIceCandidateForPeer, removePeerConnection, peerConnection, peerConnections]); // Include peerConnection and peerConnections refs
+        // Only re-run when socket or roomId changes - prevents handler re-registration
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [socket, roomId]);
 
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
