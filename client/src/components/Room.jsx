@@ -1018,6 +1018,23 @@ const Room = () => {
                     await handleOfferFromPeerEvent({ offer, sender });
                     return;
                 }
+                
+                // Ensure local stream is ready before creating peer connection
+                if (!localStreamRef.current) {
+                    console.log('[Room] Local stream not ready, waiting for media initialization...');
+                    // Wait for media to be initialized (max 5 seconds)
+                    let attempts = 0;
+                    while (!localStreamRef.current && attempts < 50) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        attempts++;
+                    }
+                    if (!localStreamRef.current) {
+                        console.error('[Room] Local stream still not ready after waiting');
+                        toast.error('Camera not ready. Please refresh.');
+                        return;
+                    }
+                }
+                
                 if (!peerConnection.current) {
                     console.log('[Room] Creating peer connection for offer');
                     const handleIceCandidate = (candidate) => {
