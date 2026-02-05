@@ -415,12 +415,13 @@ const Room = () => {
 
     useEffect(() => {
         const savedUserName = localStorage.getItem('echoroom_username');
-        console.log('[Room] Checking username - saved:', savedUserName, 'state:', location.state?.userName);
+        const stateUserName = location.state?.userName;
+        console.log('[Room] Checking username - saved:', savedUserName, 'state:', stateUserName);
         
-        if (!savedUserName && !location.state?.userName) {
-            console.log('[Room] No username found, redirecting to matching');
-            navigate('/matching');
-            return;
+        // Use state username first, then saved, then default
+        const effectiveUserName = stateUserName || savedUserName;
+        if (effectiveUserName) {
+            localStorage.setItem('echoroom_username', effectiveUserName);
         }
         
         console.log('[Room] Username check passed, initializing media');
