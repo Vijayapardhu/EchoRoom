@@ -524,7 +524,12 @@ const Room = () => {
     }, [remoteStream]);
 
     useEffect(() => {
-        if (!socket || !roomId) return;
+        if (!socket || !roomId) {
+            console.log('[Room] Waiting for socket and roomId...', { socket: !!socket, roomId });
+            return;
+        }
+
+        console.log('[Room] Setting up socket event handlers for room:', roomId);
 
         const handleIsInitiator = (isInitiator) => {
             console.log('[Room] Received is-initiator:', isInitiator);
@@ -549,53 +554,65 @@ const Room = () => {
             processInitiatorRole(isInitiator);
         };
 
-        const handleOfferReceived = async ({ offer }) => {
-            console.log('[Room] Received offer');
+        const handleOfferReceived = async ({ offer, sender }) => {
+            console.log('[Room] Received offer from:', sender || 'peer');
             try {
                 if (!peerConnection.current) {
+                    console.log('[Room] Creating peer connection for offer');
                     const handleIceCandidate = (candidate) => {
                         if (candidate && socket) {
+                            console.log('[Room] Sending ICE candidate');
                             socket.emit('ice-candidate', { roomId, candidate });
                         }
                     };
                     createPeerConnection(handleIceCandidate);
                 }
+                console.log('[Room] Handling offer...');
                 const answer = await handleOffer(offer);
+                console.log('[Room] Sending answer...');
                 socket.emit('answer', { roomId, answer });
                 initiatorHandledRef.current = true;
-                console.log('[Room] Answer sent');
+                console.log('[Room] Answer sent successfully');
             } catch (err) {
                 console.error('[Room] Error handling offer:', err);
                 toast.error('Connection failed');
             }
         };
 
-        const handleAnswerReceived = async ({ answer }) => {
-            console.log('[Room] Received answer');
+        const handleAnswerReceived = async ({ answer, sender }) => {
+            console.log('[Room] Received answer from:', sender || 'peer');
             try {
+                console.log('[Room] Processing answer...');
                 await handleAnswer(answer);
-                console.log('[Room] Answer processed');
+                console.log('[Room] Answer processed successfully');
             } catch (err) {
                 console.error('[Room] Error handling answer:', err);
             }
         };
 
-        const handleIceCandidateReceived = async ({ candidate }) => {
-            if (!candidate) return;
+        const handleIceCandidateReceived = async ({ candidate, sender }) => {
+            console.log('[Room] Received ICE candidate from:', sender || 'peer');
+            if (!candidate) {
+                console.log('[Room] Received null ICE candidate, ignoring');
+                return;
+            }
             try {
+                console.log('[Room] Adding ICE candidate...');
                 await addIceCandidate(candidate);
-                console.log('[Room] ICE candidate added');
+                console.log('[Room] ICE candidate added successfully');
             } catch (err) {
                 console.error('[Room] Error adding ICE candidate:', err);
             }
         };
 
+        console.log('[Room] Registering socket event handlers');
         socket.on('is-initiator', handleIsInitiator);
         socket.on('offer', handleOfferReceived);
         socket.on('answer', handleAnswerReceived);
         socket.on('ice-candidate', handleIceCandidateReceived);
 
         return () => {
+            console.log('[Room] Cleaning up socket event handlers');
             socket.off('is-initiator', handleIsInitiator);
             socket.off('offer', handleOfferReceived);
             socket.off('answer', handleAnswerReceived);

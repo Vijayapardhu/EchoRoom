@@ -191,16 +191,22 @@ class WebRTCManager {
      * Setup peer connection event handlers
      */
     setupPeerConnectionHandlers() {
+        console.log('[WebRTCManager] Setting up peer connection handlers');
+        
         // ICE candidate handler - Trickle ICE for faster connections
         this.peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log('[WebRTCManager] ICE candidate generated');
                 // Send candidate immediately for faster connection establishment
                 this.emit('iceCandidate', event.candidate);
+            } else {
+                console.log('[WebRTCManager] ICE candidate gathering complete');
             }
         };
 
         // Track handler with stream validation and buffering
         this.peerConnection.ontrack = (event) => {
+            console.log('[WebRTCManager] ontrack event received', event.streams);
             if (event.streams && event.streams[0]) {
                 const stream = event.streams[0];
                 
@@ -210,10 +216,12 @@ class WebRTCManager {
                     return;
                 }
                 
+                console.log('[WebRTCManager] Remote stream received with', stream.getTracks().length, 'tracks');
                 this.hasReceivedStream = true;
                 
                 // Ensure tracks are enabled
                 stream.getTracks().forEach(track => {
+                    console.log('[WebRTCManager] Remote track:', track.kind, track.enabled);
                     if (!track.enabled) {
                         track.enabled = true;
                     }
@@ -221,12 +229,16 @@ class WebRTCManager {
                 
                 // Emit stream immediately
                 this.emit('remoteStream', stream);
+                console.log('[WebRTCManager] Emitted remoteStream event');
+            } else {
+                console.warn('[WebRTCManager] ontrack event with no streams');
             }
         };
 
         // ICE connection state handler with faster detection
         this.peerConnection.oniceconnectionstatechange = () => {
             const iceState = this.peerConnection.iceConnectionState;
+            console.log('[WebRTCManager] ICE connection state:', iceState);
 
             switch (iceState) {
                 case 'connected':
@@ -377,6 +389,7 @@ class WebRTCManager {
         }
 
         try {
+            console.log('[WebRTCManager] Creating offer...');
             this.setState(ConnectionState.CONNECTING);
 
             const offerOptions = {
@@ -386,10 +399,13 @@ class WebRTCManager {
             };
 
             const offer = await this.peerConnection.createOffer(offerOptions);
+            console.log('[WebRTCManager] Offer created, setting local description...');
             await this.peerConnection.setLocalDescription(offer);
+            console.log('[WebRTCManager] Local description set, offer ready');
 
             return offer;
         } catch (error) {
+            console.error('[WebRTCManager] Error creating offer:', error);
             this.setState(ConnectionState.FAILED);
             throw error;
         }
@@ -418,7 +434,9 @@ class WebRTCManager {
      * Handle received offer
      */
     async handleOffer(offer) {
+        console.log('[WebRTCManager] Handling offer...');
         if (!this.peerConnection) {
+            console.log('[WebRTCManager] No peer connection, creating one...');
             this.createPeerConnection();
         }
 
@@ -426,21 +444,27 @@ class WebRTCManager {
             this.setState(ConnectionState.CONNECTING);
             
             // Set remote description first
+            console.log('[WebRTCManager] Setting remote description...');
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            console.log('[WebRTCManager] Remote description set');
             
             // Process any queued ICE candidates immediately
             await this.processCandidateQueue();
 
             // Create answer
+            console.log('[WebRTCManager] Creating answer...');
             const answer = await this.peerConnection.createAnswer({
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
             });
             
+            console.log('[WebRTCManager] Setting local description...');
             await this.peerConnection.setLocalDescription(answer);
+            console.log('[WebRTCManager] Answer ready');
 
             return answer;
         } catch (error) {
+            console.error('[WebRTCManager] Error handling offer:', error);
             this.setState(ConnectionState.FAILED);
             throw error;
         }
@@ -450,17 +474,22 @@ class WebRTCManager {
      * Handle received answer
      */
     async handleAnswer(answer) {
+        console.log('[WebRTCManager] Handling answer...');
         if (!this.peerConnection) {
             throw new Error('No peer connection available');
         }
 
         try {
             // Set remote description first
+            console.log('[WebRTCManager] Setting remote description from answer...');
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            console.log('[WebRTCManager] Remote description set from answer');
             
             // Process any queued ICE candidates immediately
             await this.processCandidateQueue();
+            console.log('[WebRTCManager] Answer processed successfully');
         } catch (error) {
+            console.error('[WebRTCManager] Error handling answer:', error);
             throw error;
         }
     }
@@ -470,18 +499,22 @@ class WebRTCManager {
      */
     async addIceCandidate(candidate) {
         if (!this.peerConnection) {
+            console.log('[WebRTCManager] Cannot add ICE candidate - no peer connection');
             return;
         }
 
         if (!this.peerConnection.remoteDescription || !this.peerConnection.remoteDescription.type) {
+            console.log('[WebRTCManager] Queueing ICE candidate - no remote description yet');
             this.candidateQueue.push(candidate);
             return;
         }
 
         try {
+            console.log('[WebRTCManager] Adding ICE candidate...');
             await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log('[WebRTCManager] ICE candidate added');
         } catch (error) {
-            // Failed to add ICE candidate
+            console.error('[WebRTCManager] Error adding ICE candidate:', error);
         }
     }
 
