@@ -523,6 +523,24 @@ const Room = () => {
         }
     }, [remoteStream]);
 
+    // Use refs to avoid dependency changes causing effect re-runs
+    const localStreamRef = useRef(localStream);
+    const processInitiatorRoleRef = useRef(processInitiatorRole);
+    const createPeerConnectionRef = useRef(createPeerConnection);
+    const handleOfferRef = useRef(handleOffer);
+    const handleAnswerRef = useRef(handleAnswer);
+    const addIceCandidateRef = useRef(addIceCandidate);
+    const isGroupCallRef = useRef(isGroupCall);
+    
+    // Update refs when values change
+    useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
+    useEffect(() => { processInitiatorRoleRef.current = processInitiatorRole; }, [processInitiatorRole]);
+    useEffect(() => { createPeerConnectionRef.current = createPeerConnection; }, [createPeerConnection]);
+    useEffect(() => { handleOfferRef.current = handleOffer; }, [handleOffer]);
+    useEffect(() => { handleAnswerRef.current = handleAnswer; }, [handleAnswer]);
+    useEffect(() => { addIceCandidateRef.current = addIceCandidate; }, [addIceCandidate]);
+    useEffect(() => { isGroupCallRef.current = isGroupCall; }, [isGroupCall]);
+
     useEffect(() => {
         if (!socket || !roomId) {
             console.log('[Room] Waiting for socket and roomId...', { socket: !!socket, roomId });
@@ -534,7 +552,7 @@ const Room = () => {
         const handleIsInitiator = (isInitiator) => {
             console.log('[Room] Received is-initiator:', isInitiator);
             
-            if (isGroupCall) {
+            if (isGroupCallRef.current) {
                 console.log('[Room] Skipping initiator role in group call');
                 return;
             }
@@ -544,14 +562,14 @@ const Room = () => {
                 return;
             }
             
-            if (!localStream) {
+            if (!localStreamRef.current) {
                 console.log('[Room] Stream not ready, queuing initiator role');
                 setPendingInitiatorRole(isInitiator);
                 return;
             }
             
             console.log('[Room] Processing initiator role immediately');
-            processInitiatorRole(isInitiator);
+            processInitiatorRoleRef.current(isInitiator);
         };
 
         const handleOfferReceived = async ({ offer, sender }) => {
@@ -565,10 +583,10 @@ const Room = () => {
                             socket.emit('ice-candidate', { roomId, candidate });
                         }
                     };
-                    createPeerConnection(handleIceCandidate);
+                    createPeerConnectionRef.current(handleIceCandidate);
                 }
                 console.log('[Room] Handling offer...');
-                const answer = await handleOffer(offer);
+                const answer = await handleOfferRef.current(offer);
                 console.log('[Room] Sending answer...');
                 socket.emit('answer', { roomId, answer });
                 initiatorHandledRef.current = true;
@@ -583,7 +601,7 @@ const Room = () => {
             console.log('[Room] Received answer from:', sender || 'peer');
             try {
                 console.log('[Room] Processing answer...');
-                await handleAnswer(answer);
+                await handleAnswerRef.current(answer);
                 console.log('[Room] Answer processed successfully');
             } catch (err) {
                 console.error('[Room] Error handling answer:', err);
@@ -598,7 +616,7 @@ const Room = () => {
             }
             try {
                 console.log('[Room] Adding ICE candidate...');
-                await addIceCandidate(candidate);
+                await addIceCandidateRef.current(candidate);
                 console.log('[Room] ICE candidate added successfully');
             } catch (err) {
                 console.error('[Room] Error adding ICE candidate:', err);
@@ -618,7 +636,7 @@ const Room = () => {
             socket.off('answer', handleAnswerReceived);
             socket.off('ice-candidate', handleIceCandidateReceived);
         };
-    }, [socket, roomId, isGroupCall, localStream, processInitiatorRole, createPeerConnection, handleOffer, handleAnswer, addIceCandidate]);
+    }, [socket, roomId]); // Only re-run when socket or roomId changes
 
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
