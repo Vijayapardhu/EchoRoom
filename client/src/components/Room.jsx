@@ -415,15 +415,21 @@ const Room = () => {
 
     useEffect(() => {
         const savedUserName = localStorage.getItem('echoroom_username');
+        console.log('[Room] Checking username - saved:', savedUserName, 'state:', location.state?.userName);
+        
         if (!savedUserName && !location.state?.userName) {
+            console.log('[Room] No username found, redirecting to matching');
             navigate('/matching');
             return;
         }
         
+        console.log('[Room] Username check passed, initializing media');
         const initMedia = async () => {
             try {
                 await startLocalStream();
-            } catch {
+                console.log('[Room] Media initialized successfully');
+            } catch (err) {
+                console.error('[Room] Media initialization failed:', err);
                 toast.error('Please allow camera access');
             }
         };

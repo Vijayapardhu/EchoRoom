@@ -98,8 +98,9 @@ const Matching = () => {
         };
     }, []);
 
-    // Ref to prevent duplicate queue joins
+    // Refs to prevent duplicate actions
     const hasJoinedQueueRef = useRef(false);
+    const isMatchedRef = useRef(false);
 
     useEffect(() => {
         if (!socket || !isMatching) return;
@@ -107,6 +108,7 @@ const Matching = () => {
         // Prevent duplicate joins
         if (hasJoinedQueueRef.current) return;
         hasJoinedQueueRef.current = true;
+        isMatchedRef.current = false;
 
         const peerInfo = {
             name: userName || 'Anonymous',
@@ -123,8 +125,15 @@ const Matching = () => {
 
         const handleMatchFound = ({ roomId }) => {
             console.log('[Matching] Match found, navigating to room:', roomId);
+            // Mark as matched so we don't leave queue during cleanup
+            isMatchedRef.current = true;
             // Remove listener immediately to prevent duplicate navigation
             socket.off('match-found', handleMatchFound);
+            
+            // Ensure username is saved before navigation
+            if (userName) {
+                localStorage.setItem('echoroom_username', userName);
+            }
             
             toast.success('Match found! Connecting...', { 
                 icon: <CheckCircle weight="fill" className="w-5 h-5 text-emerald-400" /> 
@@ -145,7 +154,9 @@ const Matching = () => {
 
         return () => {
             socket.off('match-found', handleMatchFound);
-            if (socket) {
+            // Only leave queue if we weren't matched
+            if (socket && !isMatchedRef.current) {
+                console.log('[Matching] Leaving queue (not matched)');
                 socket.emit('leave-queue');
             }
         };
