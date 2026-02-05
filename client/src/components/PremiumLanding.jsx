@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { 
     VideoCamera, 
     Users, 

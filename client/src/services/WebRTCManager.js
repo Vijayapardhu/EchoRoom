@@ -33,7 +33,7 @@ const fetchTurnCredentials = async (serverUrl) => {
             const data = await response.json();
             return data.iceServers;
         }
-    } catch (error) {
+    } catch {
         // Failed to fetch TURN credentials, using defaults
     }
     return null;
@@ -182,7 +182,7 @@ class WebRTCManager {
             params.encodings[0].minBitrate = 150000;  // 150 kbps min
             
             await sender.setParameters(params);
-        } catch (error) {
+        } catch {
             // Could not configure video encoding
         }
     }
@@ -424,7 +424,7 @@ class WebRTCManager {
                     break;
                 }
                 await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (error) {
+            } catch {
                 // Failed to add ICE candidate
             }
         }
@@ -568,7 +568,7 @@ class WebRTCManager {
                 
                 this.emit('connectionQuality', { quality, ...statsData });
 
-            } catch (err) {
+            } catch {
                 // Silently fail for stats
             }
         }, 2000);

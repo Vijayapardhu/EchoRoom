@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import WebRTCManager, { ConnectionState } from '../services/WebRTCManager';
 import { PEER_CONFIG } from '../config/webrtc.config';
 
 const WebRTCContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useWebRTC = () => {
     const context = useContext(WebRTCContext);
     if (!context) {
@@ -43,7 +44,7 @@ export const WebRTCProvider = ({ children }) => {
             setRemoteStream(stream);
         });
 
-        webrtcManagerRef.current.on('error', (error) => {
+        webrtcManagerRef.current.on('error', () => {
             // Error handled silently in production
         });
 
@@ -97,16 +98,16 @@ export const WebRTCProvider = ({ children }) => {
             const stream = await Promise.race([streamPromise, timeoutPromise]);
             setLocalStream(stream);
             return stream;
-        } catch (error) {
+        } catch (err) {
             // Retry logic for transient errors
             if (retryCount < maxRetries && 
-                error.message === 'Media initialization timeout' || 
-                error.type === 'inuse') {
+                (err.message === 'Media initialization timeout' || 
+                err.type === 'inuse')) {
                 await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
                 return startLocalStream(constraints, retryCount + 1);
             }
             
-            throw error;
+            throw err;
         }
     }, [localStream]);
 
@@ -198,6 +199,26 @@ export const WebRTCProvider = ({ children }) => {
     }, []);
 
     /**
+     * Process queued ICE candidates for a peer
+     */
+    const processQueuedCandidatesForPeer = useCallback(async (peerId) => {
+        const queue = candidateQueues.current.get(peerId);
+        const pc = peerConnections.current.get(peerId);
+        
+        if (!queue || !pc) return;
+        
+        for (const candidate of queue) {
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch {
+                // Failed to add candidate, continue
+            }
+        }
+        
+        candidateQueues.current.delete(peerId);
+    }, []);
+
+    /**
      * Handle offer from a specific peer (group calls)
      */
     const handleOfferFromPeer = useCallback(async (offer, peerId) => {
@@ -213,7 +234,7 @@ export const WebRTCProvider = ({ children }) => {
         });
         await pc.setLocalDescription(answer);
         return answer;
-    }, []);
+    }, [processQueuedCandidatesForPeer]);
 
     /**
      * Handle answer from a specific peer (group calls)
@@ -224,27 +245,7 @@ export const WebRTCProvider = ({ children }) => {
 
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         await processQueuedCandidatesForPeer(peerId);
-    }, []);
-
-    /**
-     * Process queued ICE candidates for a peer
-     */
-    const processQueuedCandidatesForPeer = async (peerId) => {
-        const queue = candidateQueues.current.get(peerId);
-        const pc = peerConnections.current.get(peerId);
-        
-        if (!queue || !pc) return;
-        
-        for (const candidate of queue) {
-            try {
-                await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (e) {
-                // Failed to add candidate, continue
-            }
-        }
-        
-        candidateQueues.current.delete(peerId);
-    };
+    }, [processQueuedCandidatesForPeer]);
 
     /**
      * Add ICE candidate for a specific peer (group calls)
@@ -265,8 +266,8 @@ export const WebRTCProvider = ({ children }) => {
             }
             
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-            console.error('[WebRTCContext] Error adding ICE candidate for peer:', peerId, e);
+        } catch (err) {
+            console.error('[WebRTCContext] Error adding ICE candidate for peer:', peerId, err);
         }
     }, []);
 
@@ -399,72 +400,64 @@ export const WebRTCProvider = ({ children }) => {
     const switchCamera = useCallback(async () => {
         if (!webrtcManagerRef.current) return null;
 
-        try {
-            const newTrack = await webrtcManagerRef.current.getMediaManager().switchCamera();
+        const newTrack = await webrtcManagerRef.current.getMediaManager().switchCamera();
 
-            // Update all connections with new track
-            const replaceTrackInConnection = async (pc) => {
-                if (!pc) return;
-                const oldTrack = localStream?.getVideoTracks()[0];
-                const sender = pc.getSenders().find(s => s.track === oldTrack || s.track?.kind === 'video');
-                if (sender) {
-                    await sender.replaceTrack(newTrack);
-                }
-            };
-
-            await replaceTrackInConnection(peerConnection.current);
-            
-            for (const [peerId, pc] of peerConnections.current) {
-                await replaceTrackInConnection(pc);
+        // Update all connections with new track
+        const replaceTrackInConnection = async (pc) => {
+            if (!pc) return;
+            const oldTrack = localStream?.getVideoTracks()[0];
+            const sender = pc.getSenders().find(s => s.track === oldTrack || s.track?.kind === 'video');
+            if (sender) {
+                await sender.replaceTrack(newTrack);
             }
+        };
 
-            return newTrack;
-        } catch (error) {
-            throw error;
+        await replaceTrackInConnection(peerConnection.current);
+        
+        for (const [, pc] of peerConnections.current) {
+            await replaceTrackInConnection(pc);
         }
+
+        return newTrack;
     }, [localStream]);
 
     /**
      * Start screen share
      */
     const startScreenShare = useCallback(async () => {
-        try {
-            const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
-                video: { 
-                    cursor: 'always',
-                    displaySurface: 'monitor'
-                },
-                audio: false
-            });
-            const screenTrack = screenStream.getVideoTracks()[0];
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+            video: { 
+                cursor: 'always',
+                displaySurface: 'monitor'
+            },
+            audio: false
+        });
+        const screenTrack = screenStream.getVideoTracks()[0];
 
-            const replaceTrack = async (pc) => {
-                if (!pc) return;
-                const videoTrack = localStream?.getVideoTracks()[0];
-                const sender = pc.getSenders().find(s => s.track === videoTrack || s.track?.kind === 'video');
+        const replaceTrack = async (pc) => {
+            if (!pc) return;
+            const videoTrack = localStream?.getVideoTracks()[0];
+            const sender = pc.getSenders().find(s => s.track === videoTrack || s.track?.kind === 'video');
 
-                if (sender) {
-                    await sender.replaceTrack(screenTrack);
-                }
-            };
-
-            await replaceTrack(peerConnection.current);
-            
-            for (const [peerId, pc] of peerConnections.current) {
-                await replaceTrack(pc);
+            if (sender) {
+                await sender.replaceTrack(screenTrack);
             }
+        };
 
-            setIsScreenSharing(true);
-
-            screenTrack.onended = async () => {
-                await stopScreenShare();
-            };
-
-            return screenStream;
-        } catch (error) {
-            throw error;
+        await replaceTrack(peerConnection.current);
+        
+        for (const [, pc] of peerConnections.current) {
+            await replaceTrack(pc);
         }
-    }, [localStream]);
+
+        setIsScreenSharing(true);
+
+        screenTrack.onended = async () => {
+            await stopScreenShare();
+        };
+
+        return screenStream;
+    }, [localStream, stopScreenShare]);
 
     /**
      * Stop screen share
@@ -483,7 +476,7 @@ export const WebRTCProvider = ({ children }) => {
 
         await replaceTrack(peerConnection.current);
         
-        for (const [peerId, pc] of peerConnections.current) {
+        for (const [, pc] of peerConnections.current) {
             await replaceTrack(pc);
         }
 
@@ -499,7 +492,7 @@ export const WebRTCProvider = ({ children }) => {
         } else {
             await startScreenShare();
         }
-    }, [isScreenSharing]);
+    }, [isScreenSharing, stopScreenShare, startScreenShare]);
 
     /**
      * Close connection

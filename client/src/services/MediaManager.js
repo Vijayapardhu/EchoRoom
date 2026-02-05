@@ -123,14 +123,14 @@ class MediaManager {
                     audio: this.currentConstraints.audio
                 });
                 return this.localStream;
-            } catch (lowerQualityError) {
+            } catch {
                 try {
                     this.localStream = await navigator.mediaDevices.getUserMedia({
                         video: true,
                         audio: true
                     });
                     return this.localStream;
-                } catch (basicError) {
+                } catch {
                     // Continue to notfound handling
                 }
             }
@@ -144,7 +144,7 @@ class MediaManager {
                     audio: this.currentConstraints.audio
                 });
                 return this.localStream;
-            } catch (audioError) {
+            } catch {
                 throw {
                     type: 'notfound',
                     message: 'No camera or microphone found.',
@@ -196,7 +196,7 @@ class MediaManager {
             const devices = await navigator.mediaDevices.enumerateDevices();
             this.devices.video = devices.filter(d => d.kind === 'videoinput');
             this.devices.audio = devices.filter(d => d.kind === 'audioinput');
-        } catch (error) {
+        } catch {
             // Failed to enumerate devices
         }
     }
@@ -234,7 +234,8 @@ class MediaManager {
 
             return newVideoTrack;
         } catch (error) {
-            throw error;
+            // Re-throw to caller with proper error handling
+            throw new Error(`Failed to switch camera: ${error.message}`);
         }
     }
 

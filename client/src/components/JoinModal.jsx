@@ -88,9 +88,11 @@ const JoinModal = ({ isOpen, onClose, initialRoomId = '' }) => {
 
     useEffect(() => {
         if (isOpen) {
-            setStep(1);
-            setRoomId(initialRoomId);
-            checkDevices();
+            setTimeout(() => {
+                setStep(1);
+                setRoomId(initialRoomId);
+                checkDevices();
+            }, 0);
         }
     }, [isOpen, initialRoomId, checkDevices]);
 

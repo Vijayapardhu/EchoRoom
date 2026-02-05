@@ -5,7 +5,9 @@ const StarField = () => {
     const containerRef = useRef(null);
 
     useEffect(() => {
-        if (!containerRef.current) return;
+        // Store ref value in a variable to avoid stale ref in cleanup
+        const container = containerRef.current;
+        if (!container) return;
 
         // Scene setup
         const scene = new THREE.Scene();
@@ -14,7 +16,7 @@ const StarField = () => {
         
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        containerRef.current.appendChild(renderer.domElement);
+        container.appendChild(renderer.domElement);
 
         // Star particles
         const starCount = 2000;
@@ -163,8 +165,8 @@ const StarField = () => {
         return () => {
             cancelAnimationFrame(animationId);
             window.removeEventListener('resize', handleResize);
-            if (containerRef.current && renderer.domElement) {
-                containerRef.current.removeChild(renderer.domElement);
+            if (container && renderer.domElement) {
+                container.removeChild(renderer.domElement);
             }
             starGeometry.dispose();
             starMaterial.dispose();

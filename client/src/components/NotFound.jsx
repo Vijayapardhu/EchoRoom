@@ -6,7 +6,6 @@ import {
     ArrowLeft,
     Ghost
 } from '@phosphor-icons/react';
-import { motion } from 'framer-motion';
 
 const NotFound = () => {
     const navigate = useNavigate();

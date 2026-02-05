@@ -3,7 +3,6 @@ import { AlertTriangle } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
 import { useWebRTC } from '../../context/WebRTCContext';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 
 const PanicButton = ({ roomId, onPanic }) => {
     const socket = useSocket();

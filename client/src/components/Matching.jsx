@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { 
     Spinner, 
     CheckCircle,
@@ -48,8 +48,6 @@ const Matching = () => {
     // Matching states
     const [dots, setDots] = useState('');
     const [waitTime, setWaitTime] = useState(0);
-
-    const preferences = location.state || {};
 
     // Validation
     const validate = () => {
@@ -110,6 +108,8 @@ const Matching = () => {
         hasJoinedQueueRef.current = true;
         isMatchedRef.current = false;
 
+        const preferences = location.state || {};
+
         const peerInfo = {
             name: userName || 'Anonymous',
             gender,
@@ -160,7 +160,7 @@ const Matching = () => {
                 socket.emit('leave-queue');
             }
         };
-    }, [socket, isMatching]);  // Only re-run when socket or matching state changes
+    }, [socket, isMatching, userName, gender, selectedInterests, location.state, navigate]);
 
     const handleCancel = () => {
         if (socket) {

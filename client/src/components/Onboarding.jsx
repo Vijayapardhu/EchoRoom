@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { 
     ArrowRight, 
     Lightning, 
@@ -42,35 +42,38 @@ const Button = ({ children, onClick, variant = 'primary', disabled = false, icon
     );
 };
 
-const SelectionCard = ({ icon: Icon, title, subtitle, selected, onClick }) => (
-    <motion.button
-        onClick={onClick}
-        whileHover={{ scale: 1.02, y: -2 }}
-        whileTap={{ scale: 0.98 }}
-        className={`
-            relative p-6 rounded-2xl border-2 transition-all duration-300 text-left w-full
-            ${selected 
-                ? 'border-blue-400 bg-blue-400/10 shadow-lg shadow-blue-400/20' 
-                : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]'
-            }
-        `}
-    >
-        <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${selected ? 'bg-blue-400 text-white' : 'bg-white/10 text-white/60'}`}>
-            <Icon weight="fill" className="w-7 h-7" />
-        </div>
-        <h3 className={`font-semibold text-lg mb-1 ${selected ? 'text-white' : 'text-white/80'}`}>{title}</h3>
-        <p className="text-sm text-white/40">{subtitle}</p>
-        {selected && (
-            <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute top-4 right-4 w-6 h-6 rounded-full bg-blue-400 flex items-center justify-center"
-            >
-                <Check weight="bold" className="w-4 h-4 text-white" />
-            </motion.div>
-        )}
-    </motion.button>
-);
+const SelectionCard = ({ icon, title, subtitle, selected, onClick }) => {
+    const IconComponent = icon;
+    return (
+        <motion.button
+            onClick={onClick}
+            whileHover={{ scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            className={`
+                relative p-6 rounded-2xl border-2 transition-all duration-300 text-left w-full
+                ${selected 
+                    ? 'border-blue-400 bg-blue-400/10 shadow-lg shadow-blue-400/20' 
+                    : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]'
+                }
+            `}
+        >
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${selected ? 'bg-blue-400 text-white' : 'bg-white/10 text-white/60'}`}>
+                <IconComponent weight="fill" className="w-7 h-7" />
+            </div>
+            <h3 className={`font-semibold text-lg mb-1 ${selected ? 'text-white' : 'text-white/80'}`}>{title}</h3>
+            <p className="text-sm text-white/40">{subtitle}</p>
+            {selected && (
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-4 right-4 w-6 h-6 rounded-full bg-blue-400 flex items-center justify-center"
+                >
+                    <Check weight="bold" className="w-4 h-4 text-white" />
+                </motion.div>
+            )}
+        </motion.button>
+    );
+};
 
 const InterestTag = ({ label, selected, onClick, trending }) => (
     <motion.button

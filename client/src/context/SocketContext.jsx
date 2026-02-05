@@ -1,21 +1,18 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
 
 const SocketContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSocket = () => {
     return useContext(SocketContext);
 };
 
 export const SocketProvider = ({ children }) => {
-    const socketRef = useRef(null);
+    const [socket, setSocket] = useState(null);
     const [connectionState, setConnectionState] = useState('disconnected');
-    const [, forceUpdate] = useState({});
 
     useEffect(() => {
-        // Prevent creating multiple socket instances
-        if (socketRef.current) return;
-
         // Use environment variable for production, fallback to localhost for dev
         const serverUrl = import.meta.env.VITE_SERVER_URL || 
                          (import.meta.env.PROD ? 'https://echoroom-server.onrender.com' : 'http://localhost:5000');
@@ -36,15 +33,11 @@ export const SocketProvider = ({ children }) => {
             rememberUpgrade: true
         });
         
-        socketRef.current = newSocket;
-        
-        // Force re-render after socket is created
-        forceUpdate({});
+        setTimeout(() => setSocket(newSocket), 0);
 
         newSocket.on('connect', () => {
             console.log('[Socket] Connected successfully:', newSocket.id);
             setConnectionState('connected');
-            forceUpdate({});
         });
 
         newSocket.on('connect_error', (error) => {
@@ -56,7 +49,6 @@ export const SocketProvider = ({ children }) => {
         newSocket.on('disconnect', (reason) => {
             console.log('[Socket] Disconnected:', reason);
             setConnectionState('disconnected');
-            forceUpdate({});
             
             // Auto reconnect on disconnect (except for manual disconnect)
             if (reason !== 'io client disconnect') {
@@ -67,7 +59,6 @@ export const SocketProvider = ({ children }) => {
         newSocket.on('reconnect', (attemptNumber) => {
             console.log('[Socket] Reconnected after', attemptNumber, 'attempts');
             setConnectionState('connected');
-            forceUpdate({});
         });
 
         newSocket.on('reconnect_attempt', (attemptNumber) => {
@@ -87,11 +78,8 @@ export const SocketProvider = ({ children }) => {
         return () => {
             console.log('[Socket] Cleaning up socket connection');
             newSocket.close();
-            socketRef.current = null;
         };
     }, []);
-
-    const socket = useMemo(() => socketRef.current, [socketRef.current]);
 
     // Debug: log connection state changes
     useEffect(() => {

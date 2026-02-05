@@ -5,7 +5,6 @@ import {
     Microphone, 
     ArrowClockwise 
 } from '@phosphor-icons/react';
-import { motion } from 'framer-motion';
 
 const PermissionError = ({ type = 'camera', onRetry, onDismiss }) => {
     const getInstructions = () => {

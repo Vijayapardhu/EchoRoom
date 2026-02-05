@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
     Heart,
     Lightning,
@@ -30,16 +30,16 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
     const messageIdCounter = useRef(0);
     const lastTimestamp = useRef(0);
     
-    const generateMessageId = () => {
+    const generateMessageId = useCallback(() => {
         messageIdCounter.current += 1;
         // Use a combination of counter and a stable timestamp reference
-        const now = performance.now();
+        const now = Date.now();
         if (now === lastTimestamp.current) {
             return `msg-${now}-${messageIdCounter.current}`;
         }
         lastTimestamp.current = now;
         return `msg-${now}`;
-    };
+    }, []);
 
     const stickers = [
         { icon: Heart, label: 'Heart', color: 'text-red-400', bg: 'bg-red-400/20' },
@@ -166,7 +166,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: '100%', opacity: 0 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed top-0 right-0 w-full sm:w-[400px] md:w-[380px] h-full bg-slate-950/98 backdrop-blur-xl border-l border-white/10 z-50 flex flex-col shadow-2xl"
+                        className="fixed top-0 right-0 w-full sm:w-[400px] md:w-[360px] h-full bg-slate-950/98 backdrop-blur-xl border-l border-white/10 z-50 flex flex-col shadow-2xl"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">

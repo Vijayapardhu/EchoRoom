@@ -5,7 +5,7 @@ import {
     Sparkles, Globe, Heart, Star, Play, ChevronDown, Check, Mic, Camera,
     Lock, Shuffle, Smartphone, Monitor, Award, TrendingUp, Clock, Eye
 } from 'lucide-react';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { useSocket } from '../context/SocketContext';
 
 // Animated gradient orb component
@@ -30,24 +30,27 @@ const GradientOrb = ({ className, color1, color2, delay = 0 }) => (
 );
 
 // Floating icon component
-const FloatingIcon = ({ icon: Icon, className, delay = 0 }) => (
-    <motion.div
-        className={`absolute ${className}`}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ 
-            opacity: [0.2, 0.5, 0.2],
-            y: [-10, 10, -10],
-        }}
-        transition={{
-            duration: 4,
-            delay,
-            repeat: Infinity,
-            ease: "easeInOut",
-        }}
-    >
-        <Icon className="w-8 h-8 text-white/20" />
-    </motion.div>
-);
+const FloatingIcon = ({ icon, className, delay = 0 }) => {
+    const IconComponent = icon;
+    return (
+        <motion.div
+            className={`absolute ${className}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ 
+                opacity: [0.2, 0.5, 0.2],
+                y: [-10, 10, -10],
+            }}
+            transition={{
+                duration: 4,
+                delay,
+                repeat: Infinity,
+                ease: "easeInOut",
+            }}
+        >
+          <IconComponent className="w-8 h-8 text-white/20" />
+        </motion.div>
+    );
+};
 
 // Animated counter
 const AnimatedCounter = ({ end, duration = 2, suffix = '' }) => {
