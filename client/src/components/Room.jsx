@@ -413,6 +413,9 @@ const Room = () => {
         };
     }, [roomId, setRemoteStream, isGroupCall]);
 
+    // Ref to track if media has been initialized
+    const mediaInitializedRef = useRef(false);
+
     useEffect(() => {
         const savedUserName = localStorage.getItem('echoroom_username');
         const stateUserName = location.state?.userName;
@@ -424,7 +427,15 @@ const Room = () => {
             localStorage.setItem('echoroom_username', effectiveUserName);
         }
         
+        // Only initialize media once
+        if (mediaInitializedRef.current) {
+            console.log('[Room] Media already initialized, skipping');
+            return;
+        }
+        
         console.log('[Room] Username check passed, initializing media');
+        mediaInitializedRef.current = true;
+        
         const initMedia = async () => {
             try {
                 await startLocalStream();
@@ -432,11 +443,19 @@ const Room = () => {
             } catch (err) {
                 console.error('[Room] Media initialization failed:', err);
                 toast.error('Please allow camera access');
+                mediaInitializedRef.current = false;
             }
         };
         initMedia();
-        return () => cleanup();
-    }, [cleanup, navigate, startLocalStream]);
+    }, []); // Empty dependency array - only run once on mount
+
+    // Cleanup effect - runs only on unmount
+    useEffect(() => {
+        return () => {
+            console.log('[Room] Component unmounting, cleaning up');
+            cleanup();
+        };
+    }, []);
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
