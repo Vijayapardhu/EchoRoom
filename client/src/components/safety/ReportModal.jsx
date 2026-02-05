@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Flag, AlertCircle } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const ReportModal = ({ isOpen, onClose, onSubmit }) => {
     const [reason, setReason] = useState('Harassment');
