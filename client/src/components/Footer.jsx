@@ -1,6 +1,6 @@
 import React from 'react';
-
-import { 
+import { motion } from 'framer-motion';
+import {
     GithubLogo, 
     TwitterLogo, 
     LinkedinLogo,
