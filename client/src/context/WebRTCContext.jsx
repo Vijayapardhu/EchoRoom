@@ -422,7 +422,31 @@ export const WebRTCProvider = ({ children }) => {
     }, [localStream]);
 
     /**
-     * Start screen share
+     * Stop screen share - defined first to avoid TDZ issues
+     */
+    const stopScreenShare = useCallback(async () => {
+        const videoTrack = localStream?.getVideoTracks()[0];
+        if (!videoTrack) return;
+
+        const replaceTrack = async (pc) => {
+            if (!pc) return;
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) {
+                await sender.replaceTrack(videoTrack);
+            }
+        };
+
+        await replaceTrack(peerConnection.current);
+        
+        for (const [, pc] of peerConnections.current) {
+            await replaceTrack(pc);
+        }
+
+        setIsScreenSharing(false);
+    }, [localStream, peerConnection, peerConnections]);
+
+    /**
+     * Start screen share - depends on stopScreenShare
      */
     const startScreenShare = useCallback(async () => {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
@@ -457,34 +481,10 @@ export const WebRTCProvider = ({ children }) => {
         };
 
         return screenStream;
-    }, [localStream, stopScreenShare]);
+    }, [localStream, stopScreenShare, peerConnection, peerConnections]);
 
     /**
-     * Stop screen share
-     */
-    const stopScreenShare = useCallback(async () => {
-        const videoTrack = localStream?.getVideoTracks()[0];
-        if (!videoTrack) return;
-
-        const replaceTrack = async (pc) => {
-            if (!pc) return;
-            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) {
-                await sender.replaceTrack(videoTrack);
-            }
-        };
-
-        await replaceTrack(peerConnection.current);
-        
-        for (const [, pc] of peerConnections.current) {
-            await replaceTrack(pc);
-        }
-
-        setIsScreenSharing(false);
-    }, [localStream]);
-
-    /**
-     * Toggle screen share
+     * Toggle screen share - depends on both startScreenShare and stopScreenShare
      */
     const toggleScreenShare = useCallback(async () => {
         if (isScreenSharing) {
