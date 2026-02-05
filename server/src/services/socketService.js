@@ -262,10 +262,14 @@ const socketService = (io) => {
 
                         console.log(`[WebRTC] Initiator: ${initiator}, Receiver: ${receiver}`);
 
-                        // Emit to both peers immediately for faster connection
-                        io.to(initiator).emit('is-initiator', true);
-                        io.to(receiver).emit('is-initiator', false);
-                        console.log(`[WebRTC] Roles assigned for room ${roomId}`);
+                        // Add delay before assigning roles to allow clients to fully initialize
+                        // This prevents race conditions where socket handlers are still being registered
+                        setTimeout(() => {
+                            // Emit to both peers
+                            io.to(initiator).emit('is-initiator', true);
+                            io.to(receiver).emit('is-initiator', false);
+                            console.log(`[WebRTC] Roles assigned for room ${roomId} (after delay)`);
+                        }, 1000);
 
                         // Mark this room as having assigned initiators
                         roomsWithInitiator.add(roomId);
