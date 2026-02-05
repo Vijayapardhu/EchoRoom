@@ -22,22 +22,23 @@ const allowedOrigins = [
 const io = new Server(server, {
     cors: {
         origin: function (origin, callback) {
-            // Allow requests with no origin
+            // Allow requests with no origin (mobile apps, etc.)
             if (!origin) return callback(null, true);
             // Allow all vercel.app and echoroom domains
             if (origin.includes('vercel.app') || origin.includes('echoroom') || origin.includes('localhost')) {
                 callback(null, true);
             } else {
+                console.log('[CORS] Blocking origin:', origin);
                 callback(null, true); // Allow anyway for debugging
             }
         },
         methods: ["GET", "POST"],
-        credentials: true
+        credentials: false  // Disabled to avoid CORS issues
     },
     // Optimized settings for real-time WebRTC signaling
     pingTimeout: 60000,           // Increased for mobile networks
     pingInterval: 25000,          // Keep-alive interval
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],  // Polling first for reliability
     allowUpgrades: true,
     upgradeTimeout: 10000,        // Time to upgrade from polling to websocket
     perMessageDeflate: false,     // Disable compression for lower latency
@@ -45,14 +46,25 @@ const io = new Server(server, {
     maxHttpBufferSize: 1e6,       // 1MB max buffer for signaling messages
     connectTimeout: 45000,        // Connection timeout
     // WebSocket-specific options for better performance
-    wsEngine: require('ws').Server,
     allowEIO3: true,              // Allow Engine.IO v3 clients
     cookie: false                 // Disable cookies for faster handshake
 });
 
 // Connection event logging
-io.engine.on('connection_error', () => {
-    // Connection error handled silently
+io.engine.on('connection_error', (err) => {
+    console.error('[Socket.IO] Connection error:', err.message);
+});
+
+io.on('connection', (socket) => {
+    console.log('[Socket.IO] Client connected:', socket.id, 'from', socket.handshake.headers.origin || 'unknown');
+    
+    socket.on('disconnect', (reason) => {
+        console.log('[Socket.IO] Client disconnected:', socket.id, 'Reason:', reason);
+    });
+    
+    socket.on('error', (error) => {
+        console.error('[Socket.IO] Socket error:', socket.id, error.message);
+    });
 });
 
 // Initialize Socket Service

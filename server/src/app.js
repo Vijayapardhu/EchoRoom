@@ -29,7 +29,7 @@ const corsOptions = {
     },
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
+    credentials: false,  // Disabled to avoid CORS issues
     maxAge: 86400 // Cache preflight for 24 hours
 };
 
