@@ -5,7 +5,7 @@ import {
     Sparkles, Globe, Heart, Star, Play, ChevronDown, Check, Mic, Camera,
     Lock, Shuffle, Smartphone, Monitor, Award, TrendingUp, Clock, Eye
 } from 'lucide-react';
-import { AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { AnimatePresence, useScroll, useTransform, motion } from 'framer-motion';
 import { useSocket } from '../context/SocketContext';
 
 // Animated gradient orb component
