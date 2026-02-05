@@ -548,6 +548,9 @@ const Room = () => {
         }
 
         console.log('[Room] Setting up socket event handlers for room:', roomId);
+        
+        // Emit join-room to notify server we're ready
+        socket.emit('join-room', { roomId });
 
         const handleIsInitiator = (isInitiator) => {
             console.log('[Room] Received is-initiator:', isInitiator);
@@ -629,8 +632,20 @@ const Room = () => {
         socket.on('answer', handleAnswerReceived);
         socket.on('ice-candidate', handleIceCandidateReceived);
 
+        // Request initiator status in case we missed it
+        const requestInitiatorStatus = () => {
+            if (!initiatorHandledRef.current) {
+                console.log('[Room] Requesting initiator status...');
+                socket.emit('request-initiator-status', { roomId });
+            }
+        };
+        
+        // Request status after a short delay to ensure handlers are registered
+        const statusTimeout = setTimeout(requestInitiatorStatus, 500);
+
         return () => {
             console.log('[Room] Cleaning up socket event handlers');
+            clearTimeout(statusTimeout);
             socket.off('is-initiator', handleIsInitiator);
             socket.off('offer', handleOfferReceived);
             socket.off('answer', handleAnswerReceived);

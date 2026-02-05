@@ -282,6 +282,30 @@ const socketService = (io) => {
             }
         });
 
+        // Handle request for initiator status (in case client missed it)
+        socket.on('request-initiator-status', ({ roomId }) => {
+            console.log(`[WebRTC] User ${socket.id} requesting initiator status for room ${roomId}`);
+            
+            const room = io.sockets.adapter.rooms.get(roomId);
+            if (room && room.size === 2) {
+                const clients = Array.from(room);
+                clients.sort();
+                const initiator = clients[0];
+                const receiver = clients[1];
+                
+                // Re-send initiator status to the requesting client
+                if (socket.id === initiator) {
+                    console.log(`[WebRTC] Re-sending is-initiator: true to ${socket.id}`);
+                    socket.emit('is-initiator', true);
+                } else if (socket.id === receiver) {
+                    console.log(`[WebRTC] Re-sending is-initiator: false to ${socket.id}`);
+                    socket.emit('is-initiator', false);
+                }
+            } else {
+                console.log(`[WebRTC] Room ${roomId} not ready (${room?.size || 0}/2), cannot send initiator status`);
+            }
+        });
+
         // Handle "Next" button - skip to next match
         socket.on('next', ({ roomId }) => {
             console.log(`User ${socket.id} clicked Next in room ${roomId}`);
