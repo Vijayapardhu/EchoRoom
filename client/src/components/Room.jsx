@@ -796,6 +796,8 @@ const Room = () => {
     const fullscreenTimeoutRef = useRef(null);
     const connectionTimeoutRef = useRef(null);
     const [windowSize, setWindowSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+    const [tempGender, setTempGender] = useState(localPeerInfo.gender || '');
+    const [tempInterests, setTempInterests] = useState(localPeerInfo.interests?.length ? localPeerInfo.interests : ['', '']);
 
     const reactions = [
         { icon: Heart, color: 'red', name: 'heart' },
@@ -1508,9 +1510,6 @@ const Room = () => {
         setShowPeerInfoModal(false);
         socket.emit('update-peer-info', { roomId, info });
     }, [tempGender, tempInterests, socket, roomId]);
-
-    const [tempGender, setTempGender] = useState(localPeerInfo.gender || '');
-    const [tempInterests, setTempInterests] = useState(localPeerInfo.interests?.length ? localPeerInfo.interests : ['', '']);
 
     return (
         <div className="relative flex flex-col h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
