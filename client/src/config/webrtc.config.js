@@ -18,12 +18,12 @@ export const ICE_SERVERS = [
     // Twilio's STUN server
     { urls: 'stun:global.stun.twilio.com:3478' },
     
-    // Public TURN servers (no credentials required)
-    // Production: TURN credentials are fetched from the server at runtime
-    { urls: 'turn:openrelay.metered.ca:80' },
-    { urls: 'turn:openrelay.metered.ca:80?transport=tcp' },
-    { urls: 'turn:openrelay.metered.ca:443' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp' }
+    // Public TURN servers (no sign-up required)
+    // Production: server-fetched TURN credentials are used when available
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
 ];
 
 // Peer Connection Configuration
