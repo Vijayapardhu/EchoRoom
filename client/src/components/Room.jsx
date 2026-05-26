@@ -311,10 +311,17 @@ const FloatingReaction = ({ icon, color, onComplete, offset }) => {
 
     return (
         <div
-            className="fixed bottom-32 left-1/2 pointer-events-none z-[100] animate-float-up"
-            style={{ marginLeft: `${offset}px` }}
+            className="fixed bottom-32 left-1/2 -translate-x-1/2 pointer-events-none z-[100]"
+            style={{ transform: `translateX(calc(-50% + ${offset}px))` }}
         >
-            <IconComponent weight="fill" className={`w-14 h-14 md:w-16 md:h-16 ${colorClasses[color]}`} />
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: -60 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.8, ease: "easeOut" }}
+            >
+                <IconComponent weight="fill" className={`w-14 h-14 md:w-16 md:h-16 ${colorClasses[color]}`} />
+            </motion.div>
         </div>
     );
 };
@@ -1482,7 +1489,7 @@ const Room = () => {
 
     const sendReaction = useCallback((reaction) => {
         const id = `${Date.now()}-${Math.random()}`;
-        const offset = (Math.random() - 0.5) * 100;
+        const offset = (Math.random() - 0.5) * 20;
         setFloatingReactions(prev => [...prev, { id, offset, ...reaction }]);
         socket.emit('send-reaction', { roomId, reaction: reaction.name });
         setShowReactions(false);

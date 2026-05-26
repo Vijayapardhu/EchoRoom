@@ -172,10 +172,10 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: '100%', opacity: 0 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed top-0 right-0 w-full sm:w-[400px] md:w-[360px] h-full bg-slate-950/98 backdrop-blur-xl border-l border-white/10 z-50 flex flex-col shadow-2xl"
+                        className="fixed top-0 right-0 w-full sm:w-[400px] md:w-[420px] lg:w-[480px] h-dvh max-h-screen bg-slate-950/98 backdrop-blur-xl border-l border-white/10 z-50 flex flex-col shadow-2xl"
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">
+                        <div className="flex items-center justify-between px-4 md:px-5 py-3.5 bg-white/5 border-b border-white/10">
                             <div className="flex items-center gap-3">
                                 <button
                                     onClick={onClose}
@@ -183,7 +183,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                 >
                                     <ArrowLeft weight="bold" className="w-5 h-5" />
                                 </button>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2.5">
                                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
                                         <Smiley weight="fill" className="w-5 h-5 text-white" />
                                     </div>
@@ -335,16 +335,16 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                         </AnimatePresence>
 
                         {/* Input */}
-                        <div className="p-3 pb-6 md:pb-3 bg-white/5 border-t border-white/10">
+                        <div className="p-3 pb-8 md:pb-3 bg-white/5 border-t border-white/10">
                             <form onSubmit={sendMessage} className="flex items-center gap-2">
                                 <FileUpload onFileSelect={handleFileSelect} accept="image/*">
                                     <motion.button
                                         type="button"
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        className="p-3 md:p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors flex-shrink-0"
+                                        className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors flex-shrink-0"
                                     >
-                                        <ImageIcon weight="bold" className="w-5 h-5 md:w-5 md:h-5" />
+                                        <ImageIcon weight="bold" className="w-5 h-5" />
                                     </motion.button>
                                 </FileUpload>
 
@@ -365,7 +365,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
                                         placeholder="Type a message..."
-                                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
+                                        className="w-full px-4 py-3.5 md:py-3 bg-white/5 border border-white/10 rounded-2xl text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
                                     />
                                 </div>
 
@@ -374,7 +374,7 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                                     whileHover={{ scale: 1.1 }}
                                     whileTap={{ scale: 0.9 }}
                                     disabled={!input.trim()}
-                                    className="p-3 rounded-xl bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                                    className="p-3.5 md:p-3 rounded-xl bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                                 >
                                     <PaperPlaneRight weight="fill" className="w-5 h-5" />
                                 </motion.button>

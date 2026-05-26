@@ -12,7 +12,7 @@ const InfinitySpin = ({ width = "200", color = "#4fa94d" }) => {
       width={w}
       height={h}
       viewBox={`0 0 ${w} ${h}`}
-      style={{ display: 'block', margin: '0 auto' }}
+      style={{ display: 'inline-block', verticalAlign: 'middle' }}
     >
       <defs>
         <linearGradient id="ig" x1="0%" y1="0%" x2="100%" y2="0%">
