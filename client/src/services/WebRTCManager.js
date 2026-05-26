@@ -182,8 +182,7 @@ class WebRTCManager {
             params.encodings[0].adaptivePtime = true;
             
             // Set bitrate constraints (will adapt based on network)
-            params.encodings[0].maxBitrate = 2500000; // 2.5 Mbps max
-            params.encodings[0].minBitrate = 150000;  // 150 kbps min
+            params.encodings[0].maxBitrate = 5000000; // 5 Mbps max for 720p
             
             await sender.setParameters(params);
         } catch {
