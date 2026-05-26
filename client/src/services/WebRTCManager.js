@@ -601,15 +601,6 @@ class WebRTCManager {
     cleanup() {
         this.closePeerConnection();
         this.mediaManager.cleanup();
-        this.listeners = { 
-            stateChange: [], 
-            remoteStream: [], 
-            iceCandidate: [], 
-            error: [], 
-            stats: [],
-            connectionQuality: [],
-            iceRestart: []
-        };
     }
 
     clearReconnectTimer() {
