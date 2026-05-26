@@ -335,16 +335,16 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
                         </AnimatePresence>
 
                         {/* Input */}
-                        <div className="p-3 bg-white/5 border-t border-white/10">
+                        <div className="p-3 pb-6 md:pb-3 bg-white/5 border-t border-white/10">
                             <form onSubmit={sendMessage} className="flex items-center gap-2">
                                 <FileUpload onFileSelect={handleFileSelect} accept="image/*">
                                     <motion.button
                                         type="button"
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors flex-shrink-0"
+                                        className="p-3 md:p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors flex-shrink-0"
                                     >
-                                        <ImageIcon weight="bold" className="w-5 h-5" />
+                                        <ImageIcon weight="bold" className="w-5 h-5 md:w-5 md:h-5" />
                                     </motion.button>
                                 </FileUpload>
 

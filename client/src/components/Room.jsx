@@ -794,7 +794,6 @@ const Room = () => {
     const [showFullscreenControls, setShowFullscreenControls] = useState(false);
     const [fullscreenTileId, setFullscreenTileId] = useState(null);
     const fullscreenTimeoutRef = useRef(null);
-    const connectionTimeoutRef = useRef(null);
     const [windowSize, setWindowSize] = useState({ w: window.innerWidth, h: window.innerHeight });
     const [tempGender, setTempGender] = useState(localPeerInfo.gender || '');
     const [tempInterests, setTempInterests] = useState(localPeerInfo.interests?.length ? localPeerInfo.interests : ['', '']);
@@ -820,19 +819,12 @@ const Room = () => {
 
         if (isNewRoom) {
             initiatorHandledRef.current = false;
-            timeouts.push(setTimeout(() => {
-                setPendingInitiatorRole(null);
-                setGroupPeers([]);
-                setRemotePeerInfo(null);
-                setIsMuted(false);
-                setIsVideoOff(false);
-                setRemoteStream(null);
-            }, 0));
-            
-            if (connectionTimeoutRef.current) {
-                clearTimeout(connectionTimeoutRef.current);
-                connectionTimeoutRef.current = null;
-            }
+            setPendingInitiatorRole(null);
+            setGroupPeers([]);
+            setRemotePeerInfo(null);
+            setIsMuted(false);
+            setIsVideoOff(false);
+            setRemoteStream(null);
             
             if (peerConnection.current) {
                 peerConnection.current.close();
@@ -841,8 +833,8 @@ const Room = () => {
             peerConnections.current.clear();
         }
         
-        connectionTimeoutRef.current = setTimeout(() => {
-            if (!remoteStreamRef.current && !isGroupCallRef.current) {
+        const timer = setTimeout(() => {
+            if (!remoteStream && !isGroupCallRef.current) {
                 console.log('[Room] Connection timeout - no remote stream after 15s');
                 toast.error('Connection timed out. Please try again.');
             }
@@ -850,12 +842,10 @@ const Room = () => {
         
         return () => {
             timeouts.forEach(clearTimeout);
-            if (connectionTimeoutRef.current) {
-                clearTimeout(connectionTimeoutRef.current);
-            }
+            clearTimeout(timer);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [roomId]);
+    }, [roomId, remoteStream]);
 
     // Connection time tracking
     useEffect(() => {
@@ -977,36 +967,39 @@ const Room = () => {
         }
     }, [localStream, pendingInitiatorRole, processInitiatorRole]);
 
-    useEffect(() => {
-        if (remoteStream) {
-            console.log('[Room] Remote stream received');
-            if (connectionTimeoutRef.current) {
-                clearTimeout(connectionTimeoutRef.current);
-                connectionTimeoutRef.current = null;
-            }
-        }
-    }, [remoteStream]);
+    // Track if remote video needs user gesture on mobile
+    const [remoteVideoNeedsGesture, setRemoteVideoNeedsGesture] = useState(false);
 
     // Assign streams to video elements
     useEffect(() => {
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
-            remoteVideoRef.current.play().catch(err => {
+            remoteVideoRef.current.muted = true;
+            remoteVideoRef.current.play().then(() => {
+                remoteVideoRef.current.muted = false;
+                setRemoteVideoNeedsGesture(false);
+            }).catch(err => {
                 if (err.name === 'NotAllowedError') {
-                    console.warn('[Room] Remote video autoplay blocked');
+                    setRemoteVideoNeedsGesture(true);
                 }
             });
         }
     }, [remoteStream]);
 
+    const handleRemoteVideoTap = useCallback(() => {
+        if (remoteVideoRef.current && remoteVideoNeedsGesture) {
+            remoteVideoRef.current.muted = true;
+            remoteVideoRef.current.play().then(() => {
+                remoteVideoRef.current.muted = false;
+                setRemoteVideoNeedsGesture(false);
+            }).catch(() => {});
+        }
+    }, [remoteVideoNeedsGesture]);
+
     useEffect(() => {
         if (localVideoRef.current && localStream) {
             localVideoRef.current.srcObject = localStream;
-            localVideoRef.current.play().catch(err => {
-                if (err.name === 'NotAllowedError') {
-                    console.warn('[Room] Local video autoplay blocked');
-                }
-            });
+            localVideoRef.current.play().catch(() => {});
         }
     }, [localStream]);
 
@@ -1018,7 +1011,6 @@ const Room = () => {
     const handleAnswerRef = useRef(handleAnswer);
     const addIceCandidateRef = useRef(addIceCandidate);
     const isGroupCallRef = useRef(isGroupCall);
-    const remoteStreamRef = useRef(remoteStream);
     const userNameRef = useRef(userName);
     const localPeerInfoRef = useRef(localPeerInfo);
     const createPeerConnectionForPeerRef = useRef(createPeerConnectionForPeer);
@@ -1050,7 +1042,6 @@ const Room = () => {
     useEffect(() => { handleAnswerRef.current = handleAnswer; }, [handleAnswer]);
     useEffect(() => { addIceCandidateRef.current = addIceCandidate; }, [addIceCandidate]);
     useEffect(() => { isGroupCallRef.current = isGroupCall; }, [isGroupCall]);
-    useEffect(() => { remoteStreamRef.current = remoteStream; }, [remoteStream]);
     useEffect(() => { userNameRef.current = userName; }, [userName]);
     useEffect(() => { localPeerInfoRef.current = localPeerInfo; }, [localPeerInfo]);
     useEffect(() => { createPeerConnectionForPeerRef.current = createPeerConnectionForPeer; }, [createPeerConnectionForPeer]);
@@ -1612,7 +1603,7 @@ const Room = () => {
                             transition={{ duration: 0.5 }}
                             ref={remoteTileRef}
                             data-tile-id="remote"
-                            onClick={() => handleTileSelect('remote')}
+                            onClick={() => { handleTileSelect('remote'); handleRemoteVideoTap(); }}
                             className={`relative h-full w-full rounded-2xl md:rounded-3xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 shadow-2xl cursor-pointer ${fullscreenTileId === 'remote' ? 'ring-2 ring-blue-400/70' : ''}`}
                         >
                             {remoteStream ? (
@@ -1623,6 +1614,20 @@ const Room = () => {
                                         playsInline
                                         className={`w-full h-full ${isFullscreen && fullscreenTileId === 'remote' ? 'object-contain' : 'object-cover'}`}
                                     />
+
+                                    {/* Tap to unmute overlay (iOS Safari needs user gesture) */}
+                                    {remoteVideoNeedsGesture && (
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            onClick={(e) => { e.stopPropagation(); handleRemoteVideoTap(); }}
+                                            className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-10"
+                                        >
+                                            <div className="text-center px-6 py-4 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/10">
+                                                <p className="text-white text-sm font-medium">Tap to enable audio</p>
+                                            </div>
+                                        </motion.div>
+                                    )}
                                     
                                     {/* Enhanced Remote Peer Info Overlay */}
                                     {remotePeerInfo && (
