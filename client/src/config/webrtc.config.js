@@ -2,7 +2,8 @@
  * WebRTC Configuration
  * Centralized ICE servers, peer connection config, and media constraints
  * 
- * IMPORTANT: Replace TURN credentials with your own from https://www.metered.ca/tools/openrelay/
+ * TURN credentials are fetched from the server at runtime for security.
+ * These are only public fallback STUN/TURN servers used before the server responds.
  */
 
 // ICE Servers Configuration
@@ -17,33 +18,12 @@ export const ICE_SERVERS = [
     // Twilio's STUN server
     { urls: 'stun:global.stun.twilio.com:3478' },
     
-    // Metered.ca TURN servers (Free tier - Your credentials)
-    // Sign up at: https://www.metered.ca/tools/openrelay/
-    {
-        urls: 'turn:a.relay.metered.ca:80',
-        username: 'c34da8d58759d2073a974734',
-        credential: '0r6th55vCqs8FMNI'
-    },
-    {
-        urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-        username: 'c34da8d58759d2073a974734',
-        credential: '0r6th55vCqs8FMNI'
-    },
-    {
-        urls: 'turn:a.relay.metered.ca:443',
-        username: 'c34da8d58759d2073a974734',
-        credential: '0r6th55vCqs8FMNI'
-    },
-    {
-        urls: 'turn:a.relay.metered.ca:443?transport=tcp',
-        username: 'c34da8d58759d2073a974734',
-        credential: '0r6th55vCqs8FMNI'
-    },
-    {
-        urls: 'turns:a.relay.metered.ca:443',
-        username: 'c34da8d58759d2073a974734',
-        credential: '0r6th55vCqs8FMNI'
-    }
+    // Public TURN servers (no credentials required)
+    // Production: TURN credentials are fetched from the server at runtime
+    { urls: 'turn:openrelay.metered.ca:80' },
+    { urls: 'turn:openrelay.metered.ca:80?transport=tcp' },
+    { urls: 'turn:openrelay.metered.ca:443' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp' }
 ];
 
 // Peer Connection Configuration

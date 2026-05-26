@@ -29,12 +29,20 @@ export const WebRTCProvider = ({ children }) => {
     const managerInitialized = useRef(false);
     const iceCandidateListenerRef = useRef(null);
 
-    // Initialize WebRTC Manager - only once
+    // Initialize manager synchronously so child effects can use it immediately
+    if (!webrtcManagerRef.current) {
+        webrtcManagerRef.current = new WebRTCManager();
+    }
+
+    // Set up event listeners - runs once
     useEffect(() => {
         if (managerInitialized.current) return;
-        
-        webrtcManagerRef.current = new WebRTCManager();
         managerInitialized.current = true;
+
+        // Fetch TURN credentials from server (hides credentials from client bundle)
+        const serverUrl = import.meta.env.VITE_SERVER_URL ||
+                         (import.meta.env.PROD ? 'https://echoroom-server.onrender.com' : 'http://localhost:5000');
+        webrtcManagerRef.current.updateIceServers(serverUrl);
 
         // Set up event listeners
         webrtcManagerRef.current.on('stateChange', ({ newState }) => {

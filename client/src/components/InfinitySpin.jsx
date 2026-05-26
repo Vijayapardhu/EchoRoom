@@ -1,52 +1,41 @@
-const InfinitySpin = ({ width = "200", color = "#4fa94d" }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={width}
-    height={Number(width) * 0.5}
-    viewBox={`0 0 ${width} ${Number(width) * 0.5}`}
-    data-testid="infinity-spin"
-  >
-    <defs>
-      <linearGradient id="gradientColor" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor={color} stopOpacity="1" />
-        <stop offset="100%" stopColor={color} stopOpacity="1" />
-      </linearGradient>
-    </defs>
-    <path
-      d="M 0,50 C 0,22 22,0 50,0 C 78,0 100,22 100,50 C 100,78 78,100 50,100"
-      fill="none"
-      stroke={`url(#gradientColor)`}
-      strokeWidth="6"
-      strokeLinecap="round"
-      strokeDasharray={`${Number(width) * 0.188} ${Number(width) * 0.45}`}
+const InfinitySpin = ({ width = "200", color = "#4fa94d" }) => {
+  const w = Number(width);
+  const h = Math.max(w * 0.5, 40);
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(w * 0.17, 35);
+  const gap = 6;
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      style={{ display: 'block', margin: '0 auto' }}
     >
-      <animateTransform
-        attributeName="transform"
-        type="rotate"
-        from="0 50 50"
-        to="360 50 50"
-        dur="2s"
-        repeatCount="indefinite"
-      />
-    </path>
-    <path
-      d="M 100,50 C 100,78 78,100 50,100 C 22,100 0,78 0,50 C 0,22 22,0 50,0"
-      fill="none"
-      stroke={`url(#gradientColor)`}
-      strokeWidth="6"
-      strokeLinecap="round"
-      strokeDasharray={`${Number(width) * 0.188} ${Number(width) * 0.45}`}
-    >
-      <animateTransform
-        attributeName="transform"
-        type="rotate"
-        from="360 50 50"
-        to="0 50 50"
-        dur="2s"
-        repeatCount="indefinite"
-      />
-    </path>
-  </svg>
-);
+      <defs>
+        <linearGradient id="ig" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor={color} />
+          <stop offset="100%" stopColor={color} />
+        </linearGradient>
+      </defs>
+      <g fill="none" stroke="url(#ig)" strokeWidth="5" strokeLinecap="round">
+        <path
+          d={`M ${cx},${cy} A ${r},${r} 0 1,1 ${cx - r * 2 - gap},${cy}`}
+          strokeDasharray={`${r * 1.8} ${r * 5}`}
+        >
+          <animateTransform attributeName="transform" type="rotate" from={`0 ${cx} ${cy}`} to={`360 ${cx} ${cy}`} dur="2s" repeatCount="indefinite" />
+        </path>
+        <path
+          d={`M ${cx},${cy} A ${r},${r} 0 1,0 ${cx + r * 2 + gap},${cy}`}
+          strokeDasharray={`${r * 1.8} ${r * 5}`}
+        >
+          <animateTransform attributeName="transform" type="rotate" from={`360 ${cx} ${cy}`} to={`0 ${cx} ${cy}`} dur="2s" repeatCount="indefinite" />
+        </path>
+      </g>
+    </svg>
+  );
+};
 
 export default InfinitySpin;
