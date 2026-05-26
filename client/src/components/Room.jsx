@@ -4,7 +4,7 @@ import { useSocket } from '../context/SocketContext';
 import { useWebRTC } from '../context/WebRTCContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { InfinitySpin } from 'react-loader-spinner';
+import InfinitySpin from './InfinitySpin';
 import { 
     Microphone, 
     MicrophoneSlash, 

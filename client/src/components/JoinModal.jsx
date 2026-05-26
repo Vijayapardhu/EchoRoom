@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { InfinitySpin } from 'react-loader-spinner';
+import InfinitySpin from './InfinitySpin';
 import { 
     X, 
     VideoCamera, 
