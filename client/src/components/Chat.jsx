@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { AnimatePresence, motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
     Heart,
     Lightning,
@@ -118,6 +119,11 @@ const Chat = ({ roomId, isOpen, onClose, userName }) => {
 
     const handleFileSelect = (file) => {
         if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('File too large. Maximum 5MB.');
+            return;
+        }
 
         const reader = new FileReader();
         reader.onloadend = () => {

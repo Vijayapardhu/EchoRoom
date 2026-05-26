@@ -14,6 +14,7 @@ class SignalingService {
         this.messageIdCounter = 0;
         this.pendingAcks = new Map();
         this.ackTimeout = 5000; // 5 seconds
+        this.wrappedCallbacks = new Map();
     }
 
     /**
@@ -163,6 +164,7 @@ class SignalingService {
             callback(data);
         };
 
+        this.wrappedCallbacks.set(callback, wrappedCallback);
         this.socket.on(event, wrappedCallback);
         return wrappedCallback;
     }
@@ -172,7 +174,11 @@ class SignalingService {
      */
     off(event, callback) {
         if (this.socket) {
-            this.socket.off(event, callback);
+            const wrapped = this.wrappedCallbacks.get(callback);
+            if (wrapped) {
+                this.socket.off(event, wrapped);
+                this.wrappedCallbacks.delete(callback);
+            }
         }
     }
 

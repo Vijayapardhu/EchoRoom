@@ -300,12 +300,15 @@ const PremiumLanding = () => {
         const roomId = Math.random().toString(36).substring(2, 9);
         const roomType = createRoomMode === 'text' ? 'group-text-' : 'group-';
         const fullRoomId = `${roomType}${roomId}`;
-        navigate(`/room/${fullRoomId}`, { 
+        sessionStorage.setItem('echoroom_room_id', fullRoomId);
+        navigate('/room', { 
             state: { 
+                roomId: fullRoomId,
                 mode: createRoomMode, 
                 isHost: true, 
                 interests: createRoomInterests 
-            } 
+            },
+            replace: true
         });
         setShowCreateRoomModal(false);
     };

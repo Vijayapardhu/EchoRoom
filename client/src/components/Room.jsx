@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { useWebRTC } from '../context/WebRTCContext';
 import { AnimatePresence, motion } from 'framer-motion';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
+import { InfinitySpin } from 'react-loader-spinner';
 import { 
     Microphone, 
     MicrophoneSlash, 
@@ -13,7 +14,6 @@ import {
     ChatCircle,
     Monitor,
     ArrowClockwise,
-    Spinner,
     ShareNetwork,
     CheckCircle,
     Smiley,
@@ -88,7 +88,11 @@ const VideoTile = ({
     useEffect(() => {
         if (videoRef.current && stream) {
             videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(() => {});
+            videoRef.current.play().catch(err => {
+                if (err.name === 'NotAllowedError') {
+                    console.warn('[VideoTile] Autoplay blocked');
+                }
+            });
         }
     }, [stream]);
 
@@ -486,7 +490,7 @@ const GalleryView = ({
                                 className="mb-6"
                             >
                                 <div className="relative">
-                                    <Spinner weight="bold" className="w-16 h-16 text-blue-400" />
+                                    <InfinitySpin width="200" color="#4fa94d" />
                                     <motion.div
                                         animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                                         transition={{ duration: 2, repeat: Infinity }}
@@ -700,10 +704,24 @@ const ControlButton = ({ onClick, active, activeColor, children, label, disabled
 );
 
 const Room = () => {
-    const { roomId } = useParams();
-    const navigate = useNavigate();
     const location = useLocation();
+    const navigate = useNavigate();
     const socket = useSocket();
+    const [roomId, setRoomId] = useState(() => {
+        const fromState = location.state?.roomId;
+        if (fromState) {
+            sessionStorage.setItem('echoroom_room_id', fromState);
+            return fromState;
+        }
+        return sessionStorage.getItem('echoroom_room_id') || null;
+    });
+
+    useEffect(() => {
+        if (!roomId) {
+            navigate('/matching', { replace: true });
+            return;
+        }
+    }, [roomId, navigate]);
     const {
         localStream,
         remoteStream,
@@ -777,6 +795,7 @@ const Room = () => {
     const [fullscreenTileId, setFullscreenTileId] = useState(null);
     const fullscreenTimeoutRef = useRef(null);
     const connectionTimeoutRef = useRef(null);
+    const [windowSize, setWindowSize] = useState({ w: window.innerWidth, h: window.innerHeight });
 
     const reactions = [
         { icon: Heart, color: 'red', name: 'heart' },
@@ -786,43 +805,55 @@ const Room = () => {
         { icon: HandsClapping, color: 'purple', name: 'clap' },
     ];
 
+    const prevRoomIdRef = useRef(roomId);
+
     useEffect(() => {
+        const timeouts = [];
+        const isNewRoom = prevRoomIdRef.current !== roomId;
+        prevRoomIdRef.current = roomId;
+
         if (roomId && roomId.startsWith('group-')) {
-            setTimeout(() => setIsGroupCall(true), 0);
+            timeouts.push(setTimeout(() => setIsGroupCall(true), 0));
         }
-        initiatorHandledRef.current = false;
-        setTimeout(() => {
-            setPendingInitiatorRole(null);
-            setGroupPeers([]);
-            setRemotePeerInfo(null);
-            setIsMuted(false);
-            setIsVideoOff(false);
-            setRemoteStream(null);
-        }, 0);
-        
-        if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-            connectionTimeoutRef.current = null;
+
+        if (isNewRoom) {
+            initiatorHandledRef.current = false;
+            timeouts.push(setTimeout(() => {
+                setPendingInitiatorRole(null);
+                setGroupPeers([]);
+                setRemotePeerInfo(null);
+                setIsMuted(false);
+                setIsVideoOff(false);
+                setRemoteStream(null);
+            }, 0));
+            
+            if (connectionTimeoutRef.current) {
+                clearTimeout(connectionTimeoutRef.current);
+                connectionTimeoutRef.current = null;
+            }
+            
+            if (peerConnection.current) {
+                peerConnection.current.close();
+            }
+            peerConnections.current.forEach(pc => pc.close());
+            peerConnections.current.clear();
         }
-        
-        if (peerConnection.current) {
-            peerConnection.current.close();
-        }
-        peerConnections.current.forEach(pc => pc.close());
-        peerConnections.current.clear();
         
         connectionTimeoutRef.current = setTimeout(() => {
-            if (!remoteStream && !isGroupCall) {
+            if (!remoteStreamRef.current && !isGroupCallRef.current) {
                 console.log('[Room] Connection timeout - no remote stream after 15s');
+                toast.error('Connection timed out. Please try again.');
             }
         }, 15000);
         
         return () => {
+            timeouts.forEach(clearTimeout);
             if (connectionTimeoutRef.current) {
                 clearTimeout(connectionTimeoutRef.current);
             }
         };
-    }, [roomId, setRemoteStream, isGroupCall, peerConnection, peerConnections, remoteStream]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [roomId]);
 
     // Connection time tracking
     useEffect(() => {
@@ -888,13 +919,23 @@ const Room = () => {
         initMedia();
     }, [startLocalStream, location.state?.userName]);
 
+    // Track window resize for drag constraints
+    useEffect(() => {
+        const handleResize = () => setWindowSize({ w: window.innerWidth, h: window.innerHeight });
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     // Cleanup effect - runs only on unmount
+    const cleanupRef = useRef(cleanup);
+    useEffect(() => { cleanupRef.current = cleanup; }, [cleanup]);
     useEffect(() => {
         return () => {
             console.log('[Room] Component unmounting, cleaning up');
-            cleanup();
+            mediaInitializedRef.current = false;
+            cleanupRef.current();
         };
-    }, [cleanup]);
+    }, []);
 
     const processInitiatorRole = useCallback(async (isInitiator) => {
         if (initiatorHandledRef.current) {
@@ -944,6 +985,29 @@ const Room = () => {
         }
     }, [remoteStream]);
 
+    // Assign streams to video elements
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+            remoteVideoRef.current.play().catch(err => {
+                if (err.name === 'NotAllowedError') {
+                    console.warn('[Room] Remote video autoplay blocked');
+                }
+            });
+        }
+    }, [remoteStream]);
+
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+            localVideoRef.current.play().catch(err => {
+                if (err.name === 'NotAllowedError') {
+                    console.warn('[Room] Local video autoplay blocked');
+                }
+            });
+        }
+    }, [localStream]);
+
     // Use refs to avoid dependency changes causing effect re-runs
     const localStreamRef = useRef(localStream);
     const processInitiatorRoleRef = useRef(processInitiatorRole);
@@ -952,6 +1016,15 @@ const Room = () => {
     const handleAnswerRef = useRef(handleAnswer);
     const addIceCandidateRef = useRef(addIceCandidate);
     const isGroupCallRef = useRef(isGroupCall);
+    const remoteStreamRef = useRef(remoteStream);
+    const userNameRef = useRef(userName);
+    const localPeerInfoRef = useRef(localPeerInfo);
+    const createPeerConnectionForPeerRef = useRef(createPeerConnectionForPeer);
+    const createOfferForPeerRef = useRef(createOfferForPeer);
+    const handleOfferFromPeerRef = useRef(handleOfferFromPeer);
+    const handleAnswerFromPeerRef = useRef(handleAnswerFromPeer);
+    const addIceCandidateForPeerRef = useRef(addIceCandidateForPeer);
+    const removePeerConnectionRef = useRef(removePeerConnection);
     
     // Define resetRoomState before it's used
     const resetRoomState = useCallback(() => {
@@ -975,6 +1048,15 @@ const Room = () => {
     useEffect(() => { handleAnswerRef.current = handleAnswer; }, [handleAnswer]);
     useEffect(() => { addIceCandidateRef.current = addIceCandidate; }, [addIceCandidate]);
     useEffect(() => { isGroupCallRef.current = isGroupCall; }, [isGroupCall]);
+    useEffect(() => { remoteStreamRef.current = remoteStream; }, [remoteStream]);
+    useEffect(() => { userNameRef.current = userName; }, [userName]);
+    useEffect(() => { localPeerInfoRef.current = localPeerInfo; }, [localPeerInfo]);
+    useEffect(() => { createPeerConnectionForPeerRef.current = createPeerConnectionForPeer; }, [createPeerConnectionForPeer]);
+    useEffect(() => { createOfferForPeerRef.current = createOfferForPeer; }, [createOfferForPeer]);
+    useEffect(() => { handleOfferFromPeerRef.current = handleOfferFromPeer; }, [handleOfferFromPeer]);
+    useEffect(() => { handleAnswerFromPeerRef.current = handleAnswerFromPeer; }, [handleAnswerFromPeer]);
+    useEffect(() => { addIceCandidateForPeerRef.current = addIceCandidateForPeer; }, [addIceCandidateForPeer]);
+    useEffect(() => { removePeerConnectionRef.current = removePeerConnection; }, [removePeerConnection]);
 
     // Register socket event handlers only once when socket/roomId changes
     useEffect(() => {
@@ -986,7 +1068,7 @@ const Room = () => {
         console.log('[Room] Setting up socket event handlers for room:', roomId);
         
         // Emit join-room to notify server we're ready
-        socket.emit('join-room', { roomId, userName, peerInfo: localPeerInfo });
+        socket.emit('join-room', { roomId, userName: userNameRef.current, peerInfo: localPeerInfoRef.current });
 
         const handleIsInitiator = (isInitiator) => {
             console.log('[Room] Received is-initiator:', isInitiator);
@@ -1081,7 +1163,7 @@ const Room = () => {
             try {
                 if (isGroupCallRef.current && sender) {
                     console.log('[Room] Adding ICE candidate for peer:', sender);
-                    await addIceCandidateForPeer(candidate, sender);
+                    await addIceCandidateForPeerRef.current(candidate, sender);
                     return;
                 }
                 console.log('[Room] Adding ICE candidate...');
@@ -1094,6 +1176,14 @@ const Room = () => {
 
         const handleExistingPeers = async ({ peers }) => {
             if (!isGroupCallRef.current) return;
+            if (!localStreamRef.current) {
+                let attempts = 0;
+                while (!localStreamRef.current && attempts < 50) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                if (!localStreamRef.current) return;
+            }
             const peerList = peers || [];
             setGroupPeers(peerList.map(peerId => ({ peerId })));
             for (const peerId of peerList) {
@@ -1111,14 +1201,24 @@ const Room = () => {
                         return [...prev, { peerId, stream }];
                     });
                 };
-                createPeerConnectionForPeer(peerId, handleIceCandidate, handleRemoteStream);
-                const offer = await createOfferForPeer(peerId);
-                socket.emit('offer', { roomId, offer, targetPeerId: peerId });
+                createPeerConnectionForPeerRef.current(peerId, handleIceCandidate, handleRemoteStream);
+                if (socket.id < peerId) {
+                    const offer = await createOfferForPeerRef.current(peerId);
+                    socket.emit('offer', { roomId, offer, targetPeerId: peerId });
+                }
             }
         };
 
         const handlePeerJoined = async ({ peerId }) => {
             if (!isGroupCallRef.current || !peerId) return;
+            if (!localStreamRef.current) {
+                let attempts = 0;
+                while (!localStreamRef.current && attempts < 50) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                if (!localStreamRef.current) return;
+            }
             setGroupPeers(prev => (prev.find(peer => peer.peerId === peerId) ? prev : [...prev, { peerId }]));
             const handleIceCandidate = (candidate) => {
                 if (candidate && socket) {
@@ -1134,14 +1234,16 @@ const Room = () => {
                     return [...prev, { peerId, stream }];
                 });
             };
-            createPeerConnectionForPeer(peerId, handleIceCandidate, handleRemoteStream);
-            const offer = await createOfferForPeer(peerId);
-            socket.emit('offer', { roomId, offer, targetPeerId: peerId });
+            createPeerConnectionForPeerRef.current(peerId, handleIceCandidate, handleRemoteStream);
+            if (socket.id < peerId) {
+                const offer = await createOfferForPeerRef.current(peerId);
+                socket.emit('offer', { roomId, offer, targetPeerId: peerId });
+            }
         };
 
         const handlePeerLeft = ({ peerId }) => {
             if (!peerId) return;
-            removePeerConnection(peerId);
+            removePeerConnectionRef.current(peerId);
             setGroupPeers(prev => prev.filter(peer => peer.peerId !== peerId));
         };
 
@@ -1162,15 +1264,15 @@ const Room = () => {
                         return [...prev, { peerId: sender, stream }];
                     });
                 };
-                createPeerConnectionForPeer(sender, handleIceCandidate, handleRemoteStream);
+                createPeerConnectionForPeerRef.current(sender, handleIceCandidate, handleRemoteStream);
             }
-            const answer = await handleOfferFromPeer(offer, sender);
+            const answer = await handleOfferFromPeerRef.current(offer, sender);
             socket.emit('answer', { roomId, answer, targetPeerId: sender });
         };
 
         const handleAnswerFromPeerEvent = async ({ answer, sender }) => {
             if (!isGroupCallRef.current || !sender || !answer) return;
-            await handleAnswerFromPeer(answer, sender);
+            await handleAnswerFromPeerRef.current(answer, sender);
         };
 
         const handlePartnerLeft = () => {
@@ -1179,10 +1281,10 @@ const Room = () => {
             resetRoomState();
             navigate('/matching', {
                 state: {
-                    userName,
-                    gender: localPeerInfo?.gender,
-                    interests: localPeerInfo?.interests,
-                    peerInfo: { ...localPeerInfo, name: userName || localPeerInfo?.name || 'Anonymous' }
+                    userName: userNameRef.current,
+                    gender: localPeerInfoRef.current?.gender,
+                    interests: localPeerInfoRef.current?.interests,
+                    peerInfo: { ...localPeerInfoRef.current, name: userNameRef.current || localPeerInfoRef.current?.name || 'Anonymous' }
                 },
                 replace: true
             });
@@ -1203,6 +1305,33 @@ const Room = () => {
             setRemotePeerInfo(info);
         };
 
+        const handlePeerDisconnected = (data) => {
+            if (isGroupCallRef.current) {
+                handlePeerLeft(data);
+            } else {
+                handlePartnerLeft();
+            }
+        };
+
+        const handlePeerReconnected = ({ peerId }) => {
+            if (!isGroupCallRef.current) {
+                initiatorHandledRef.current = false;
+                setPendingInitiatorRole(null);
+                if (peerConnection.current) {
+                    peerConnection.current.close();
+                    peerConnection.current = null;
+                }
+            }
+        };
+
+        const handleToggleVideoEvent = ({ isVideoOff, peerId }) => {
+            setGroupPeers(prev => prev.map(p => p.peerId === peerId ? { ...p, isVideoOff } : p));
+        };
+
+        const handleToggleAudioEvent = ({ isMuted, peerId }) => {
+            setGroupPeers(prev => prev.map(p => p.peerId === peerId ? { ...p, isMuted } : p));
+        };
+
         console.log('[Room] Registering socket event handlers');
         socket.on('is-initiator', handleIsInitiator);
         socket.on('offer', handleOfferReceived);
@@ -1213,6 +1342,10 @@ const Room = () => {
         socket.on('peer-left', handlePeerLeft);
         socket.on('partner-left', handlePartnerLeft);
         socket.on('peer-info', handlePeerInfo);
+        socket.on('peer-disconnected', handlePeerDisconnected);
+        socket.on('peer-reconnected', handlePeerReconnected);
+        socket.on('toggle-video', handleToggleVideoEvent);
+        socket.on('toggle-audio', handleToggleAudioEvent);
 
         // Request initiator status in case we missed it
         const requestInitiatorStatus = () => {
@@ -1237,6 +1370,10 @@ const Room = () => {
             socket.off('peer-left', handlePeerLeft);
             socket.off('partner-left', handlePartnerLeft);
             socket.off('peer-info', handlePeerInfo);
+            socket.off('peer-disconnected', handlePeerDisconnected);
+            socket.off('peer-reconnected', handlePeerReconnected);
+            socket.off('toggle-video', handleToggleVideoEvent);
+            socket.off('toggle-audio', handleToggleAudioEvent);
         };
         // Only re-run when socket or roomId changes - prevents handler re-registration
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1245,7 +1382,8 @@ const Room = () => {
     const handleToggleMute = useCallback(() => {
         const isEnabled = toggleAudio();
         setIsMuted(!isEnabled);
-    }, [toggleAudio]);
+        socket.emit('toggle-audio', { roomId, isMuted: !isEnabled });
+    }, [toggleAudio, socket, roomId]);
 
     const handleToggleVideo = useCallback(() => {
         const isEnabled = toggleVideo();
@@ -1363,28 +1501,19 @@ const Room = () => {
         toast.success('Link copied!', { icon: <CheckCircle weight="fill" className="w-5 h-5 text-emerald-400" /> });
     }, []);
 
-    const savePeerInfo = () => {
+    const savePeerInfo = useCallback(() => {
         const info = { gender: tempGender, interests: tempInterests.filter(i => i) };
         setLocalPeerInfo(info);
         localStorage.setItem('echoroom_peer_info', JSON.stringify(info));
         setShowPeerInfoModal(false);
         socket.emit('update-peer-info', { roomId, info });
-    };
+    }, [tempGender, tempInterests, socket, roomId]);
 
     const [tempGender, setTempGender] = useState(localPeerInfo.gender || '');
     const [tempInterests, setTempInterests] = useState(localPeerInfo.interests?.length ? localPeerInfo.interests : ['', '']);
 
     return (
         <div className="relative flex flex-col h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
-            <Toaster position="top-center" toastOptions={{
-                style: {
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(12px)',
-                    borderRadius: '16px',
-                    color: 'white'
-                }
-            }} />
             
             {/* Enhanced Header */}
             {!isFullscreen && (
@@ -1599,20 +1728,15 @@ const Room = () => {
                                 </>
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800/80 to-slate-900/80">
-                                    <motion.div
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        transition={{ duration: 0.5 }}
-                                        className="text-center"
-                                    >
                                         <motion.div
-                                            animate={{ rotate: 360 }}
-                                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                            className="relative mb-8"
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            transition={{ duration: 0.5 }}
+                                            className="text-center"
                                         >
-                                            <div className="absolute inset-0 bg-blue-400/30 rounded-full blur-2xl animate-pulse" />
-                                            <Spinner weight="bold" className="relative w-20 h-20 text-blue-400" />
-                                        </motion.div>
+                                            <div className="mb-8 flex justify-center">
+                                                <InfinitySpin width="200" color="#4fa94d" />
+                                            </div>
                                         <motion.h3 
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
@@ -1660,7 +1784,7 @@ const Room = () => {
                                 animate={{ opacity: 1, scale: 1, x: 0 }}
                                 transition={{ delay: 0.3, duration: 0.4, type: "spring", stiffness: 200 }}
                                 drag
-                                dragConstraints={{ left: -window.innerWidth + 200, right: 20, top: -window.innerHeight + 300, bottom: 100 }}
+                                dragConstraints={{ left: -windowSize.w + 200, right: 20, top: -windowSize.h + 300, bottom: 100 }}
                                 dragElastic={0.1}
                                 dragMomentum={false}
                                 ref={localTileRef}
@@ -1670,14 +1794,9 @@ const Room = () => {
                             >
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 pointer-events-none" />
                                 {!localStream ? (
-                                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
-                                        <motion.div
-                                            animate={{ rotate: 360 }}
-                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                        >
-                                            <Spinner weight="bold" className="w-8 h-8 text-blue-400 mb-2" />
-                                        </motion.div>
-                                        <span className="text-xs text-white/50">Camera...</span>
+                                        <div className="flex flex-col items-center">
+                                            <InfinitySpin width="80" color="#4fa94d" />
+                                            <span className="text-xs text-white/50 mt-2">Camera...</span>
                                     </div>
                                 ) : (
                                     <>

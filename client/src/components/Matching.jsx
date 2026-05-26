@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import { 
-    Spinner, 
     CheckCircle,
     Crosshair,
     ArrowLeft,
@@ -138,17 +137,20 @@ const Matching = () => {
             toast.success('Match found! Connecting...', { 
                 icon: <CheckCircle weight="fill" className="w-5 h-5 text-emerald-400" /> 
             });
-            navigate(`/room/${roomId}`, { 
+            sessionStorage.setItem('echoroom_room_id', roomId);
+            navigate('/room', { 
                 state: { 
+                    roomId,
                     ...preferences, 
                     peerInfo,
                     userName,
                     gender,
                     interests: selectedInterests
                 }, 
-                replace: true 
+                replace: true
             });
         };
+
 
         socket.on('match-found', handleMatchFound);
 

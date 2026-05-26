@@ -10,6 +10,7 @@ const connectionRateLimit = new Map(); // IP -> { count, lastReset }
 const activeConnections = new Map(); // socketId -> { ip, connectedAt, roomId }
 const roomConnectionStates = new Map(); // roomId -> { socketId -> connectionState }
 const iceCandidateBuffer = new Map(); // roomId-peerId -> [candidates] for buffering before offer/answer
+const peerInfoMap = new Map(); // socketId -> { gender, interests, name }
 
 const MAX_CONNECTIONS_PER_IP = 5;
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
@@ -187,17 +188,16 @@ const socketService = (io) => {
                         // Notify both users
                         io.to(roomId).emit('match-found', { roomId, isGroup: false });
                     } else {
-                        // Add to pending matches for periodic check
-                        pendingMatches.set(socket.id, preferences);
+                        // Add to pending matches for periodic check (prevent duplicates)
+                        if (!pendingMatches.has(socket.id)) {
+                            pendingMatches.set(socket.id, preferences);
+                        }
                     }
                 }
             } catch (err) {
                 console.error('Error in join-queue:', err);
             }
         });
-
-        // Store peer info
-        const peerInfoMap = new Map(); // socketId -> { gender, interests, name }
 
         // Handle joining a specific room (Handshake trigger)
         socket.on('join-room', ({ roomId, userName, peerInfo }) => {
@@ -212,6 +212,14 @@ const socketService = (io) => {
             
             // Check if this is a group room
             if (roomId.startsWith('group-')) {
+                // Enforce max size for group rooms
+                const groupRoom = groupRooms.get(roomId);
+                if (groupRoom && groupRoom.participants.size >= groupRoom.maxSize && !groupRoom.participants.has(socket.id)) {
+                    socket.emit('room-full', { roomId, message: 'Room is full' });
+                    socket.leave(roomId);
+                    return;
+                }
+
                 // Group room logic - mesh network
                 if (room) {
                     const existingPeers = Array.from(room).filter(id => id !== socket.id);
@@ -389,6 +397,15 @@ const socketService = (io) => {
             
             if (targetPeerId) {
                 io.to(targetPeerId).emit('answer', { answer, sender: socket.id });
+                // Flush any buffered ICE candidates for this sender→target pair
+                const bufferKey = `${roomId}-${socket.id}-${targetPeerId}`;
+                if (iceCandidateBuffer.has(bufferKey)) {
+                    const candidates = iceCandidateBuffer.get(bufferKey);
+                    candidates.forEach(candidate => {
+                        io.to(targetPeerId).emit('ice-candidate', { candidate, sender: socket.id });
+                    });
+                    iceCandidateBuffer.delete(bufferKey);
+                }
             } else {
                 socket.to(roomId).emit('answer', { answer, sender: socket.id });
             }
@@ -399,11 +416,15 @@ const socketService = (io) => {
             
             if (!candidate) return; // Ignore null candidates
             
-            // Log ICE candidate transmission
             console.log(`[WebRTC] ICE candidate from ${socket.id} to ${targetPeerId || 'room:' + roomId}`);
             
             if (targetPeerId) {
-                io.to(targetPeerId).emit('ice-candidate', { candidate, sender: socket.id });
+                // Buffer candidate for group calls - flushed when offer/answer is processed
+                const bufferKey = `${roomId}-${socket.id}-${targetPeerId}`;
+                if (!iceCandidateBuffer.has(bufferKey)) {
+                    iceCandidateBuffer.set(bufferKey, []);
+                }
+                iceCandidateBuffer.get(bufferKey).push(candidate);
             } else {
                 socket.to(roomId).emit('ice-candidate', { candidate, sender: socket.id });
             }
@@ -532,6 +553,9 @@ const socketService = (io) => {
             
             // Remove from active connections
             activeConnections.delete(socket.id);
+            
+            // Clean up peer info
+            peerInfoMap.delete(socket.id);
             
             // Cleanup group rooms
             for (const [roomId, roomData] of groupRooms.entries()) {

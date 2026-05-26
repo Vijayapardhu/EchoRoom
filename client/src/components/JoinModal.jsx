@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { InfinitySpin } from 'react-loader-spinner';
 import { 
     X, 
     VideoCamera, 
     Microphone, 
     Users, 
     ArrowRight,
-    Spinner,
     Sparkle,
     CheckCircle
 } from '@phosphor-icons/react';
@@ -109,7 +109,8 @@ const JoinModal = ({ isOpen, onClose, initialRoomId = '' }) => {
         
         try {
             if (roomId) {
-                navigate(`/room/${roomId}`, { state: { mode, interests } });
+                sessionStorage.setItem('echoroom_room_id', roomId);
+                navigate('/room', { state: { roomId, mode, interests }, replace: true });
             } else {
                 navigate('/matching', { state: { mode, interests } });
             }
@@ -282,7 +283,7 @@ const JoinModal = ({ isOpen, onClose, initialRoomId = '' }) => {
                                 >
                                     {isLoading ? (
                                         <>
-                                            <Spinner className="w-4 h-4 animate-spin" />
+                                            <InfinitySpin width="50" color="#ffffff" />
                                             Joining...
                                         </>
                                     ) : (

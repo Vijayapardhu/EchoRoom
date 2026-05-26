@@ -24,11 +24,14 @@ export const ConnectionState = {
 // Fetch TURN credentials from server (with fallback)
 const fetchTurnCredentials = async (serverUrl) => {
     try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
         const response = await fetch(`${serverUrl}/api/turn-credentials`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
-            timeout: 5000
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         if (response.ok) {
             const data = await response.json();
             return data.iceServers;
@@ -55,6 +58,7 @@ class WebRTCManager {
         this.connectionStartTime = null;
         this.hasReceivedStream = false;
         this.connectionStateCallback = null; // For reporting state to server
+        this.lastBytesReceived = 0;
 
         // Event listeners
         this.listeners = {

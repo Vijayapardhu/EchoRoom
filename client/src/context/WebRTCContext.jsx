@@ -27,6 +27,7 @@ export const WebRTCProvider = ({ children }) => {
     const candidateQueues = useRef(new Map());
     const remoteStreams = useRef(new Map()); // peerId -> MediaStream
     const managerInitialized = useRef(false);
+    const iceCandidateListenerRef = useRef(null);
 
     // Initialize WebRTC Manager - only once
     useEffect(() => {
@@ -100,9 +101,10 @@ export const WebRTCProvider = ({ children }) => {
             return stream;
         } catch (err) {
             // Retry logic for transient errors
+            const errorType = err.type || (err.name === 'NotReadableError' ? 'inuse' : null);
             if (retryCount < maxRetries && 
                 (err.message === 'Media initialization timeout' || 
-                err.type === 'inuse')) {
+                errorType === 'inuse')) {
                 await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
                 return startLocalStream(constraints, retryCount + 1);
             }
@@ -115,12 +117,17 @@ export const WebRTCProvider = ({ children }) => {
      * Create peer connection for 1-on-1 call
      */
     const createPeerConnection = useCallback((onIceCandidate) => {
+        // Remove previous listener to prevent accumulation
+        if (iceCandidateListenerRef.current) {
+            webrtcManagerRef.current.off('iceCandidate', iceCandidateListenerRef.current);
+        }
         const pc = webrtcManagerRef.current.createPeerConnection();
         peerConnection.current = pc;
 
         // Set up ICE candidate handler
         if (onIceCandidate) {
             webrtcManagerRef.current.on('iceCandidate', onIceCandidate);
+            iceCandidateListenerRef.current = onIceCandidate;
         }
 
         return pc;

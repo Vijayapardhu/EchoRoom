@@ -152,7 +152,7 @@ const Onboarding = () => {
     const handleMatch = () => {
         const preferences = { interests, gender, partnerGender, mode, groupMode };
         socket.emit('join-queue', preferences);
-        navigate('/room/matching', { state: preferences });
+        navigate('/matching', { state: preferences });
     };
 
     return (
