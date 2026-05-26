@@ -8,7 +8,6 @@ import InfinitySpin from './InfinitySpin';
 import { 
     Microphone, 
     MicrophoneSlash, 
-    VideoCamera, 
     VideoCameraSlash, 
     PhoneDisconnect, 
     ChatCircle,
@@ -984,7 +983,7 @@ const Room = () => {
                 }
             });
         }
-    }, [remoteStream]);
+    }, [remoteStream, isFullscreen]);
 
     const handleRemoteVideoTap = useCallback(() => {
         if (remoteVideoRef.current && remoteVideoNeedsGesture) {
@@ -1001,7 +1000,7 @@ const Room = () => {
             localVideoRef.current.srcObject = localStream;
             localVideoRef.current.play().catch(() => {});
         }
-    }, [localStream]);
+    }, [localStream, isFullscreen]);
 
     // Use refs to avoid dependency changes causing effect re-runs
     const localStreamRef = useRef(localStream);
@@ -1848,15 +1847,6 @@ const Room = () => {
                         label={isMuted ? 'Unmute' : 'Mute'}
                     >
                         {isMuted ? <MicrophoneSlash weight="fill" className="w-6 h-6" /> : <Microphone weight="fill" className="w-6 h-6" />}
-                    </ControlButton>
-
-                    <ControlButton 
-                        onClick={handleToggleVideo} 
-                        active={isVideoOff} 
-                        activeColor="bg-red-500"
-                        label={isVideoOff ? 'Show Video' : 'Hide Video'}
-                    >
-                        {isVideoOff ? <VideoCameraSlash weight="fill" className="w-6 h-6" /> : <VideoCamera weight="fill" className="w-6 h-6" />}
                     </ControlButton>
 
                     {/* Screen Share - Desktop only */}
